@@ -1,0 +1,183 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+    font-feature-settings: 'ss01', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  html.dark body {
+    @apply bg-canvas-dark text-ink-dark;
+  }
+  ::selection {
+    background-color: #ccff00;
+    color: #0a0a0a;
+  }
+  /* Hairline focus ring */
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px #ccff00, 0 0 0 3px rgba(10, 10, 10, 0.6);
+    border-radius: 4px;
+  }
+  html.dark :focus-visible {
+    box-shadow: 0 0 0 2px #ccff00, 0 0 0 3px rgba(255, 255, 255, 0.2);
+  }
+  /* Scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(128, 128, 128, 0.25) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: rgba(128, 128, 128, 0.2);
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgba(128, 128, 128, 0.4);
+    background-clip: padding-box;
+    border: 2px solid transparent;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface dark:bg-surface-dark border border-line dark:border-line-dark rounded-lg;
+  }
+  .card-raised {
+    @apply bg-surface dark:bg-surface-dark border border-line dark:border-line-dark rounded-lg shadow-soft;
+  }
+  .hairline {
+    @apply border-line dark:border-line-dark;
+  }
+  .hairline-strong {
+    @apply border-line-strong dark:border-line-strong-dark;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 text-sm font-medium tracking-tight rounded-md px-3 h-9 transition duration-150 ease-out whitespace-nowrap;
+  }
+  .btn-primary {
+    @apply btn bg-ink text-canvas dark:bg-ink-dark dark:text-canvas-dark hover:opacity-90 active:opacity-80;
+  }
+  .btn-accent {
+    @apply btn bg-accent text-accent-ink hover:bg-accent-dim active:opacity-90;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-ink dark:text-ink-dark hover:bg-raised dark:hover:bg-raised-dark;
+  }
+  .btn-outline {
+    @apply btn bg-transparent border border-line dark:border-line-dark text-ink dark:text-ink-dark hover:bg-raised dark:hover:bg-raised-dark;
+  }
+  .btn-danger {
+    @apply btn bg-danger/10 text-danger border border-danger/20 hover:bg-danger/15;
+  }
+  .input {
+    @apply w-full h-10 px-3 text-sm bg-surface dark:bg-surface-dark border border-line dark:border-line-dark rounded-md text-ink dark:text-ink-dark placeholder:text-faint dark:placeholder:text-faint-dark transition-colors;
+  }
+  .input:focus {
+    @apply border-line-strong dark:border-line-strong-dark;
+  }
+  .textarea {
+    @apply w-full px-3 py-2.5 text-sm bg-surface dark:bg-surface-dark border border-line dark:border-line-dark rounded-md text-ink dark:text-ink-dark placeholder:text-faint dark:placeholder:text-faint-dark transition-colors resize-y;
+  }
+  .select {
+    @apply input appearance-none pr-9 bg-no-repeat bg-right;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236B6B6B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-position: right 10px center;
+    background-size: 14px;
+  }
+  .label {
+    @apply block text-xs font-medium text-muted dark:text-muted-dark tracking-wide mb-1.5;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1 text-2xs font-medium font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm border;
+  }
+  .kbd {
+    @apply inline-flex items-center justify-center min-w-[20px] h-5 px-1 text-2xs font-mono font-medium text-muted dark:text-muted-dark bg-raised dark:bg-raised-dark border border-line dark:border-line-dark rounded-xs;
+  }
+  .stat-label {
+    @apply text-2xs uppercase tracking-[0.12em] text-muted dark:text-muted-dark font-medium;
+  }
+  .divide-hair > * + * {
+    @apply border-t border-line dark:border-line-dark;
+  }
+  /* Grain overlay */
+  .grain {
+    position: relative;
+  }
+  .grain::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.4;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.08 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .html\:dark .grain::before {
+    opacity: 0.25;
+  }
+  /* Dotted precision grid (for backgrounds) */
+  .bg-grid {
+    background-image: radial-gradient(circle, rgba(10, 10, 10, 0.08) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  html.dark .bg-grid {
+    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  }
+  /* Data-dense table */
+  .tbl {
+    @apply w-full text-sm;
+  }
+  .tbl thead th {
+    @apply text-2xs uppercase tracking-[0.1em] text-muted dark:text-muted-dark font-medium text-left py-2 px-3 border-b border-line dark:border-line-dark;
+  }
+  .tbl tbody td {
+    @apply py-3 px-3 border-b border-line/70 dark:border-line-dark/70 align-middle;
+  }
+  .tbl tbody tr:hover td {
+    @apply bg-raised/60 dark:bg-raised-dark/60;
+  }
+  /* Tag / section eyebrow */
+  .eyebrow {
+    @apply inline-flex items-center gap-2 text-2xs uppercase tracking-[0.14em] text-muted dark:text-muted-dark font-medium;
+  }
+  .eyebrow::before {
+    content: '';
+    @apply inline-block w-4 h-px bg-muted dark:bg-muted-dark;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum', 'cv11';
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
