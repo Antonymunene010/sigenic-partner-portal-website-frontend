@@ -1,20 +1,24 @@
+import { useMemo, useState } from 'react'
 import { Download, ReceiptText } from 'lucide-react'
 import { load } from '../lib/storage'
 import type { Invoice } from '../lib/types'
 import { seedInvoices } from '../lib/seed'
 import { Badge } from '../components/Badge'
+import { DescRow } from '../components/DescRow'
 import { PageHeader } from '../components/PageHeader'
 import { fmtDate, fmtUSD } from '../lib/format'
 import { useAuth } from '../lib/auth'
 
 export default function Billing() {
   const { user } = useAuth()
-  const invoices = load<Invoice[]>('invoices', seedInvoices)
-  const open = invoices.find((i) => i.status === 'open')
-  const ytdPaid = invoices.filter((i) => i.status === 'paid').reduce((a, b) => a + b.amount, 0)
-  const avg = Math.round(
-    invoices.slice(0, 4).reduce((a, b) => a + b.amount, 0) / Math.min(4, invoices.length),
-  )
+  const [invoices] = useState(() => load<Invoice[]>('invoices', seedInvoices))
+  const { open, ytdPaid, avg } = useMemo(() => ({
+    open: invoices.find((i) => i.status === 'open'),
+    ytdPaid: invoices.filter((i) => i.status === 'paid').reduce((a, b) => a + b.amount, 0),
+    avg: Math.round(
+      invoices.slice(0, 4).reduce((a, b) => a + b.amount, 0) / Math.min(4, invoices.length),
+    ),
+  }), [invoices])
 
   return (
     <div>
@@ -83,7 +87,7 @@ export default function Billing() {
                     {fmtDate(i.periodStart)} — {fmtDate(i.periodEnd)}
                   </td>
                   <td className="text-right font-mono num text-[13px]">{fmtUSD(i.amount, { cents: true })}</td>
-                  <td><Badge tone={i.status as any} dot>{i.status}</Badge></td>
+                  <td><Badge tone={i.status} dot>{i.status}</Badge></td>
                   <td className="text-right pr-3">
                     <button className="text-faint dark:text-faint-dark hover:text-ink dark:hover:text-ink-dark" aria-label="Download">
                       <Download size={13} />
@@ -101,10 +105,10 @@ export default function Billing() {
             <div className="text-[22px] font-semibold tracking-tight">APAC · Partner Plus</div>
             <div className="text-[12px] text-muted dark:text-muted-dark mt-1">Master agreement MSA-2025-APAC</div>
             <dl className="mt-4 text-[12.5px] space-y-2">
-              <Row k="Billing cycle" v="Monthly · net 30" />
-              <Row k="Seats" v="12 / 20" />
-              <Row k="Telemetry volume" v="6.2M events / mo" />
-              <Row k="Renewal" v={<span className="font-mono">2026-10-01</span>} />
+              <DescRow k="Billing cycle" v="Monthly · net 30" />
+              <DescRow k="Seats" v="12 / 20" />
+              <DescRow k="Telemetry volume" v="6.2M events / mo" />
+              <DescRow k="Renewal" v={<span className="font-mono">2026-10-01</span>} />
             </dl>
           </div>
 
@@ -123,11 +127,3 @@ export default function Billing() {
   )
 }
 
-function Row({ k, v }: { k: string; v: React.ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <dt className="text-muted dark:text-muted-dark">{k}</dt>
-      <dd className="text-ink dark:text-ink-dark text-right">{v}</dd>
-    </div>
-  )
-}

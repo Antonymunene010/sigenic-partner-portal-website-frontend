@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, ArrowUpRight } from 'lucide-react'
 import { load } from '../lib/storage'
@@ -7,8 +8,9 @@ import { fmtDate } from '../lib/format'
 
 export default function StoryDetail() {
   const { slug } = useParams<{ slug: string }>()
-  const stories = load<SuccessStory[]>('stories', seedStories)
+  const [stories] = useState(() => load<SuccessStory[]>('stories', seedStories))
   const story = stories.find((s) => s.slug === slug)
+  const others = useMemo(() => (story ? stories.filter((s) => s.id !== story.id).slice(0, 3) : []), [stories, story])
   if (!story) {
     return (
       <div className="max-w-lg mx-auto text-center py-24">
@@ -17,8 +19,6 @@ export default function StoryDetail() {
       </div>
     )
   }
-
-  const others = stories.filter((s) => s.id !== story.id).slice(0, 3)
 
   return (
     <div>

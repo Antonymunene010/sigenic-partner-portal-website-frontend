@@ -8,10 +8,10 @@ import { PageHeader } from '../components/PageHeader'
 import { fmtRelative } from '../lib/format'
 
 export default function Docs() {
-  const docs = load<Doc[]>('docs', seedDocs)
+  const [docs] = useState(() => load<Doc[]>('docs', seedDocs))
   const [q, setQ] = useState('')
   const [cat, setCat] = useState<string>('all')
-  const cats = Array.from(new Set(docs.map((d) => d.category)))
+  const cats = useMemo(() => Array.from(new Set(docs.map((d) => d.category))), [docs])
 
   const filtered = useMemo(() => {
     return docs

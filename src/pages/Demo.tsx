@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CalendarClock, CheckCircle2, Send } from 'lucide-react'
-import { load, save, uid } from '../lib/storage'
+import { load, nextTicketId, save, uid } from '../lib/storage'
 import type { Ticket } from '../lib/types'
 import { seedTickets } from '../lib/seed'
 import { PageHeader } from '../components/PageHeader'
@@ -31,7 +31,7 @@ export default function Demo() {
     e.preventDefault()
     if (interest.length === 0) return
     const tickets = load<Ticket[]>('tickets', seedTickets)
-    const id = 'TKT-' + String(Math.floor(242 + Math.random() * 700)).padStart(5, '0')
+    const id = nextTicketId()
     const now = new Date().toISOString()
     const labels = INTERESTS.filter((i) => interest.includes(i.id)).map((i) => i.label)
     const body = `We'd like to evaluate: ${labels.join(', ')}.\nPreferred format: ${format}.\nTimeframe: ${timeframe === '2w' ? 'within 2 weeks' : timeframe === '1m' ? 'within 1 month' : 'this quarter'}.\n${notes ? '\nNotes: ' + notes : ''}`

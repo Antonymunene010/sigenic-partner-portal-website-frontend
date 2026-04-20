@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, CheckCircle2, MessageCircle, XCircle } from 'lucide-react'
 import { load, save, uid } from '../lib/storage'
 import type { Ticket, TicketStatus } from '../lib/types'
 import { seedTickets } from '../lib/seed'
 import { Badge } from '../components/Badge'
+import { Avatar } from '../components/Avatar'
+import { DescRow } from '../components/DescRow'
 import { fmtDateTime, fmtRelative } from '../lib/format'
 import { useAuth } from '../lib/auth'
 
@@ -12,10 +14,19 @@ export default function TicketDetail() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
   const nav = useNavigate()
-  const [tick, setTick] = useState<number>(0)
-  const tickets = useMemo(() => load<Ticket[]>('tickets', seedTickets), [tick])
-  const ticket = tickets.find((t) => t.id === id)
+  const [tickets, setTickets] = useState<Ticket[]>(() => load<Ticket[]>('tickets', seedTickets))
   const [reply, setReply] = useState('')
+  const timers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set())
+
+  useEffect(() => {
+    const set = timers.current
+    return () => {
+      for (const t of set) clearTimeout(t)
+      set.clear()
+    }
+  }, [])
+
+  const ticket = tickets.find((t) => t.id === id)
 
   if (!ticket) {
     return (
@@ -29,9 +40,19 @@ export default function TicketDetail() {
   }
 
   const updateTicket = (fn: (t: Ticket) => Ticket) => {
-    const next = tickets.map((t) => (t.id === ticket.id ? fn(t) : t))
-    save('tickets', next)
-    setTick((x) => x + 1)
+    setTickets((prev) => {
+      const next = prev.map((t) => (t.id === ticket.id ? fn(t) : t))
+      save('tickets', next)
+      return next
+    })
+  }
+
+  const laterTimer = (ms: number, cb: () => void) => {
+    const t = setTimeout(() => {
+      timers.current.delete(t)
+      cb()
+    }, ms)
+    timers.current.add(t)
   }
 
   const send = () => {
@@ -47,11 +68,11 @@ export default function TicketDetail() {
       ],
     }))
     setReply('')
-    // simulated agent response after 1.2s
-    setTimeout(() => {
+    laterTimer(1200, () => {
+      const at = new Date().toISOString()
       updateTicket((t) => ({
         ...t,
-        updatedAt: new Date().toISOString(),
+        updatedAt: at,
         status: 'pending',
         messages: [
           ...t.messages,
@@ -60,14 +81,18 @@ export default function TicketDetail() {
             author: 'Axiom Support',
             authorRole: 'agent',
             body: 'Thanks — looking at this now, we will follow up shortly with more details.',
-            createdAt: new Date().toISOString(),
+            createdAt: at,
           },
         ],
       }))
-    }, 1200)
+    })
   }
 
-  const setStatus = (s: TicketStatus) => updateTicket((t) => ({ ...t, status: s, updatedAt: new Date().toISOString() }))
+  const setStatus = (s: TicketStatus) =>
+    updateTicket((t) => ({ ...t, status: s, updatedAt: new Date().toISOString() }))
+
+  const avatarVariant = (role: 'you' | 'agent' | 'system') =>
+    role === 'you' ? 'ink' : role === 'agent' ? 'accent' : 'faint'
 
   return (
     <div>
@@ -82,7 +107,13 @@ export default function TicketDetail() {
             </button>
           )}
           {ticket.status !== 'closed' && (
-            <button onClick={() => { setStatus('closed'); setTimeout(() => nav('/app/support'), 600) }} className="btn-outline h-8 text-[12px] text-danger border-danger/20 hover:bg-danger/5">
+            <button
+              onClick={() => {
+                setStatus('closed')
+                laterTimer(600, () => nav('/app/support'))
+              }}
+              className="btn-outline h-8 text-[12px] text-danger border-danger/20 hover:bg-danger/5"
+            >
               <XCircle size={12} /> Close
             </button>
           )}
@@ -117,13 +148,7 @@ export default function TicketDetail() {
               <li key={m.id} className={`card p-4 ${m.authorRole === 'system' ? 'bg-raised/50 dark:bg-raised-dark/50 border-dashed' : ''}`}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <div className={`w-6 h-6 rounded-sm flex items-center justify-center text-[10px] font-medium ${
-                      m.authorRole === 'you' ? 'bg-ink text-canvas dark:bg-ink-dark dark:text-canvas-dark'
-                      : m.authorRole === 'agent' ? 'bg-accent text-accent-ink'
-                      : 'bg-faint/30 text-muted dark:text-faint-dark'
-                    }`}>
-                      {m.author.split(' ').map((s) => s[0]).join('').slice(0, 2)}
-                    </div>
+                    <Avatar name={m.author} variant={avatarVariant(m.authorRole)} size="sm" />
                     <div>
                       <div className="text-[12.5px] font-medium leading-tight">{m.author}</div>
                       <div className="text-[10.5px] font-mono text-faint dark:text-faint-dark uppercase tracking-[0.1em]">
@@ -144,8 +169,11 @@ export default function TicketDetail() {
 
           {ticket.status !== 'closed' && (
             <div className="mt-4 card p-4">
-              <label className="label flex items-center gap-1.5"><MessageCircle size={12} /> Add a reply</label>
+              <label className="label flex items-center gap-1.5" htmlFor="reply-body">
+                <MessageCircle size={12} /> Add a reply
+              </label>
               <textarea
+                id="reply-body"
                 className="textarea min-h-[100px]"
                 placeholder="Write a message…"
                 value={reply}
@@ -167,11 +195,11 @@ export default function TicketDetail() {
           <div className="card p-4">
             <div className="text-[12px] font-medium mb-3">Details</div>
             <dl className="text-[12.5px] space-y-2.5">
-              <Row k="Requester" v={ticket.requester} />
-              <Row k="Assignee" v={ticket.assignee ?? '—'} />
-              <Row k="Category" v={<span className="capitalize">{ticket.category}</span>} />
-              <Row k="Created" v={<span className="font-mono text-[11.5px]">{fmtDateTime(ticket.createdAt)}</span>} />
-              <Row k="Updated" v={<span className="font-mono text-[11.5px]">{fmtRelative(ticket.updatedAt)}</span>} />
+              <DescRow k="Requester" v={ticket.requester} />
+              <DescRow k="Assignee" v={ticket.assignee ?? '—'} />
+              <DescRow k="Category" v={<span className="capitalize">{ticket.category}</span>} />
+              <DescRow k="Created" v={<span className="font-mono text-[11.5px]">{fmtDateTime(ticket.createdAt)}</span>} />
+              <DescRow k="Updated" v={<span className="font-mono text-[11.5px]">{fmtRelative(ticket.updatedAt)}</span>} />
             </dl>
           </div>
           <div className="card p-4">
@@ -182,15 +210,6 @@ export default function TicketDetail() {
           </div>
         </aside>
       </div>
-    </div>
-  )
-}
-
-function Row({ k, v }: { k: string; v: React.ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <dt className="text-muted dark:text-muted-dark">{k}</dt>
-      <dd className="text-ink dark:text-ink-dark text-right">{v}</dd>
     </div>
   )
 }

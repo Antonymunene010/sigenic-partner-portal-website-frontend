@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, CheckCircle2, Send } from 'lucide-react'
-import { load, save, uid } from '../lib/storage'
+import { load, nextTicketId, save, uid } from '../lib/storage'
 import type { Ticket, TicketCategory, TicketPriority } from '../lib/types'
 import { seedTickets } from '../lib/seed'
 import { PageHeader } from '../components/PageHeader'
@@ -30,7 +30,7 @@ export default function NewTicket() {
     e.preventDefault()
     if (!subject.trim() || !body.trim()) return
     const tickets = load<Ticket[]>('tickets', seedTickets)
-    const id = 'TKT-' + String(Math.floor(242 + Math.random() * 700)).padStart(5, '0')
+    const id = nextTicketId()
     const now = new Date().toISOString()
     const ticket: Ticket = {
       id,

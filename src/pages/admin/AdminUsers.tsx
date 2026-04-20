@@ -3,6 +3,7 @@ import { Ban, CheckCircle2, Shield, User as UserIcon } from 'lucide-react'
 import { load, save } from '../../lib/storage'
 import type { User } from '../../lib/types'
 import { seedUsers } from '../../lib/seed'
+import { Avatar } from '../../components/Avatar'
 import { Badge } from '../../components/Badge'
 import { fmtDate } from '../../lib/format'
 
@@ -54,9 +55,7 @@ export default function AdminUsers() {
               <tr key={u.id}>
                 <td>
                   <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-sm bg-ink text-canvas dark:bg-ink-dark dark:text-canvas-dark text-[10px] font-medium flex items-center justify-center">
-                      {u.name.split(' ').map((s) => s[0]).join('').slice(0, 2)}
-                    </div>
+                    <Avatar name={u.name} size="md" />
                     <div>
                       <div className="text-[13px] font-medium">{u.name}</div>
                       <div className="text-[10.5px] font-mono text-faint dark:text-faint-dark">{u.id}</div>

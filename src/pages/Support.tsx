@@ -13,7 +13,7 @@ const PRIORITIES: TicketPriority[] = ['urgent', 'high', 'normal', 'low']
 const CATS: TicketCategory[] = ['technical', 'billing', 'demo', 'general', 'feature']
 
 export default function Support() {
-  const tickets = load<Ticket[]>('tickets', seedTickets)
+  const [tickets] = useState(() => load<Ticket[]>('tickets', seedTickets))
   const [q, setQ] = useState('')
   const [status, setStatus] = useState<TicketStatus | 'all'>('all')
   const [priority, setPriority] = useState<TicketPriority | 'all'>('all')
@@ -56,7 +56,7 @@ export default function Support() {
         {(['all', ...STATUSES] as const).map((s) => (
           <button
             key={s}
-            onClick={() => setStatus(s as any)}
+            onClick={() => setStatus(s)}
             className={`relative h-9 px-3 text-[13px] transition ${
               status === s
                 ? 'text-ink dark:text-ink-dark font-medium'
@@ -87,11 +87,21 @@ export default function Support() {
           <Filter size={13} />
           Filters
         </div>
-        <select className="select h-9 w-[130px]" value={priority} onChange={(e) => setPriority(e.target.value as any)}>
+        <select
+          aria-label="Priority filter"
+          className="select h-9 w-[130px]"
+          value={priority}
+          onChange={(e) => setPriority(e.target.value as TicketPriority | 'all')}
+        >
           <option value="all">All priority</option>
           {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
         </select>
-        <select className="select h-9 w-[150px]" value={category} onChange={(e) => setCategory(e.target.value as any)}>
+        <select
+          aria-label="Category filter"
+          className="select h-9 w-[150px]"
+          value={category}
+          onChange={(e) => setCategory(e.target.value as TicketCategory | 'all')}
+        >
           <option value="all">All categories</option>
           {CATS.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>

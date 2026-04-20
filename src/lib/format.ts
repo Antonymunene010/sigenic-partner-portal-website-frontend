@@ -35,26 +35,35 @@ export function fmtDateTime(iso: string | number | Date): string {
   })
 }
 
+const RTF = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
+const REL_UNITS: [number, Intl.RelativeTimeFormatUnit][] = [
+  [60, 'second'],
+  [3600, 'minute'],
+  [86400, 'hour'],
+  [604800, 'day'],
+  [2592000, 'week'],
+  [31536000, 'month'],
+]
+
 export function fmtRelative(iso: string | number | Date): string {
-  const d = new Date(iso).getTime()
-  const now = Date.now()
-  const diff = Math.round((d - now) / 1000)
+  const diff = Math.round((new Date(iso).getTime() - Date.now()) / 1000)
   const abs = Math.abs(diff)
-  const units: [number, Intl.RelativeTimeFormatUnit][] = [
-    [60, 'second'],
-    [3600, 'minute'],
-    [86400, 'hour'],
-    [604800, 'day'],
-    [2592000, 'week'],
-    [31536000, 'month'],
-  ]
-  const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
-  for (let i = 0; i < units.length; i++) {
-    const [sec, unit] = units[i]
+  for (let i = 0; i < REL_UNITS.length; i++) {
+    const [sec, unit] = REL_UNITS[i]
     if (abs < sec) {
-      const prev = i === 0 ? 1 : units[i - 1][0]
-      return rtf.format(Math.round(diff / prev), unit)
+      const prev = i === 0 ? 1 : REL_UNITS[i - 1][0]
+      return RTF.format(Math.round(diff / prev), unit)
     }
   }
-  return rtf.format(Math.round(diff / 31536000), 'year')
+  return RTF.format(Math.round(diff / 31536000), 'year')
+}
+
+export function initials(name: string, max = 2): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((s) => s[0] ?? '')
+    .join('')
+    .slice(0, max)
+    .toUpperCase()
 }

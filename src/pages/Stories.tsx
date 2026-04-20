@@ -8,24 +8,21 @@ import { PageHeader } from '../components/PageHeader'
 import { fmtDate } from '../lib/format'
 
 export default function Stories() {
-  const stories = load<SuccessStory[]>('stories', seedStories)
+  const [stories] = useState(() => load<SuccessStory[]>('stories', seedStories))
   const [q, setQ] = useState('')
   const [industry, setIndustry] = useState<string>('all')
-  const industries = Array.from(new Set(stories.map((s) => s.industry)))
+  const industries = useMemo(() => Array.from(new Set(stories.map((s) => s.industry))), [stories])
 
-  const filtered = useMemo(
-    () =>
-      stories
-        .filter((s) => (industry === 'all' ? true : s.industry === industry))
-        .filter((s) =>
-          q.trim() === '' ? true : (s.title + s.summary + s.partner).toLowerCase().includes(q.toLowerCase()),
-        )
-        .sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt)),
-    [stories, q, industry],
-  )
-
-  const featured = filtered.find((s) => s.featured) ?? filtered[0]
-  const rest = filtered.filter((s) => s.id !== featured?.id)
+  const { featured, rest } = useMemo(() => {
+    const f = stories
+      .filter((s) => (industry === 'all' ? true : s.industry === industry))
+      .filter((s) =>
+        q.trim() === '' ? true : (s.title + s.summary + s.partner).toLowerCase().includes(q.toLowerCase()),
+      )
+      .sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt))
+    const feat = f.find((s) => s.featured) ?? f[0]
+    return { featured: feat, rest: f.filter((s) => s.id !== feat?.id) }
+  }, [stories, q, industry])
 
   return (
     <div>
@@ -44,7 +41,7 @@ export default function Stories() {
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint dark:text-faint-dark" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search stories…" className="input pl-9" />
         </div>
-        <select className="select w-[180px]" value={industry} onChange={(e) => setIndustry(e.target.value)}>
+        <select aria-label="Industry filter" className="select w-[180px]" value={industry} onChange={(e) => setIndustry(e.target.value)}>
           <option value="all">All industries</option>
           {industries.map((i) => <option key={i} value={i}>{i}</option>)}
         </select>

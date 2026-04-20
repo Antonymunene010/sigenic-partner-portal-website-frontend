@@ -21,7 +21,6 @@ export default function Login() {
     e.preventDefault()
     setError(null)
     setLoading(true)
-    // small simulated delay for polish
     setTimeout(() => {
       const res = login(email, password)
       if (res.ok) nav('/app', { replace: true })
@@ -49,7 +48,6 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-canvas dark:bg-canvas-dark">
-      {/* Marketing side */}
       <aside className="relative hidden md:flex md:w-[52%] lg:w-[55%] bg-ink text-canvas dark:bg-surface-dark dark:text-ink-dark overflow-hidden">
         <div className="absolute inset-0 bg-grid opacity-60" />
         <div
@@ -109,7 +107,6 @@ export default function Login() {
         </div>
       </aside>
 
-      {/* Form side */}
       <section className="flex-1 flex flex-col min-h-screen">
         <div className="flex items-center justify-between p-5 md:hidden border-b border-line dark:border-line-dark">
           <WordMark />
@@ -144,9 +141,9 @@ export default function Login() {
               <div>
                 <label className="label flex justify-between">
                   <span>Password</span>
-                  <a className="text-[11px] text-muted dark:text-muted-dark hover:text-ink dark:hover:text-ink-dark" href="#">
+                  <button type="button" className="text-[11px] text-muted dark:text-muted-dark hover:text-ink dark:hover:text-ink-dark">
                     Forgot?
-                  </a>
+                  </button>
                 </label>
                 <input
                   type="password"

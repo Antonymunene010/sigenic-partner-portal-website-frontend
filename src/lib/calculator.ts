@@ -22,7 +22,6 @@ export function calculate(cfg: CalcConfig, sel: CalcSelection): CalcResult {
     // Normalized 0..1 where lower-than-default is better; for metrics like sampleRate higher is better — we approximate with absolute distance
     const range = p.max - p.min
     const norm = 1 - (val - p.min) / range // 1 when val==min, 0 when val==max
-    // Only apply small boost, capped
     paramBoost += Math.max(-0.03, Math.min(0.04, (norm - 0.5) * 0.08))
   }
   paramBoost = Math.max(-0.05, Math.min(0.08, paramBoost))
@@ -35,11 +34,9 @@ export function calculate(cfg: CalcConfig, sel: CalcSelection): CalcResult {
   // Yield uplift adds extra good wafers, contributing to additional savings from avoided scrap
   const scrapSavings = (yieldUplift / 100) * baselineMonthly * 0.35
 
-  // Throughput uplift from throughput process
   const throughputProcess = processes.find((p) => p.id === 'p-throughput')
   const throughputUplift = throughputProcess ? 0.18 : 0
 
-  // Service fee taken out
   const grossSavings = (baselineMonthly - optimizedMonthly) + scrapSavings
   const fee = grossSavings * cfg.globals.serviceFeePct
   const netSavingsMonthly = grossSavings - fee
@@ -49,7 +46,6 @@ export function calculate(cfg: CalcConfig, sel: CalcSelection): CalcResult {
   const engagementCost = fee * 2 + 35000
   const paybackMonths = netSavingsMonthly > 0 ? engagementCost / netSavingsMonthly : 99
 
-  // Score 0..100 — bigger savings & yield uplift = higher
   const score = Math.round(
     Math.max(0, Math.min(100,
       (effectiveOpt * 180) + (yieldUplift * 4) + (throughputUplift * 80) - (paybackMonths > 12 ? 10 : 0)

@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowUpRight, Calculator, Activity, TrendingUp, CircleDot, BookOpen, LifeBuoy, CalendarClock } from 'lucide-react'
 import { useAuth } from '../lib/auth'
@@ -9,20 +10,23 @@ import { fmtDate, fmtRelative, fmtUSD } from '../lib/format'
 
 export default function Dashboard() {
   const { user } = useAuth()
-  const tickets = load<Ticket[]>('tickets', seedTickets)
-  const invoices = load<Invoice[]>('invoices', seedInvoices)
-
-  const openTickets = tickets.filter((t) => t.status === 'open' || t.status === 'pending')
-  const latestResult = load<{ savingsAnnual: number; score: number; at: string } | null>(
-    'calc.latest',
-    null,
+  const [tickets] = useState(() => load<Ticket[]>('tickets', seedTickets))
+  const [invoices] = useState(() => load<Invoice[]>('invoices', seedInvoices))
+  const [latestResult] = useState(() =>
+    load<{ savingsAnnual: number; score: number; at: string } | null>('calc.latest', null),
   )
-  const nextInvoice = invoices.find((i) => i.status === 'open') ?? invoices[0]
-  const recent = [...tickets]
-    .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt))
-    .slice(0, 5)
 
-  const kpis = [
+  const { openTickets, recent, nextInvoice } = useMemo(() => {
+    return {
+      openTickets: tickets.filter((t) => t.status === 'open' || t.status === 'pending'),
+      recent: [...tickets]
+        .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt))
+        .slice(0, 5),
+      nextInvoice: invoices.find((i) => i.status === 'open') ?? invoices[0],
+    }
+  }, [tickets, invoices])
+
+  const kpis = useMemo(() => [
     {
       label: 'Open tickets',
       value: openTickets.length,
@@ -53,11 +57,10 @@ export default function Dashboard() {
       icon: Activity,
       to: '/app/billing',
     },
-  ]
+  ], [tickets, latestResult, nextInvoice, openTickets.length])
 
   return (
     <div>
-      {/* Hero */}
       <section className="mb-10">
         <div className="eyebrow mb-3">Overview · SG-1</div>
         <h1 className="text-[32px] md:text-[42px] font-semibold tracking-tightest leading-[1.05]">
@@ -68,14 +71,12 @@ export default function Dashboard() {
         </p>
       </section>
 
-      {/* KPIs */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
-        {kpis.map((k, i) => (
+        {kpis.map((k) => (
           <Link
             key={k.label}
             to={k.to}
             className="group card p-4 hover:shadow-soft hover:border-line-strong dark:hover:border-line-strong-dark transition relative overflow-hidden"
-            style={{ animationDelay: `${i * 60}ms` }}
           >
             <div className="flex items-start justify-between">
               <div className="stat-label">{k.label}</div>
@@ -94,7 +95,6 @@ export default function Dashboard() {
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Recent tickets */}
         <section className="lg:col-span-2 card">
           <div className="flex items-center justify-between px-4 py-3 border-b border-line dark:border-line-dark">
             <div>
@@ -130,7 +130,6 @@ export default function Dashboard() {
           </ul>
         </section>
 
-        {/* Quick actions + calculator promo */}
         <section className="space-y-5">
           <div className="relative card-raised p-5 overflow-hidden bg-ink text-canvas dark:bg-surface-dark dark:text-ink-dark">
             <div className="absolute inset-0 bg-grid opacity-40" />

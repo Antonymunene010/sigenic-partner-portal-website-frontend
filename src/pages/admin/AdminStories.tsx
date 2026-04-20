@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Plus, Pencil, Trash2, Save, X, Star } from 'lucide-react'
-import { load, save } from '../../lib/storage'
+import { load, save, uid } from '../../lib/storage'
 import type { SuccessStory } from '../../lib/types'
 import { seedStories } from '../../lib/seed'
 import { fmtDate } from '../../lib/format'
@@ -18,8 +18,8 @@ export default function AdminStories() {
   const startNew = () => {
     setIsNew(true)
     setEditing({
-      id: 's-' + Math.random().toString(36).slice(2, 7),
-      slug: 'new-story',
+      id: uid('s'),
+      slug: '',
       title: '',
       summary: '',
       partner: '',

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Clock3 } from 'lucide-react'
 import { load } from '../lib/storage'
@@ -7,7 +8,7 @@ import { fmtRelative } from '../lib/format'
 
 export default function DocDetail() {
   const { slug } = useParams<{ slug: string }>()
-  const docs = load<Doc[]>('docs', seedDocs)
+  const [docs] = useState(() => load<Doc[]>('docs', seedDocs))
   const doc = docs.find((d) => d.slug === slug)
 
   if (!doc) {

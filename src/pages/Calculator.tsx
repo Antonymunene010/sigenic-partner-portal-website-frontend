@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import { ArrowLeft, ArrowRight, Calculator as CalcIcon, CheckCircle2, Layers, Sliders, Factory, Sparkles, RotateCcw, Printer } from 'lucide-react'
-import { load, save } from '../lib/storage'
+import { load, save, uid } from '../lib/storage'
 import type { CalcConfig, CalcResult, Machine, Process } from '../lib/types'
 import { seedCalc } from '../lib/seed'
 import { calculate } from '../lib/calculator'
 import { PageHeader } from '../components/PageHeader'
+import { DescRow } from '../components/DescRow'
 import { fmtNumber, fmtUSD } from '../lib/format'
 import clsx from 'clsx'
 
@@ -18,11 +19,11 @@ const STEPS = [
 ] as const
 
 export default function Calculator() {
-  const cfg = load<CalcConfig>('calc', seedCalc)
+  const [cfg] = useState(() => load<CalcConfig>('calc', seedCalc))
   const [step, setStep] = useState<Step>(0)
   const [machineId, setMachineId] = useState<string>(cfg.machines[0]?.id ?? '')
   const [processIds, setProcessIds] = useState<string[]>([])
-  const machine = cfg.machines.find((m) => m.id === machineId) as Machine | undefined
+  const machine = cfg.machines.find((m) => m.id === machineId)
 
   const compatibleProcesses = useMemo(
     () => cfg.processes.filter((p) => p.compatibleMachines.includes(machineId)),
@@ -63,19 +64,16 @@ export default function Calculator() {
     }
     setStep(((step as number) + 1) as Step)
   }
-  const prev = () => setStep(Math.max(0, (step as number) - 1) as Step)
+  const prev = () => setStep((s) => Math.max(0, (s as number) - 1) as Step)
 
   const changeMachine = (id: string) => {
     setMachineId(id)
-    // Reset incompatible choices
-    const compat = cfg.processes.filter((p) => p.compatibleMachines.includes(id)).map((p) => p.id)
-    setProcessIds((ps) => ps.filter((pid) => compat.includes(pid)))
+    const compat = new Set(
+      cfg.processes.filter((p) => p.compatibleMachines.includes(id)).map((p) => p.id),
+    )
+    setProcessIds((ps) => ps.filter((pid) => compat.has(pid)))
     const m = cfg.machines.find((mm) => mm.id === id)
-    if (m) {
-      const defaults: Record<string, number> = {}
-      for (const p of m.params) defaults[p.key] = p.default
-      setParams(defaults)
-    }
+    if (m) setParams(Object.fromEntries(m.params.map((p) => [p.key, p.default])))
   }
 
   const toggleProcess = (id: string) =>
@@ -101,7 +99,6 @@ export default function Calculator() {
         }
       />
 
-      {/* Stepper */}
       <div className="card p-1 mb-6 overflow-x-auto">
         <div className="flex items-center gap-1 min-w-[520px]">
           {STEPS.map((s, i) => {
@@ -132,7 +129,6 @@ export default function Calculator() {
         </div>
       </div>
 
-      {/* Steps */}
       {step === 0 && (
         <section className="animate-fade-up">
           <h2 className="text-[18px] font-semibold tracking-tight mb-1">Select a machine</h2>
@@ -242,30 +238,36 @@ export default function Calculator() {
                 <h3 className="text-[14px] font-medium">{machine.name} parameters</h3>
               </div>
               <div className="space-y-5">
-                {machine.params.map((p) => (
-                  <div key={p.key}>
-                    <div className="flex items-baseline justify-between mb-1.5">
-                      <label className="label mb-0">{p.label}</label>
-                      <span className="font-mono num text-[13px]">
-                        {fmtNumber(params[p.key] ?? p.default, p.step < 1 ? 1 : 0)} <span className="text-faint dark:text-faint-dark">{p.unit}</span>
-                      </span>
+                {machine.params.map((p) => {
+                  const val = params[p.key] ?? p.default
+                  const inputId = `param-${p.key}`
+                  return (
+                    <div key={p.key}>
+                      <div className="flex items-baseline justify-between mb-1.5">
+                        <label htmlFor={inputId} className="label mb-0">{p.label}</label>
+                        <span className="font-mono num text-[13px]">
+                          {fmtNumber(val, p.step < 1 ? 1 : 0)} <span className="text-faint dark:text-faint-dark">{p.unit}</span>
+                        </span>
+                      </div>
+                      <input
+                        id={inputId}
+                        type="range"
+                        min={p.min}
+                        max={p.max}
+                        step={p.step}
+                        value={val}
+                        aria-valuetext={`${val} ${p.unit}`}
+                        onChange={(e) => setParams((x) => ({ ...x, [p.key]: +e.target.value }))}
+                        className="w-full accent-accent"
+                      />
+                      <div className="flex justify-between text-[10px] font-mono text-faint dark:text-faint-dark mt-1">
+                        <span>{p.min}{p.unit}</span>
+                        <span>default {p.default}{p.unit}</span>
+                        <span>{p.max}{p.unit}</span>
+                      </div>
                     </div>
-                    <input
-                      type="range"
-                      min={p.min}
-                      max={p.max}
-                      step={p.step}
-                      value={params[p.key] ?? p.default}
-                      onChange={(e) => setParams((x) => ({ ...x, [p.key]: +e.target.value }))}
-                      className="w-full accent-accent"
-                    />
-                    <div className="flex justify-between text-[10px] font-mono text-faint dark:text-faint-dark mt-1">
-                      <span>{p.min}{p.unit}</span>
-                      <span>default {p.default}{p.unit}</span>
-                      <span>{p.max}{p.unit}</span>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           </div>
@@ -306,7 +308,6 @@ export default function Calculator() {
         <ResultView result={result} machine={machine} processes={cfg.processes.filter((p) => processIds.includes(p.id))} />
       )}
 
-      {/* Footer nav */}
       {step < 3 && (
         <div className="mt-6 flex items-center justify-between">
           <button
@@ -388,10 +389,10 @@ function NumberField({ label, value, set, min, max, step, unit }: {
 function ResultView({ result, machine, processes }: { result: CalcResult; machine: Machine; processes: Process[] }) {
   const scoreColor = result.score >= 70 ? 'text-success' : result.score >= 40 ? 'text-warn' : 'text-danger'
   const maxAbs = Math.max(...result.breakdown.map((b) => Math.abs(b.value)))
+  const estimateId = useMemo(() => uid('EST'), [result])
 
   return (
     <div className="animate-fade-up">
-      {/* Hero result */}
       <div className="card-raised overflow-hidden relative mb-5">
         <div className="absolute inset-0 bg-grid opacity-30 pointer-events-none" />
         <div className="grid grid-cols-1 md:grid-cols-3">
@@ -431,7 +432,6 @@ function ResultView({ result, machine, processes }: { result: CalcResult; machin
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Breakdown */}
         <div className="lg:col-span-2 card p-5">
           <h3 className="text-[14px] font-medium mb-4">Savings breakdown · monthly</h3>
           <ul className="space-y-3.5">
@@ -462,15 +462,14 @@ function ResultView({ result, machine, processes }: { result: CalcResult; machin
           </ul>
         </div>
 
-        {/* Inputs recap */}
         <aside className="space-y-4">
           <div className="card p-5">
             <div className="stat-label mb-3">Inputs</div>
             <dl className="text-[12.5px] space-y-2.5">
-              <Row k="Machine" v={machine.name} />
-              <Row k="Processes" v={`${processes.length} selected`} />
-              <Row k="Wafers / month" v={<span className="font-mono">{fmtNumber(result.input.wafersPerMonth)}</span>} />
-              <Row k="Ops hours" v={<span className="font-mono">{result.input.hoursPerDay}h × {result.input.daysPerMonth}d</span>} />
+              <DescRow k="Machine" v={machine.name} />
+              <DescRow k="Processes" v={`${processes.length} selected`} />
+              <DescRow k="Wafers / month" v={<span className="font-mono">{fmtNumber(result.input.wafersPerMonth)}</span>} />
+              <DescRow k="Ops hours" v={<span className="font-mono">{result.input.hoursPerDay}h × {result.input.daysPerMonth}d</span>} />
             </dl>
             <div className="mt-4 pt-4 border-t border-line dark:border-line-dark">
               <div className="stat-label mb-2">Selected processes</div>
@@ -487,7 +486,7 @@ function ResultView({ result, machine, processes }: { result: CalcResult; machin
             </div>
           </div>
           <div className="card p-4 text-[11.5px] text-muted dark:text-muted-dark leading-relaxed">
-            Estimate ID <span className="font-mono text-ink dark:text-ink-dark">EST-{Math.random().toString(36).slice(2, 8).toUpperCase()}</span>. Estimate bounds ±15%. Share this with your APAC rep to scope a pilot.
+            Estimate ID <span className="font-mono text-ink dark:text-ink-dark">{estimateId}</span>. Estimate bounds ±15%. Share this with your APAC rep to scope a pilot.
           </div>
           <button className="btn-accent w-full h-10">
             <CheckCircle2 size={14} /> Discuss this with Axiom
@@ -504,15 +503,6 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
       <div className="stat-label">{label}</div>
       <div className="mt-1 text-[20px] font-semibold tracking-tightest num leading-none">{value}</div>
       {sub && <div className="mt-1 text-[11px] font-mono text-faint dark:text-faint-dark">{sub}</div>}
-    </div>
-  )
-}
-
-function Row({ k, v }: { k: string; v: React.ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <dt className="text-muted dark:text-muted-dark">{k}</dt>
-      <dd className="text-ink dark:text-ink-dark text-right">{v}</dd>
     </div>
   )
 }
