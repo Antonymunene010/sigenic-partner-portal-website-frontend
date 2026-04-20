@@ -6,12 +6,16 @@ import type { Doc } from '../lib/types'
 import { seedDocs } from '../lib/seed'
 import { PageHeader } from '../components/PageHeader'
 import { fmtRelative } from '../lib/format'
+import { DOC_CATEGORY_ORDER as CATEGORY_ORDER } from '../lib/constants'
 
 export default function Docs() {
   const [docs] = useState(() => load<Doc[]>('docs', seedDocs))
   const [q, setQ] = useState('')
   const [cat, setCat] = useState<string>('all')
-  const cats = useMemo(() => Array.from(new Set(docs.map((d) => d.category))), [docs])
+  const cats = useMemo(() => {
+    const present = new Set(docs.map((d) => d.category))
+    return CATEGORY_ORDER.filter((c) => present.has(c))
+  }, [docs])
 
   const filtered = useMemo(() => {
     return docs
@@ -31,15 +35,15 @@ export default function Docs() {
   return (
     <div>
       <PageHeader
-        eyebrow="Documentation"
-        title="Everything about integrating, operating, and measuring."
-        description="Short, opinionated, version-pinned."
+        eyebrow="Knowledge base · self-service"
+        title="FAQs, troubleshooting, SOPs, known issues."
+        description="Every resolved issue becomes a reusable article. Search first — submit a ticket if you can’t find an answer."
       />
 
       <div className="flex items-center gap-2 mb-6">
         <div className="relative flex-1 max-w-md">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint dark:text-faint-dark" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search docs…" className="input pl-9" />
+          <input aria-label="Search knowledge base" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search FAQs, troubleshooting, SOPs…" className="input pl-9" />
         </div>
         <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
           <button

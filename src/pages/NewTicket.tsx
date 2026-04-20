@@ -1,30 +1,54 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, CheckCircle2, Send } from 'lucide-react'
-import { load, nextTicketId, save, uid } from '../lib/storage'
-import type { Ticket, TicketCategory, TicketPriority } from '../lib/types'
-import { seedTickets } from '../lib/seed'
+import { ArrowLeft, ArrowUpRight, BookOpen, CheckCircle2, Lightbulb, Send } from 'lucide-react'
+import { load, nextTicketId, save } from '../lib/storage'
+import type { CustomerImpact, Doc, ProductArea, Ticket, TicketCategory, TicketPriority } from '../lib/types'
+import { seedDocs, seedTickets } from '../lib/seed'
 import { PageHeader } from '../components/PageHeader'
 import { useAuth } from '../lib/auth'
+import { CUSTOMER_IMPACTS as IMPACTS, PRODUCT_AREAS as AREAS, TICKET_PRIORITIES as PRIORITIES } from '../lib/constants'
+import { makeSystemMsg, makeUserMsg, systemRouted } from '../lib/tickets'
 
-const PRIORITIES: TicketPriority[] = ['low', 'normal', 'high', 'urgent']
 const CATS: { id: TicketCategory; label: string; desc: string }[] = [
-  { id: 'technical', label: 'Technical', desc: 'Tool, firmware, calibration, API.' },
-  { id: 'billing', label: 'Billing', desc: 'Invoices, credits, contracts.' },
-  { id: 'demo', label: 'Demo request', desc: 'Evaluate a new tool or capability.' },
-  { id: 'feature', label: 'Feature', desc: 'Request enhancements to the portal.' },
-  { id: 'general', label: 'General', desc: 'Anything else.' },
+  { id: 'bug', label: 'Bug / Issue', desc: 'Something is broken, unexpected, or regressed.' },
+  { id: 'support', label: 'General support', desc: 'Questions, clarifications, how-to.' },
+  { id: 'feature', label: 'Feature request', desc: 'Suggest an enhancement or new capability.' },
 ]
 
 export default function NewTicket() {
   const { user } = useAuth()
   const nav = useNavigate()
-  const [category, setCategory] = useState<TicketCategory>('technical')
+  const [category, setCategory] = useState<TicketCategory>('bug')
   const [priority, setPriority] = useState<TicketPriority>('normal')
+  const [impact, setImpact] = useState<CustomerImpact>('medium')
+  const [area, setArea] = useState<ProductArea>('Lithography')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [tags, setTags] = useState('')
   const [created, setCreated] = useState<string | null>(null)
+  const [docs] = useState(() => load<Doc[]>('docs', seedDocs))
+
+  const suggestions = useMemo(() => {
+    const text = (subject + ' ' + body).toLowerCase().trim()
+    if (text.length < 4) return []
+    const terms = text.split(/\W+/).filter((t) => t.length >= 3)
+    if (terms.length === 0) return []
+    const scored = docs.map((d) => {
+      const haystack = (d.title + ' ' + d.excerpt + ' ' + d.keywords.join(' ')).toLowerCase()
+      let score = 0
+      for (const t of terms) {
+        if (d.keywords.includes(t)) score += 3
+        else if (haystack.includes(t)) score += 1
+      }
+      if (d.category === 'Known Issues') score += 1
+      return { d, score }
+    })
+    return scored
+      .filter((x) => x.score > 1)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map((x) => x.d)
+  }, [subject, body, docs])
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -38,25 +62,27 @@ export default function NewTicket() {
       status: 'open',
       priority,
       category,
+      productArea: area,
+      customerImpact: impact,
       requester: user?.name ?? 'You',
       tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
       createdAt: now,
       updatedAt: now,
+      source: 'portal',
       messages: [
-        { id: uid('m'), author: user?.name ?? 'You', authorRole: 'you', body: body.trim(), createdAt: now },
-        {
-          id: uid('m'),
-          author: 'System',
-          authorRole: 'system',
-          body: `Ticket routed to Axiom · ${category} queue. SLA timer started.`,
-          createdAt: now,
-        },
+        makeUserMsg(user?.name ?? 'You', body.trim(), now),
+        makeSystemMsg(systemRouted(`${category} · ${area}`, 'SLA timer started.'), now),
       ],
     }
     save('tickets', [ticket, ...tickets])
     setCreated(id)
-    setTimeout(() => nav(`/app/support/${id}`), 900)
   }
+
+  useEffect(() => {
+    if (!created) return
+    const t = setTimeout(() => nav(`/app/support/${created}`), 900)
+    return () => clearTimeout(t)
+  }, [created, nav])
 
   return (
     <div>
@@ -68,7 +94,7 @@ export default function NewTicket() {
       <PageHeader
         eyebrow="Support · New request"
         title="Submit a support request"
-        description="Your request is routed to Zendesk and triaged by the APAC partner team. Attach context — logs, SKUs, tool IDs."
+        description="Your request mirrors into Zendesk and is triaged by the APAC partner team. Attach context — logs, SKUs, tool IDs, lot numbers."
       />
 
       {created ? (
@@ -83,8 +109,8 @@ export default function NewTicket() {
         <form onSubmit={submit} className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-2 card p-5 space-y-5">
             <div>
-              <label className="label">Category</label>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              <label className="label">Type</label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 {CATS.map((c) => (
                   <button
                     type="button"
@@ -95,6 +121,7 @@ export default function NewTicket() {
                         ? 'border-ink dark:border-ink-dark bg-raised/70 dark:bg-raised-dark/70'
                         : 'border-line dark:border-line-dark hover:border-line-strong dark:hover:border-line-strong-dark'
                     }`}
+                    aria-pressed={category === c.id}
                   >
                     <div className="text-[13px] font-medium">{c.label}</div>
                     <div className="text-[11px] text-muted dark:text-muted-dark mt-0.5 leading-snug">{c.desc}</div>
@@ -110,9 +137,31 @@ export default function NewTicket() {
 
             <div>
               <label className="label" htmlFor="body">Description</label>
-              <textarea id="body" className="textarea min-h-[160px]" value={body} onChange={(e) => setBody(e.target.value)} required placeholder="Describe what you're seeing, expected behavior, reproduction steps, affected SKUs or tool IDs…" />
+              <textarea
+                id="body"
+                className="textarea min-h-[160px]"
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                required
+                placeholder="Describe what you're seeing, expected behavior, reproduction steps, affected SKUs, tool IDs, lot numbers…"
+              />
               <div className="mt-1 text-[11px] text-faint dark:text-faint-dark flex justify-end font-mono">
                 {body.length} chars
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="label" htmlFor="area">Product area</label>
+                <select id="area" className="select" value={area} onChange={(e) => setArea(e.target.value as ProductArea)}>
+                  {AREAS.map((a) => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label" htmlFor="impact">Customer impact</label>
+                <select id="impact" className="select" value={impact} onChange={(e) => setImpact(e.target.value as CustomerImpact)}>
+                  {IMPACTS.map((i) => <option key={i} value={i} className="capitalize">{i}</option>)}
+                </select>
               </div>
             </div>
 
@@ -123,6 +172,38 @@ export default function NewTicket() {
           </div>
 
           <aside className="space-y-4">
+            <div className="card p-4">
+              <div className="flex items-center gap-1.5 text-[12px] font-medium mb-2">
+                <Lightbulb size={13} className="text-accent-dim" />
+                Suggested articles
+              </div>
+              {suggestions.length === 0 ? (
+                <div className="text-[11.5px] text-faint dark:text-faint-dark leading-snug">
+                  Start typing — we’ll suggest relevant knowledge-base articles that might resolve your issue without a ticket.
+                </div>
+              ) : (
+                <ul className="space-y-1.5">
+                  {suggestions.map((d) => (
+                    <li key={d.id}>
+                      <Link
+                        to={`/app/docs/${d.slug}`}
+                        className="group flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-raised dark:hover:bg-raised-dark"
+                      >
+                        <BookOpen size={12} className="mt-0.5 shrink-0 text-muted dark:text-muted-dark group-hover:text-accent transition" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[12.5px] font-medium leading-snug">{d.title}</div>
+                          <div className="text-[10.5px] font-mono uppercase tracking-[0.1em] text-faint dark:text-faint-dark mt-0.5">
+                            {d.category}
+                          </div>
+                        </div>
+                        <ArrowUpRight size={11} className="text-faint dark:text-faint-dark opacity-0 group-hover:opacity-100 mt-0.5" />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
             <div className="card p-4">
               <div className="text-[12px] font-medium mb-2">Priority</div>
               <div className="grid grid-cols-2 gap-1.5">
@@ -136,13 +217,14 @@ export default function NewTicket() {
                         ? 'border-ink dark:border-ink-dark bg-raised dark:bg-raised-dark font-medium'
                         : 'border-line dark:border-line-dark text-muted dark:text-muted-dark hover:text-ink dark:hover:text-ink-dark'
                     }`}
+                    aria-pressed={priority === p}
                   >
                     {p}
                   </button>
                 ))}
               </div>
               <p className="mt-3 text-[11px] text-faint dark:text-faint-dark leading-snug">
-                Urgent and high-priority tickets page the APAC on-call team 24/7.
+                Urgent and high priority page the APAC on-call team 24/7.
               </p>
             </div>
 

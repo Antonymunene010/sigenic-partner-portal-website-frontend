@@ -11,9 +11,30 @@ export interface User {
   createdAt: string
 }
 
-export type TicketStatus = 'open' | 'pending' | 'solved' | 'closed'
+export type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed'
 export type TicketPriority = 'low' | 'normal' | 'high' | 'urgent'
-export type TicketCategory = 'technical' | 'billing' | 'demo' | 'general' | 'feature'
+
+// Unified category across support (6.1) + service intake (6.2)
+export type TicketCategory =
+  | 'bug'
+  | 'support'
+  | 'feature'
+  | 'demo'
+  | 'onboarding'
+  | 'data'
+  | 'consulting'
+
+export type ProductArea =
+  | 'Lithography'
+  | 'Etch'
+  | 'CMP'
+  | 'Deposition'
+  | 'Inspection'
+  | 'Metrology'
+  | 'Portal'
+  | 'Other'
+
+export type CustomerImpact = 'critical' | 'high' | 'medium' | 'low'
 
 export interface TicketMessage {
   id: string
@@ -24,17 +45,20 @@ export interface TicketMessage {
 }
 
 export interface Ticket {
-  id: string // e.g. TKT-00123
+  id: string
   subject: string
   status: TicketStatus
   priority: TicketPriority
   category: TicketCategory
+  productArea?: ProductArea
+  customerImpact?: CustomerImpact
   requester: string
   assignee?: string
   tags: string[]
   createdAt: string
   updatedAt: string
   messages: TicketMessage[]
+  source?: 'portal' | 'calculator' | 'email'
 }
 
 export interface SuccessStory {
@@ -45,25 +69,31 @@ export interface SuccessStory {
   partner: string
   industry: string
   region: string
+  theme: 'yield' | 'excursion' | 'throughput' | 'downtime'
   metrics: { label: string; value: string }[]
+  before?: { label: string; value: string }[]
+  after?: { label: string; value: string }[]
   body: string
   publishedAt: string
   featured: boolean
 }
 
+export type DocCategory = 'FAQs' | 'Troubleshooting' | 'SOPs' | 'Known Issues' | 'Best Practices'
+
 export interface Doc {
   id: string
   slug: string
   title: string
-  category: 'Getting Started' | 'Integrations' | 'API' | 'Operations' | 'Best Practices'
+  category: DocCategory
   excerpt: string
   body: string
   updatedAt: string
   readMin: number
+  keywords: string[]
 }
 
 export interface Invoice {
-  id: string // INV-000123
+  id: string
   periodStart: string
   periodEnd: string
   amount: number
@@ -71,7 +101,41 @@ export interface Invoice {
   issuedAt: string
 }
 
+export type NotificationKind = 'ticket' | 'knowledge' | 'announcement'
+
+export interface Notification {
+  id: string
+  kind: NotificationKind
+  title: string
+  body: string
+  createdAt: string
+  read: boolean
+  link?: string
+}
+
+export interface Announcement {
+  id: string
+  title: string
+  body: string
+  createdAt: string
+  author: string
+  pinned: boolean
+}
+
 /* ----- Calculator data model ----- */
+
+export interface Fab {
+  id: string
+  name: string
+  location: string
+}
+
+export interface Department {
+  id: string
+  name: string
+  machineIds: string[]
+}
+
 export interface MachineParam {
   key: string
   label: string
@@ -85,53 +149,72 @@ export interface MachineParam {
 export interface Machine {
   id: string
   name: string
-  family: 'Lithography' | 'Etch' | 'Deposition' | 'Inspection' | 'Metrology'
-  node: string // e.g. "7nm-capable"
-  baselineCostPerWafer: number // USD
-  defaultThroughput: number // wafers per hour
+  family: 'Lithography' | 'Etch' | 'CMP' | 'Deposition' | 'Inspection' | 'Metrology'
+  node: string
+  baselineCostPerWafer: number
+  defaultThroughput: number
   params: MachineParam[]
 }
 
 export interface Process {
   id: string
   name: string
-  stepCount: number // number of process steps this covers
+  stepCount: number
   complexity: 1 | 2 | 3 | 4 | 5
-  optimizationFactor: number // 0..1 representing savings potential
-  yieldUpliftPct: number // additional yield % from optimization
-  compatibleMachines: string[] // machine ids
+  optimizationFactor: number
+  yieldUpliftPct: number
+  scrapReductionPct: number
+  downtimeReductionPct: number
+  compatibleMachines: string[]
 }
 
 export interface CalcConfig {
+  fabs: Fab[]
+  departments: Department[]
   machines: Machine[]
   processes: Process[]
-  // Global constants
   globals: {
-    waferRevenue: number // $ per wafer
-    laborRatePerHour: number // $ per hour
+    waferRevenue: number
+    laborRatePerHour: number
     energyCostPerKWh: number
-    serviceFeePct: number // Axiom's service fee, subtracted from savings
+    serviceFeePct: number
   }
 }
 
+export interface OperationalInputs {
+  yieldPct: number
+  defectRate: number
+  throughput: number
+  scrapRate: number
+  downtimePct: number
+}
+
+export interface BusinessInputs {
+  costPerWafer: number
+  volumePerMonth: number
+  costOfExcursion: number
+}
+
 export interface CalcSelection {
+  fabId: string
+  departmentId: string
   machineId: string
   processIds: string[]
   params: Record<string, number>
-  wafersPerMonth: number
-  hoursPerDay: number
-  daysPerMonth: number
+  operational: OperationalInputs
+  business: BusinessInputs
 }
 
 export interface CalcResult {
   input: CalcSelection
-  baselineCostMonthly: number
-  optimizedCostMonthly: number
-  savingsMonthly: number
-  savingsAnnual: number
-  yieldUpliftPct: number
-  throughputUpliftPct: number
+  yieldImprovementPct: number
+  scrapReductionPct: number
+  downtimeReductionPct: number
+  monthlySavings: number
+  annualSavings: number
+  fasterDetectionHrs: number
+  manualEffortReductionHrs: number
   paybackMonths: number
-  score: number // 0..100
+  score: number
   breakdown: { label: string; value: number }[]
 }

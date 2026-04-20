@@ -16,7 +16,7 @@ export function AppLayout() {
           </div>
         </main>
         <footer className="px-4 md:px-8 py-4 border-t border-line dark:border-line-dark text-[11px] font-mono uppercase tracking-[0.12em] text-faint dark:text-faint-dark flex items-center justify-between">
-          <span>Axiom Foundry · Partner Portal v0.1 · SG</span>
+          <span>Sigenic · Partner Portal v0.1 · SG</span>
           <span>© 2026 · Demo build</span>
         </footer>
       </div>

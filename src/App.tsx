@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './lib/auth'
 import { ThemeProvider } from './lib/theme'
+import { NotificationsProvider } from './lib/notifications'
 import { seedIfNeeded } from './lib/seed'
 
 import Login from './pages/Login'
@@ -16,7 +17,7 @@ import Stories from './pages/Stories'
 import StoryDetail from './pages/StoryDetail'
 import Docs from './pages/Docs'
 import DocDetail from './pages/DocDetail'
-import Demo from './pages/Demo'
+import Services from './pages/Services'
 import Billing from './pages/Billing'
 import Calculator from './pages/Calculator'
 import Admin from './pages/Admin'
@@ -29,39 +30,42 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <Routes>
-          <Route path="/" element={<Navigate to="/app" replace />} />
-          <Route path="/login" element={<Login />} />
-          <Route
-            path="/app"
-            element={
-              <ProtectedRoute>
-                <AppLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Dashboard />} />
-            <Route path="support" element={<Support />} />
-            <Route path="support/new" element={<NewTicket />} />
-            <Route path="support/:id" element={<TicketDetail />} />
-            <Route path="stories" element={<Stories />} />
-            <Route path="stories/:slug" element={<StoryDetail />} />
-            <Route path="docs" element={<Docs />} />
-            <Route path="docs/:slug" element={<DocDetail />} />
-            <Route path="demo" element={<Demo />} />
-            <Route path="billing" element={<Billing />} />
-            <Route path="calculator" element={<Calculator />} />
+        <NotificationsProvider>
+          <Routes>
+            <Route path="/" element={<Navigate to="/app" replace />} />
+            <Route path="/login" element={<Login />} />
             <Route
-              path="admin/*"
+              path="/app"
               element={
-                <ProtectedRoute role="admin">
-                  <Admin />
+                <ProtectedRoute>
+                  <AppLayout />
                 </ProtectedRoute>
               }
-            />
-          </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+            >
+              <Route index element={<Dashboard />} />
+              <Route path="support" element={<Support />} />
+              <Route path="support/new" element={<NewTicket />} />
+              <Route path="support/:id" element={<TicketDetail />} />
+              <Route path="stories" element={<Stories />} />
+              <Route path="stories/:slug" element={<StoryDetail />} />
+              <Route path="docs" element={<Docs />} />
+              <Route path="docs/:slug" element={<DocDetail />} />
+              <Route path="services" element={<Services />} />
+              <Route path="demo" element={<Navigate to="/app/services" replace />} />
+              <Route path="billing" element={<Billing />} />
+              <Route path="calculator" element={<Calculator />} />
+              <Route
+                path="admin/*"
+                element={
+                  <ProtectedRoute role="admin">
+                    <Admin />
+                  </ProtectedRoute>
+                }
+              />
+            </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </NotificationsProvider>
       </AuthProvider>
     </ThemeProvider>
   )

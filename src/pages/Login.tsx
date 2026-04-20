@@ -69,7 +69,7 @@ export default function Login() {
           </div>
 
           <div className="max-w-lg">
-            <div className="eyebrow mb-5 text-white/60 before:bg-white/30">Precision foundry · Singapore</div>
+            <div className="eyebrow mb-5 text-white/60 before:bg-white/30">Sigenic · Singapore</div>
             <h1 className="text-[44px] lg:text-[56px] leading-[0.98] font-semibold tracking-tightest text-balance">
               The quiet{' '}
               <span className="font-serif italic font-normal text-accent">instruments</span>
@@ -206,7 +206,7 @@ export default function Login() {
         </div>
 
         <div className="p-5 text-[11px] font-mono uppercase tracking-[0.12em] text-faint dark:text-faint-dark border-t border-line dark:border-line-dark flex items-center justify-between">
-          <span>© 2026 Axiom Foundry</span>
+          <span>© 2026 Sigenic</span>
           <span>Privacy · Terms</span>
         </div>
       </section>

@@ -17,8 +17,8 @@ const NAV = [
   { to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/app/support', label: 'Support', icon: LifeBuoy },
   { to: '/app/stories', label: 'Success stories', icon: Sparkles },
-  { to: '/app/docs', label: 'Documentation', icon: BookOpen },
-  { to: '/app/demo', label: 'Request a demo', icon: CalendarClock },
+  { to: '/app/docs', label: 'Knowledge base', icon: BookOpen },
+  { to: '/app/services', label: 'Request a service', icon: CalendarClock },
   { to: '/app/billing', label: 'Billing', icon: CreditCard },
   { to: '/app/calculator', label: 'Score calculator', icon: Calculator, highlight: true },
 ]

@@ -45,9 +45,11 @@ export default function Billing() {
             </div>
           )}
           {open && (
-            <div className="mt-4 flex gap-2">
-              <button className="btn-accent h-9 flex-1">Pay now</button>
-              <button className="btn-outline h-9">View</button>
+            <div className="mt-4 flex items-center gap-2">
+              <button className="btn-outline h-9 flex-1" aria-label="View invoice PDF">View PDF</button>
+              <span className="text-[10px] font-mono uppercase tracking-[0.12em] text-muted dark:text-muted-dark border border-line dark:border-line-dark rounded px-2 py-1">
+                In-portal payment · Phase 2
+              </span>
             </div>
           )}
         </div>

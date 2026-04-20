@@ -13,3 +13,4 @@ dist-ssr
 !.env.example
 .vercel
 CLAUDE.md
+*.pdf

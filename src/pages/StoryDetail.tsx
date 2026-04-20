@@ -62,6 +62,36 @@ export default function StoryDetail() {
         </div>
       </section>
 
+      {story.before && story.after && (
+        <section className="mb-10 card p-6">
+          <div className="eyebrow mb-4">Before / after · measured deltas</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="relative">
+              <div className="text-[11px] font-mono uppercase tracking-[0.14em] text-muted dark:text-muted-dark mb-3">Before</div>
+              <ul className="space-y-2.5">
+                {story.before.map((m) => (
+                  <li key={m.label} className="flex items-baseline justify-between text-[13px]">
+                    <span className="text-muted dark:text-muted-dark">{m.label}</span>
+                    <span className="font-mono num text-[14px]">{m.value}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="relative md:pl-6 md:border-l border-line dark:border-line-dark">
+              <div className="text-[11px] font-mono uppercase tracking-[0.14em] text-accent-ink bg-accent inline-block px-1.5 py-0.5 rounded-sm mb-3">After</div>
+              <ul className="space-y-2.5">
+                {story.after.map((m) => (
+                  <li key={m.label} className="flex items-baseline justify-between text-[13px]">
+                    <span className="text-muted dark:text-muted-dark">{m.label}</span>
+                    <span className="font-mono num text-[14px] font-medium">{m.value}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+      )}
+
       <article className="max-w-2xl prose-custom text-[15.5px] leading-relaxed text-ink dark:text-ink-dark">
         <p className="text-pretty whitespace-pre-wrap">{story.body}</p>
       </article>

@@ -18,7 +18,7 @@ export default function Dashboard() {
 
   const { openTickets, recent, nextInvoice } = useMemo(() => {
     return {
-      openTickets: tickets.filter((t) => t.status === 'open' || t.status === 'pending'),
+      openTickets: tickets.filter((t) => t.status === 'open' || t.status === 'in_progress'),
       recent: [...tickets]
         .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt))
         .slice(0, 5),
@@ -44,11 +44,13 @@ export default function Dashboard() {
       to: '/app/calculator',
     },
     {
-      label: 'Active demos',
-      value: tickets.filter((t) => t.category === 'demo' && t.status !== 'closed').length,
-      sub: 'Scheduled or in progress',
+      label: 'Active service requests',
+      value: tickets.filter(
+        (t) => ['demo', 'onboarding', 'data', 'consulting'].includes(t.category) && t.status !== 'closed' && t.status !== 'resolved',
+      ).length,
+      sub: 'Demo · onboarding · analysis · consulting',
       icon: CalendarClock,
-      to: '/app/demo',
+      to: '/app/services',
     },
     {
       label: 'Next invoice',
@@ -67,7 +69,7 @@ export default function Dashboard() {
           {greet()}, {user?.name.split(' ')[0]}.
         </h1>
         <p className="mt-2 text-[15px] text-muted dark:text-muted-dark max-w-xl text-pretty">
-          Here's what's moving across your partnership with Axiom this week.
+          Here's what's moving across your partnership with Sigenic this week.
         </p>
       </section>
 
@@ -114,9 +116,7 @@ export default function Dashboard() {
                   to={`/app/support/${t.id}`}
                   className="flex items-center gap-3 px-4 py-3 hover:bg-raised/60 dark:hover:bg-raised-dark/60 transition"
                 >
-                  <Badge tone={t.status} dot>
-                    {t.status}
-                  </Badge>
+                  <Badge tone={t.status} dot />
                   <div className="min-w-0 flex-1">
                     <div className="text-[13px] font-medium truncate">{t.subject}</div>
                     <div className="text-[11px] text-muted dark:text-muted-dark font-mono">
@@ -160,8 +160,8 @@ export default function Dashboard() {
             <ul>
               {[
                 { to: '/app/support/new', label: 'Submit a support request', icon: LifeBuoy },
-                { to: '/app/demo', label: 'Request an on-site demo', icon: CalendarClock },
-                { to: '/app/docs', label: 'Browse documentation', icon: BookOpen },
+                { to: '/app/services', label: 'Request a service', icon: CalendarClock },
+                { to: '/app/docs', label: 'Browse knowledge base', icon: BookOpen },
               ].map((a) => (
                 <li key={a.to}>
                   <Link

@@ -4,6 +4,7 @@ import { ThemeToggle } from './ThemeToggle'
 import { useNavigate } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
 import { Avatar } from './Avatar'
+import { NotificationsMenu } from './NotificationsMenu'
 
 export function Topbar() {
   const { user, logout, impersonate } = useAuth()
@@ -38,6 +39,7 @@ export function Topbar() {
         </span>
       </div>
       <div className="flex items-center gap-2">
+        <NotificationsMenu />
         <ThemeToggle />
         <div className="relative" ref={ref}>
           <button

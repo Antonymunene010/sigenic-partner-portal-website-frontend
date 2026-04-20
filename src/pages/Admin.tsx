@@ -3,13 +3,17 @@ import clsx from 'clsx'
 import AdminCalculator from './admin/AdminCalculator'
 import AdminStories from './admin/AdminStories'
 import AdminUsers from './admin/AdminUsers'
+import AdminAnnouncements from './admin/AdminAnnouncements'
+import AdminAnalytics from './admin/AdminAnalytics'
 import { PageHeader } from '../components/PageHeader'
 import { Shield } from 'lucide-react'
 
 const TABS = [
-  { to: 'calculator', label: 'Calculator rules' },
+  { to: 'calculator', label: 'Scoring rules' },
   { to: 'stories', label: 'Success stories' },
+  { to: 'announcements', label: 'Announcements' },
   { to: 'users', label: 'Users' },
+  { to: 'analytics', label: 'Analytics' },
 ]
 
 export default function Admin() {
@@ -52,7 +56,9 @@ export default function Admin() {
         <Route index element={<Navigate to="calculator" replace />} />
         <Route path="calculator" element={<AdminCalculator />} />
         <Route path="stories" element={<AdminStories />} />
+        <Route path="announcements" element={<AdminAnnouncements />} />
         <Route path="users" element={<AdminUsers />} />
+        <Route path="analytics" element={<AdminAnalytics />} />
       </Routes>
     </div>
   )

@@ -8,66 +8,96 @@ export function calculate(cfg: CalcConfig, sel: CalcSelection): CalcResult {
     .map((id) => cfg.processes.find((p) => p.id === id))
     .filter((p): p is NonNullable<typeof p> => !!p)
 
-  const baselinePerWafer = machine.baselineCostPerWafer
-  const baselineMonthly = baselinePerWafer * sel.wafersPerMonth
+  const { costPerWafer, volumePerMonth, costOfExcursion } = sel.business
+  const { yieldPct, scrapRate, downtimePct } = sel.operational
 
-  // Aggregate optimization from selected processes with diminishing returns
+  // Diminishing returns on combined optimization factors
   const aggregateOpt = processes.reduce((acc, p) => acc + p.optimizationFactor * (1 - acc), 0)
-  const yieldUplift = processes.reduce((acc, p) => acc + p.yieldUpliftPct, 0)
 
-  // Parameter-driven adjustment: lower variance/offset -> better optimization
+  // Parameter-driven boost — lower variance/offset improves optimization
   let paramBoost = 0
   for (const p of machine.params) {
     const val = sel.params[p.key] ?? p.default
-    // Normalized 0..1 where lower-than-default is better; for metrics like sampleRate higher is better — we approximate with absolute distance
-    const range = p.max - p.min
-    const norm = 1 - (val - p.min) / range // 1 when val==min, 0 when val==max
+    const norm = 1 - (val - p.min) / (p.max - p.min)
     paramBoost += Math.max(-0.03, Math.min(0.04, (norm - 0.5) * 0.08))
   }
   paramBoost = Math.max(-0.05, Math.min(0.08, paramBoost))
-
   const effectiveOpt = Math.max(0, Math.min(0.6, aggregateOpt + paramBoost))
 
-  const optimizedPerWafer = baselinePerWafer * (1 - effectiveOpt)
-  const optimizedMonthly = optimizedPerWafer * sel.wafersPerMonth
+  // Diminishing-returns damping on summed per-process contributions.
+  const damp = (total: number) => total * (1 - Math.min(0.3, total * 0.02))
+  const yieldImprovementPct = damp(processes.reduce((a, p) => a + p.yieldUpliftPct, 0))
+  // Baseline scrap caps how much reduction is achievable — can't reduce more than ~70% of what's there.
+  const rawScrapReduction = damp(processes.reduce((a, p) => a + p.scrapReductionPct, 0))
+  const scrapReductionPct = Math.min(rawScrapReduction, scrapRate * 0.7)
+  const downtimeReductionPct = damp(processes.reduce((a, p) => a + p.downtimeReductionPct, 0))
 
-  // Yield uplift adds extra good wafers, contributing to additional savings from avoided scrap
-  const scrapSavings = (yieldUplift / 100) * baselineMonthly * 0.35
+  // Financial impact
+  const baselineMonthlySpend = costPerWafer * volumePerMonth
+  const directCostSavings = baselineMonthlySpend * effectiveOpt * 0.35
+  const scrapSavings = (scrapReductionPct / 100) * baselineMonthlySpend * 0.45
+  // Excursion avoidance — assume 1 excursion / 6 months baseline, scrap reduction scales probability down
+  const monthlyExcursionBase = costOfExcursion / 6
+  const excursionAvoidance = monthlyExcursionBase * Math.min(0.9, scrapReductionPct / 10)
+  // Yield uplift — additional revenue from extra good wafers
+  const yieldRevenue = (yieldImprovementPct / 100) * volumePerMonth * cfg.globals.waferRevenue * 0.25
 
-  const throughputProcess = processes.find((p) => p.id === 'p-throughput')
-  const throughputUplift = throughputProcess ? 0.18 : 0
+  const grossMonthly = directCostSavings + scrapSavings + excursionAvoidance + yieldRevenue
+  const fee = grossMonthly * cfg.globals.serviceFeePct
+  const monthlySavings = grossMonthly - fee
+  const annualSavings = monthlySavings * 12
 
-  const grossSavings = (baselineMonthly - optimizedMonthly) + scrapSavings
-  const fee = grossSavings * cfg.globals.serviceFeePct
-  const netSavingsMonthly = grossSavings - fee
-  const netSavingsAnnual = netSavingsMonthly * 12
+  // Operational impact
+  const fasterDetectionHrs = Math.round(downtimeReductionPct * 6 + scrapReductionPct * 0.8)
+  const manualEffortReductionHrs = Math.round(processes.length * 18 + effectiveOpt * 40)
 
-  // Crude payback: assume one-time engagement cost = 2 months of fee run-rate + $35k
   const engagementCost = fee * 2 + 35000
-  const paybackMonths = netSavingsMonthly > 0 ? engagementCost / netSavingsMonthly : 99
+  const paybackMonths = monthlySavings > 0 ? engagementCost / monthlySavings : 99
 
   const score = Math.round(
-    Math.max(0, Math.min(100,
-      (effectiveOpt * 180) + (yieldUplift * 4) + (throughputUplift * 80) - (paybackMonths > 12 ? 10 : 0)
-    ))
+    Math.max(
+      0,
+      Math.min(
+        100,
+        effectiveOpt * 140 +
+          yieldImprovementPct * 3 +
+          scrapReductionPct * 2 +
+          downtimeReductionPct * 2 +
+          (yieldPct < 85 ? 8 : 0) +
+          (scrapRate > 3 ? 5 : 0) +
+          (downtimePct > 6 ? 6 : 0) -
+          (paybackMonths > 12 ? 10 : 0),
+      ),
+    ),
   )
 
   const breakdown = [
-    { label: 'Process cost reduction', value: baselineMonthly - optimizedMonthly },
-    { label: 'Scrap avoidance from yield', value: scrapSavings },
-    { label: 'Axiom service fee', value: -fee },
+    { label: 'Direct process cost reduction', value: directCostSavings },
+    { label: 'Scrap avoidance', value: scrapSavings },
+    { label: 'Excursion avoidance', value: excursionAvoidance },
+    { label: 'Incremental yield revenue', value: yieldRevenue },
+    { label: 'Sigenic service fee', value: -fee },
   ]
 
   return {
     input: sel,
-    baselineCostMonthly: baselineMonthly,
-    optimizedCostMonthly: optimizedMonthly,
-    savingsMonthly: netSavingsMonthly,
-    savingsAnnual: netSavingsAnnual,
-    yieldUpliftPct: yieldUplift,
-    throughputUpliftPct: throughputUplift * 100,
+    yieldImprovementPct,
+    scrapReductionPct,
+    downtimeReductionPct,
+    monthlySavings,
+    annualSavings,
+    fasterDetectionHrs,
+    manualEffortReductionHrs,
     paybackMonths,
     score,
     breakdown,
   }
+}
+
+export function defaultOperational(): CalcSelection['operational'] {
+  return { yieldPct: 82, defectRate: 0.6, throughput: 95, scrapRate: 3.2, downtimePct: 8 }
+}
+
+export function defaultBusiness(): CalcSelection['business'] {
+  return { costPerWafer: 550, volumePerMonth: 8000, costOfExcursion: 450000 }
 }

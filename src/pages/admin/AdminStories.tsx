@@ -25,6 +25,7 @@ export default function AdminStories() {
       partner: '',
       industry: '',
       region: '',
+      theme: 'yield',
       metrics: [
         { label: 'Metric A', value: '' },
         { label: 'Metric B', value: '' },

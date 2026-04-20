@@ -49,6 +49,8 @@ export default function AdminCalculator() {
       complexity: 2,
       optimizationFactor: 0.1,
       yieldUpliftPct: 1,
+      scrapReductionPct: 0.5,
+      downtimeReductionPct: 0.3,
       compatibleMachines: [],
     }
     change((c) => ({ ...c, processes: [...c.processes, p] }))

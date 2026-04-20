@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, CheckCircle2, MessageCircle, XCircle } from 'lucide-react'
-import { load, save, uid } from '../lib/storage'
+import { load, save } from '../lib/storage'
 import type { Ticket, TicketStatus } from '../lib/types'
 import { seedTickets } from '../lib/seed'
 import { Badge } from '../components/Badge'
@@ -9,6 +9,7 @@ import { Avatar } from '../components/Avatar'
 import { DescRow } from '../components/DescRow'
 import { fmtDateTime, fmtRelative } from '../lib/format'
 import { useAuth } from '../lib/auth'
+import { makeAgentMsg, makeUserMsg } from '../lib/tickets'
 
 export default function TicketDetail() {
   const { id } = useParams<{ id: string }>()
@@ -61,11 +62,8 @@ export default function TicketDetail() {
     updateTicket((t) => ({
       ...t,
       updatedAt: now,
-      status: t.status === 'solved' || t.status === 'closed' ? 'open' : t.status,
-      messages: [
-        ...t.messages,
-        { id: uid('m'), author: user?.name ?? 'You', authorRole: 'you', body: reply.trim(), createdAt: now },
-      ],
+      status: t.status === 'resolved' || t.status === 'closed' ? 'open' : t.status,
+      messages: [...t.messages, makeUserMsg(user?.name ?? 'You', reply.trim(), now)],
     }))
     setReply('')
     laterTimer(1200, () => {
@@ -73,16 +71,10 @@ export default function TicketDetail() {
       updateTicket((t) => ({
         ...t,
         updatedAt: at,
-        status: 'pending',
+        status: 'in_progress',
         messages: [
           ...t.messages,
-          {
-            id: uid('m'),
-            author: 'Axiom Support',
-            authorRole: 'agent',
-            body: 'Thanks — looking at this now, we will follow up shortly with more details.',
-            createdAt: at,
-          },
+          makeAgentMsg('Sigenic Support', 'Thanks — looking at this now, we will follow up shortly with more details.', at),
         ],
       }))
     })
@@ -101,9 +93,9 @@ export default function TicketDetail() {
           <ArrowLeft size={12} /> Back to tickets
         </Link>
         <div className="flex items-center gap-1.5">
-          {ticket.status !== 'solved' && (
-            <button onClick={() => setStatus('solved')} className="btn-outline h-8 text-[12px]">
-              <CheckCircle2 size={12} /> Mark solved
+          {ticket.status !== 'resolved' && (
+            <button onClick={() => setStatus('resolved')} className="btn-outline h-8 text-[12px]">
+              <CheckCircle2 size={12} /> Mark resolved
             </button>
           )}
           {ticket.status !== 'closed' && (
@@ -130,10 +122,11 @@ export default function TicketDetail() {
               {ticket.subject}
             </h1>
             <div className="mt-3 flex items-center gap-2 flex-wrap">
-              <Badge tone={ticket.status} dot>{ticket.status}</Badge>
+              <Badge tone={ticket.status} dot />
               <Badge tone={ticket.priority}>{ticket.priority}</Badge>
+              {ticket.customerImpact && <Badge tone={ticket.customerImpact}>{ticket.customerImpact} impact</Badge>}
               <span className="text-[11px] font-mono text-faint dark:text-faint-dark uppercase tracking-[0.12em]">
-                {ticket.category}
+                {ticket.category} · {ticket.productArea ?? 'unassigned'}
               </span>
               {ticket.tags.map((t) => (
                 <span key={t} className="text-[10.5px] font-mono text-muted dark:text-muted-dark px-1.5 py-0.5 rounded bg-raised dark:bg-raised-dark">
@@ -198,6 +191,9 @@ export default function TicketDetail() {
               <DescRow k="Requester" v={ticket.requester} />
               <DescRow k="Assignee" v={ticket.assignee ?? '—'} />
               <DescRow k="Category" v={<span className="capitalize">{ticket.category}</span>} />
+              <DescRow k="Product area" v={ticket.productArea ?? '—'} />
+              <DescRow k="Impact" v={<span className="capitalize">{ticket.customerImpact ?? '—'}</span>} />
+              <DescRow k="Source" v={<span className="font-mono text-[11.5px]">{ticket.source ?? 'portal'}</span>} />
               <DescRow k="Created" v={<span className="font-mono text-[11.5px]">{fmtDateTime(ticket.createdAt)}</span>} />
               <DescRow k="Updated" v={<span className="font-mono text-[11.5px]">{fmtRelative(ticket.updatedAt)}</span>} />
             </dl>

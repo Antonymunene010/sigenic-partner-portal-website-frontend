@@ -12,10 +12,10 @@ export function WordMark() {
   return (
     <div className="flex items-center gap-2">
       <Logo size={22} />
-      <div className="flex items-baseline gap-[5px] leading-none">
-        <span className="font-semibold tracking-tightest text-[15px]">Axiom</span>
-        <span className="text-[11px] font-mono uppercase tracking-[0.16em] text-muted dark:text-muted-dark">
-          Foundry
+      <div className="flex items-baseline gap-[6px] leading-none">
+        <span className="font-semibold tracking-tightest text-[15px]">Sigenic</span>
+        <span className="text-[10px] font-mono uppercase tracking-[0.16em] text-muted dark:text-muted-dark">
+          Partner
         </span>
       </div>
     </div>
