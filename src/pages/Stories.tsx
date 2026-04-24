@@ -30,7 +30,7 @@ export default function Stories() {
         eyebrow="Success stories · partner outcomes"
         title={
           <>
-            Results, not <span className="font-serif italic font-normal">ambition.</span>
+            Results, not <span className="text-accent">ambition.</span>
           </>
         }
         description="A living archive of measurable outcomes from partnerships across the APAC region. Each case includes the tools, processes, and payback economics."
@@ -92,7 +92,7 @@ export default function Stories() {
                 <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/50">
                   Case · {featured.id.toUpperCase()}
                 </div>
-                <div className="mt-1 font-serif italic text-[28px] leading-tight text-accent">
+                <div className="mt-1 text-[22px] md:text-[24px] font-medium leading-snug text-accent tracking-tight">
                   "{featured.summary.split('.')[0]}."
                 </div>
                 <div className="mt-4 text-[11px] font-mono text-white/40">

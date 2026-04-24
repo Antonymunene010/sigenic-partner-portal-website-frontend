@@ -72,7 +72,7 @@ export default function Login() {
             <div className="eyebrow mb-5 text-white/60 before:bg-white/30">Sigenic · Singapore</div>
             <h1 className="text-[44px] lg:text-[56px] leading-[0.98] font-semibold tracking-tightest text-balance">
               The quiet{' '}
-              <span className="font-serif italic font-normal text-accent">instruments</span>
+              <span className="text-accent">instruments</span>
               <br />
               behind your yield.
             </h1>

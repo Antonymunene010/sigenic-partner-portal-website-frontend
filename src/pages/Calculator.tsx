@@ -126,7 +126,7 @@ export default function Calculator() {
         eyebrow="Score calculator · self-service ROI engine"
         title={
           <>
-            Model your next <span className="font-serif italic font-normal">engagement</span>.
+            Model your next <span className="text-accent">engagement</span>.
           </>
         }
         description="Pick a fab, department, machine and processes — then feed in your baseline yield, scrap, and downtime to estimate Sigenic-driven impact. Results can be turned into a tracked consultation request."

@@ -55,13 +55,15 @@ export default {
       fontFamily: {
         sans: ['Geist', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         mono: ['"Geist Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
-        serif: ['"Instrument Serif"', 'ui-serif', 'Georgia', 'serif'],
       },
       fontSize: {
         '2xs': ['10px', { lineHeight: '14px', letterSpacing: '0.04em' }],
       },
       letterSpacing: {
         tightest: '-0.03em',
+      },
+      backgroundImage: {
+        'accent-glow': 'radial-gradient(circle, #CCFF00 0%, transparent 60%)',
       },
       boxShadow: {
         hairline: '0 0 0 1px rgba(10,10,10,0.06)',

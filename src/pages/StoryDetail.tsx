@@ -54,7 +54,7 @@ export default function StoryDetail() {
           <div className="absolute inset-0 bg-grid opacity-30" />
           <div className="relative">
             <div className="text-2xs uppercase tracking-[0.12em] text-white/50 dark:text-muted-dark">Engagement</div>
-            <div className="mt-3 font-serif italic text-[24px] leading-tight text-accent">ongoing</div>
+            <div className="mt-3 text-[22px] font-medium leading-snug text-accent tracking-tight">ongoing</div>
             <div className="mt-2 text-[11px] font-mono text-white/40 dark:text-faint-dark uppercase tracking-[0.1em]">
               Renews quarterly
             </div>

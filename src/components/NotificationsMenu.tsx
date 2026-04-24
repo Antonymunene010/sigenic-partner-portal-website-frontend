@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Bell, Check, CheckCheck, Megaphone, LifeBuoy, BookOpen } from 'lucide-react'
 import clsx from 'clsx'
 import { useNotifications } from '../lib/notifications'
+import { useOutsideClick } from '../lib/useOutsideClick'
 import type { NotificationKind } from '../lib/types'
 import { fmtRelative } from '../lib/format'
 
@@ -16,15 +17,7 @@ export function NotificationsMenu() {
   const { items, unread, markRead, markAllRead } = useNotifications()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
-  }, [open])
+  useOutsideClick(ref, open, () => setOpen(false))
 
   return (
     <div className="relative" ref={ref}>
