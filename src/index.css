@@ -5,9 +5,11 @@
 @layer base {
   :root {
     color-scheme: light;
+    --emphasis: 61 82 0;
   }
   html.dark {
     color-scheme: dark;
+    --emphasis: 204 255 0;
   }
   html,
   body,

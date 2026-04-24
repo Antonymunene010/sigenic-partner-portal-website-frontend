@@ -140,7 +140,7 @@ export default function Services() {
                       }`}
                       aria-pressed={on}
                     >
-                      <i.icon size={16} className={`mt-0.5 shrink-0 ${on ? 'text-accent' : 'text-muted dark:text-muted-dark'}`} />
+                      <i.icon size={16} className={`mt-0.5 shrink-0 ${on ? 'text-emphasis' : 'text-muted dark:text-muted-dark'}`} />
                       <span>
                         <span className="text-[13.5px] font-medium block">{i.title}</span>
                         <span className="text-[11.5px] text-muted dark:text-muted-dark leading-snug block mt-0.5">{i.blurb}</span>
@@ -211,7 +211,7 @@ export default function Services() {
           <aside className="space-y-4">
             <div className="card p-5">
               <div className="flex items-center gap-2">
-                <active.icon size={14} className="text-accent" />
+                <active.icon size={14} className="text-emphasis" />
                 <div className="text-[13px] font-medium">What to expect</div>
               </div>
               <ol className="mt-3 space-y-2.5 text-[12.5px] text-muted dark:text-muted-dark leading-relaxed">

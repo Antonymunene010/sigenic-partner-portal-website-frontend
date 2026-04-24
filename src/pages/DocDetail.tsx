@@ -5,6 +5,7 @@ import { load } from '../lib/storage'
 import type { Doc } from '../lib/types'
 import { seedDocs } from '../lib/seed'
 import { fmtRelative } from '../lib/format'
+import { Markdown } from '../components/Markdown'
 
 export default function DocDetail() {
   const { slug } = useParams<{ slug: string }>()
@@ -32,8 +33,8 @@ export default function DocDetail() {
         <span>updated {fmtRelative(doc.updatedAt)}</span>
       </div>
 
-      <article className="mt-10 text-[15.5px] leading-[1.75] text-ink dark:text-ink-dark whitespace-pre-wrap text-pretty">
-        {doc.body}
+      <article className="mt-10 text-[15.5px] text-ink dark:text-ink-dark text-pretty">
+        <Markdown source={doc.body} />
       </article>
     </div>
   )

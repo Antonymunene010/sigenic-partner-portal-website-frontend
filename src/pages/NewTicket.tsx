@@ -189,7 +189,7 @@ export default function NewTicket() {
                         to={`/app/docs/${d.slug}`}
                         className="group flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-raised dark:hover:bg-raised-dark"
                       >
-                        <BookOpen size={12} className="mt-0.5 shrink-0 text-muted dark:text-muted-dark group-hover:text-accent transition" />
+                        <BookOpen size={12} className="mt-0.5 shrink-0 text-muted dark:text-muted-dark group-hover:text-emphasis transition" />
                         <div className="flex-1 min-w-0">
                           <div className="text-[12.5px] font-medium leading-snug">{d.title}</div>
                           <div className="text-[10.5px] font-mono uppercase tracking-[0.1em] text-faint dark:text-faint-dark mt-0.5">

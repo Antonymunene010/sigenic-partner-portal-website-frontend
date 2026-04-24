@@ -178,7 +178,7 @@ export default function Login() {
                   className="group text-left rounded-md border border-line dark:border-line-dark px-3 py-2.5 hover:border-ink dark:hover:border-ink-dark transition"
                 >
                   <div className="flex items-center gap-1.5">
-                    <Sparkles size={12} className="text-muted dark:text-muted-dark group-hover:text-accent" />
+                    <Sparkles size={12} className="text-muted dark:text-muted-dark group-hover:text-emphasis" />
                     <div className="text-[12px] font-medium">Partner</div>
                   </div>
                   <div className="text-[10px] font-mono text-faint dark:text-faint-dark mt-0.5">
@@ -190,7 +190,7 @@ export default function Login() {
                   className="group text-left rounded-md border border-line dark:border-line-dark px-3 py-2.5 hover:border-ink dark:hover:border-ink-dark transition"
                 >
                   <div className="flex items-center gap-1.5">
-                    <ShieldCheck size={12} className="text-muted dark:text-muted-dark group-hover:text-accent" />
+                    <ShieldCheck size={12} className="text-muted dark:text-muted-dark group-hover:text-emphasis" />
                     <div className="text-[12px] font-medium">Admin</div>
                   </div>
                   <div className="text-[10px] font-mono text-faint dark:text-faint-dark mt-0.5">

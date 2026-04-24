@@ -105,7 +105,7 @@ export default function StoryDetail() {
               <div className="mt-2 text-[14px] font-medium leading-snug text-balance">{s.title}</div>
               <div className="mt-3 flex items-center justify-between text-[11px] font-mono text-faint dark:text-faint-dark uppercase tracking-[0.1em]">
                 <span>{s.partner}</span>
-                <ArrowUpRight size={12} className="group-hover:text-accent transition" />
+                <ArrowUpRight size={12} className="group-hover:text-emphasis transition" />
               </div>
             </Link>
           ))}

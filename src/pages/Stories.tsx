@@ -30,7 +30,7 @@ export default function Stories() {
         eyebrow="Success stories · partner outcomes"
         title={
           <>
-            Results, not <span className="text-accent">ambition.</span>
+            Results, not <span className="text-emphasis">ambition.</span>
           </>
         }
         description="A living archive of measurable outcomes from partnerships across the APAC region. Each case includes the tools, processes, and payback economics."
@@ -78,7 +78,7 @@ export default function Stories() {
                 <span className="opacity-40">·</span>
                 <span>{fmtDate(featured.publishedAt)}</span>
               </div>
-              <div className="absolute top-6 right-6 text-muted dark:text-muted-dark group-hover:text-accent transition">
+              <div className="absolute top-6 right-6 text-muted dark:text-muted-dark group-hover:text-emphasis transition">
                 <ArrowUpRight size={18} />
               </div>
             </div>
@@ -128,7 +128,7 @@ export default function Stories() {
             </div>
             <div className="mt-auto pt-4 flex items-center justify-between text-[11px] font-mono text-faint dark:text-faint-dark uppercase tracking-[0.1em]">
               <span>{s.partner}</span>
-              <ArrowUpRight size={13} className="text-faint dark:text-faint-dark group-hover:text-accent transition" />
+              <ArrowUpRight size={13} className="text-faint dark:text-faint-dark group-hover:text-emphasis transition" />
             </div>
           </Link>
         ))}

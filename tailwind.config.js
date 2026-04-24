@@ -46,6 +46,9 @@ export default {
           dim: '#A8D400',
           ink: '#0A0A0A', // text color on accent bg
         },
+        // Emphasis — readable on both surfaces (dark olive on light, lime on dark).
+        // CSS var holds space-separated RGB so Tailwind can compose opacity variants (text-emphasis/50, bg-emphasis/10).
+        emphasis: 'rgb(var(--emphasis) / <alpha-value>)',
         // Semantic
         success: '#10B981',
         warn: '#F59E0B',

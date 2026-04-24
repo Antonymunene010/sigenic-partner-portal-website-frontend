@@ -143,8 +143,8 @@ export default function AdminStories() {
                 <td className="text-[12.5px] text-muted dark:text-muted-dark">{s.industry}</td>
                 <td className="text-[11.5px] font-mono text-muted dark:text-muted-dark">{fmtDate(s.publishedAt)}</td>
                 <td>
-                  <button onClick={() => feature(s.id)} className={`w-7 h-7 flex items-center justify-center rounded-md ${s.featured ? 'text-accent bg-accent/10' : 'text-faint dark:text-faint-dark hover:text-ink dark:hover:text-ink-dark'}`}>
-                    <Star size={13} fill={s.featured ? '#CCFF00' : 'none'} />
+                  <button onClick={() => feature(s.id)} className={`w-7 h-7 flex items-center justify-center rounded-md ${s.featured ? 'text-emphasis bg-emphasis/10' : 'text-faint dark:text-faint-dark hover:text-ink dark:hover:text-ink-dark'}`}>
+                    <Star size={13} fill={s.featured ? 'currentColor' : 'none'} />
                   </button>
                 </td>
                 <td className="text-right pr-3">

@@ -88,7 +88,7 @@ export default function Docs() {
                     to={`/app/docs/${d.slug}`}
                     className="flex items-start gap-4 px-4 py-3.5 hover:bg-raised/60 dark:hover:bg-raised-dark/60 transition group"
                   >
-                    <BookOpen size={14} strokeWidth={1.75} className="mt-1 text-faint dark:text-faint-dark group-hover:text-accent transition" />
+                    <BookOpen size={14} strokeWidth={1.75} className="mt-1 text-faint dark:text-faint-dark group-hover:text-emphasis transition" />
                     <div className="flex-1 min-w-0">
                       <div className="text-[14px] font-medium text-ink dark:text-ink-dark">{d.title}</div>
                       <div className="mt-1 text-[12.5px] text-muted dark:text-muted-dark leading-relaxed line-clamp-2">

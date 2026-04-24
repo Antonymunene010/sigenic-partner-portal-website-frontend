@@ -166,7 +166,7 @@ export default function Dashboard() {
             title={
               <>
                 Results,{' '}
-                <span className="text-accent">not ambition.</span>
+                <span className="text-emphasis">not ambition.</span>
               </>
             }
             description="Selected outcomes from partnerships across APAC. Every case is measurable, recent, and reproducible — no marketing fluff."
@@ -207,7 +207,7 @@ export default function Dashboard() {
                 </div>
                 <ArrowUpRight
                   size={20}
-                  className="absolute top-6 right-6 text-muted dark:text-muted-dark group-hover:text-accent transition"
+                  className="absolute top-6 right-6 text-muted dark:text-muted-dark group-hover:text-emphasis transition"
                 />
               </div>
               <div className="md:col-span-2 relative bg-ink dark:bg-canvas-dark overflow-hidden min-h-[280px] md:min-h-full">
@@ -259,7 +259,7 @@ export default function Dashboard() {
                   <span>{s.partner}</span>
                   <ArrowUpRight
                     size={13}
-                    className="group-hover:text-accent transition"
+                    className="group-hover:text-emphasis transition"
                   />
                 </div>
               </Link>
@@ -274,25 +274,28 @@ export default function Dashboard() {
           title={
             <>
               The network{' '}
-              <span className="text-accent">behind the yield.</span>
+              <span className="text-emphasis">behind the yield.</span>
             </>
           }
           description={`${PARTNER_LOGOS.length} active partners across logic, memory, foundry services, and specialty — from Tuas to Hsinchu to Dresden.`}
         />
 
-        <div className="mt-10 card relative overflow-hidden">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 divide-x divide-y divide-line/70 dark:divide-line-dark/70">
+        <div className="mt-10 card-raised relative overflow-hidden">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 divide-x divide-y divide-line dark:divide-line-dark">
             {PARTNER_LOGOS.map((p) => {
               const Render = p.render
               return (
                 <div
                   key={p.id}
-                  className="group relative h-24 flex items-center justify-center px-4 transition"
+                  className="group relative h-32 flex flex-col items-center justify-center gap-2 px-5 transition hover:bg-raised/50 dark:hover:bg-raised-dark/50"
                   title={`${p.name} · ${p.industry} · ${p.region}`}
                 >
-                  <Render className="h-6 w-auto text-muted dark:text-muted-dark group-hover:text-ink dark:group-hover:text-ink-dark transition" />
+                  <Render className="h-9 w-auto text-ink/85 dark:text-ink-dark/90 group-hover:text-ink dark:group-hover:text-ink-dark transition" />
+                  <div className="text-[9.5px] font-mono uppercase tracking-[0.12em] text-faint dark:text-faint-dark group-hover:text-muted dark:group-hover:text-muted-dark transition">
+                    {p.industry}
+                  </div>
                   {p.tier === 'Strategic' && (
-                    <span className="absolute top-2 left-2 text-[8.5px] font-mono uppercase tracking-[0.12em] text-accent-ink bg-accent px-1 rounded-sm">
+                    <span className="absolute top-2.5 left-2.5 text-[8.5px] font-mono uppercase tracking-[0.12em] text-accent-ink bg-accent px-1.5 py-0.5 rounded-sm">
                       Strategic
                     </span>
                   )}
@@ -323,7 +326,7 @@ export default function Dashboard() {
           title={
             <>
               Pick the lane that{' '}
-              <span className="text-accent">looks like yours.</span>
+              <span className="text-emphasis">looks like yours.</span>
             </>
           }
           description="Each lane is a body of field-tested recipes, processes, and telemetry models. Browse by where your fab lives."
@@ -348,7 +351,7 @@ export default function Dashboard() {
                   <div className="eyebrow">{ind.name}</div>
                   <ArrowUpRight
                     size={14}
-                    className="text-faint dark:text-faint-dark group-hover:text-accent transition"
+                    className="text-faint dark:text-faint-dark group-hover:text-emphasis transition"
                   />
                 </div>
                 <div className="mt-4 flex items-baseline gap-2">
@@ -451,7 +454,7 @@ export default function Dashboard() {
           title={
             <>
               What's moving on{' '}
-              <span className="text-accent">your side this week.</span>
+              <span className="text-emphasis">your side this week.</span>
             </>
           }
           description="Personal to your account — tickets, invoices, and the things that need a nudge from you."
@@ -620,7 +623,7 @@ export default function Dashboard() {
                     <div className="mt-1 text-[12.5px] text-muted dark:text-muted-dark line-clamp-2 leading-relaxed">
                       {d.excerpt}
                     </div>
-                    <div className="mt-2 flex items-center gap-1 text-[11px] text-muted dark:text-muted-dark group-hover:text-accent transition">
+                    <div className="mt-2 flex items-center gap-1 text-[11px] text-muted dark:text-muted-dark group-hover:text-emphasis transition">
                       <span>Read</span>
                       <ArrowUpRight size={12} />
                     </div>
