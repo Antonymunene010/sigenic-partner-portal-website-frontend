@@ -17,33 +17,29 @@ export default function Login() {
     if (user) nav('/app', { replace: true })
   }, [user, nav])
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setLoading(true)
-    setTimeout(() => {
-      const res = login(email, password)
-      if (res.ok) nav('/app', { replace: true })
-      else {
-        setError(res.error ?? 'Login failed')
-        setLoading(false)
-      }
-    }, 350)
+    const res = await login(email, password)
+    if (res.ok) nav('/app', { replace: true })
+    else {
+      setError(res.error ?? 'Login failed')
+      setLoading(false)
+    }
   }
 
-  const quick = (who: 'partner@demo.com' | 'admin@demo.com') => {
+  const quick = async (who: 'partner@demo.com' | 'admin@demo.com') => {
     setEmail(who)
     setPassword('demo')
     setError(null)
     setLoading(true)
-    setTimeout(() => {
-      const res = login(who, 'demo')
-      if (res.ok) nav('/app', { replace: true })
-      else {
-        setError(res.error ?? 'Login failed')
-        setLoading(false)
-      }
-    }, 250)
+    const res = await login(who, 'demo')
+    if (res.ok) nav('/app', { replace: true })
+    else {
+      setError(res.error ?? 'Login failed')
+      setLoading(false)
+    }
   }
 
   return (

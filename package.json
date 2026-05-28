@@ -5,13 +5,18 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "backend": "node server/index.js",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "start": "node server/index.js",
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
     "clsx": "^2.1.1",
     "lucide-react": "^0.460.0",
+    "pg": "^8.13.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0"

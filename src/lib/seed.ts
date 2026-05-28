@@ -8,22 +8,22 @@ import type {
   Ticket,
   User,
 } from './types'
-import { load, save } from './storage'
+import { load, saveLocalOnly } from './storage'
 
 const SEED_VERSION = 7
 
 export function seedIfNeeded() {
   const cur = load<number>('seed.v', 0)
   if (cur === SEED_VERSION) return
-  save('seed.v', SEED_VERSION)
-  save('users', seedUsers)
-  save('tickets', seedTickets)
-  save('stories', seedStories)
-  save('docs', seedDocs)
-  save('invoices', seedInvoices)
-  save('calc', seedCalc)
-  save('announcements', seedAnnouncements)
-  save('notifications', seedNotifications)
+  saveLocalOnly('seed.v', SEED_VERSION)
+  saveLocalOnly('users', seedUsers)
+  saveLocalOnly('tickets', seedTickets)
+  saveLocalOnly('stories', seedStories)
+  saveLocalOnly('docs', seedDocs)
+  saveLocalOnly('invoices', seedInvoices)
+  saveLocalOnly('calc', seedCalc)
+  saveLocalOnly('announcements', seedAnnouncements)
+  saveLocalOnly('notifications', seedNotifications)
 }
 
 const iso = (daysAgo: number, hoursAgo = 0) =>

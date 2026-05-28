@@ -1,9 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './lib/auth'
 import { ThemeProvider } from './lib/theme'
 import { NotificationsProvider } from './lib/notifications'
 import { seedIfNeeded } from './lib/seed'
+import { bootstrapData } from './lib/api'
+import { WordMark } from './components/Logo'
 
 import Login from './pages/Login'
 import { AppLayout } from './components/AppLayout'
@@ -23,9 +25,26 @@ import Calculator from './pages/Calculator'
 import Admin from './pages/Admin'
 
 export default function App() {
+  const [ready, setReady] = useState(false)
+
   useEffect(() => {
     seedIfNeeded()
+    bootstrapData()
+      .catch(() => {
+        /* offline/demo mode keeps using local seed data */
+      })
+      .finally(() => setReady(true))
   }, [])
+
+  if (!ready) {
+    return (
+      <div className="min-h-screen bg-canvas dark:bg-canvas-dark text-ink dark:text-ink-dark flex items-center justify-center">
+        <div className="flex items-center gap-3 text-[12px] font-mono uppercase tracking-[0.12em] text-muted dark:text-muted-dark">
+          <WordMark /> Loading portal data…
+        </div>
+      </div>
+    )
+  }
 
   return (
     <ThemeProvider>

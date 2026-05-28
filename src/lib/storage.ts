@@ -1,5 +1,33 @@
 const PREFIX = 'pp.'
 
+const SERVER_KEYS = new Set([
+  'users',
+  'tickets',
+  'stories',
+  'docs',
+  'invoices',
+  'calc',
+  'calc.latest',
+  'announcements',
+  'notifications',
+])
+
+function apiBase(): string {
+  return (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+}
+
+function syncResource(key: string, value: unknown) {
+  if (!SERVER_KEYS.has(key) || typeof fetch !== 'function') return
+  void fetch(`${apiBase()}/api/resources/${encodeURIComponent(key)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ value }),
+    keepalive: JSON.stringify(value).length < 60000,
+  }).catch(() => {
+    /* backend is optional during local UI work */
+  })
+}
+
 export function load<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(PREFIX + key)
@@ -11,6 +39,11 @@ export function load<T>(key: string, fallback: T): T {
 }
 
 export function save<T>(key: string, value: T): void {
+  saveLocalOnly(key, value)
+  syncResource(key, value)
+}
+
+export function saveLocalOnly<T>(key: string, value: T): void {
   try {
     localStorage.setItem(PREFIX + key, JSON.stringify(value))
   } catch {

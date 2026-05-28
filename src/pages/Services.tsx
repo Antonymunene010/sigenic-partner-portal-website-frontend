@@ -8,6 +8,7 @@ import { PageHeader } from '../components/PageHeader'
 import { useAuth } from '../lib/auth'
 import { PRODUCT_AREAS as AREAS } from '../lib/constants'
 import { makeSystemMsg, makeUserMsg, systemRouted } from '../lib/tickets'
+import { submitTicket } from '../lib/api'
 
 type IntakeKind = Extract<TicketCategory, 'demo' | 'onboarding' | 'data' | 'consulting'>
 
@@ -95,6 +96,7 @@ export default function Services() {
       ],
     }
     save('tickets', [ticket, ...tickets])
+    void submitTicket(ticket)
     setDone(id)
   }
 

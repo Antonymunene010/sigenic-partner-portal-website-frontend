@@ -8,6 +8,7 @@ import { PageHeader } from '../components/PageHeader'
 import { useAuth } from '../lib/auth'
 import { CUSTOMER_IMPACTS as IMPACTS, PRODUCT_AREAS as AREAS, TICKET_PRIORITIES as PRIORITIES } from '../lib/constants'
 import { makeSystemMsg, makeUserMsg, systemRouted } from '../lib/tickets'
+import { submitTicket } from '../lib/api'
 
 const CATS: { id: TicketCategory; label: string; desc: string }[] = [
   { id: 'bug', label: 'Bug / Issue', desc: 'Something is broken, unexpected, or regressed.' },
@@ -75,6 +76,7 @@ export default function NewTicket() {
       ],
     }
     save('tickets', [ticket, ...tickets])
+    void submitTicket(ticket)
     setCreated(id)
   }
 

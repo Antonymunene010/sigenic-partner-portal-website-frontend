@@ -19,7 +19,8 @@ import { load, nextTicketId, save, uid } from '../lib/storage'
 import { makeSystemMsg, makeUserMsg, systemRouted } from '../lib/tickets'
 import type { CalcConfig, CalcResult, CalcSelection, Machine, Process, Ticket } from '../lib/types'
 import { seedCalc, seedTickets } from '../lib/seed'
-import { calculate, defaultBusiness, defaultOperational } from '../lib/calculator'
+import { defaultBusiness, defaultOperational } from '../lib/calculator'
+import { calculateWithApi, submitTicket } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { PageHeader } from '../components/PageHeader'
 import { DescRow } from '../components/DescRow'
@@ -105,12 +106,12 @@ export default function Calculator() {
   const toggleProcess = (id: string) =>
     setProcessIds((xs) => (xs.includes(id) ? xs.filter((v) => v !== id) : [...xs, id]))
 
-  const next = () => {
+  const next = async () => {
     if (step === 0 && (!fabId || !departmentId || !machineId)) return
     if (step === 1 && processIds.length === 0) return
     if (step === 3) {
       const sel: CalcSelection = { fabId, departmentId, machineId, processIds, params, operational, business }
-      const r = calculate(cfg, sel)
+      const r = await calculateWithApi(cfg, sel)
       setResult(r)
       save('calc.latest', { savingsAnnual: r.annualSavings, score: r.score, at: new Date().toISOString() })
       setStep(LAST_STEP)
@@ -518,6 +519,7 @@ function ResultView({
       ],
     }
     save('tickets', [ticket, ...tickets])
+    void submitTicket(ticket)
     nav(`/app/support/${id}`)
   }
 

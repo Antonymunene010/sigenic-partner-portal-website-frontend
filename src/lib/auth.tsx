@@ -2,10 +2,11 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { load, save, remove } from './storage'
 import type { User } from './types'
 import { seedUsers } from './seed'
+import { loginWithApi } from './api'
 
 interface AuthCtx {
   user: User | null
-  login: (email: string, password: string) => { ok: boolean; error?: string }
+  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>
   logout: () => void
   impersonate: (role: 'partner' | 'admin') => void
 }
@@ -20,15 +21,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     else remove('session')
   }, [user])
 
-  const login = (email: string, password: string) => {
-    const users = load<User[]>('users', seedUsers)
-    const found = users.find((u) => u.email.toLowerCase() === email.toLowerCase())
-    if (!found) return { ok: false, error: 'No account found for that email.' }
-    if (!found.active) return { ok: false, error: 'This account is deactivated.' }
-    // Demo: accept any non-empty password. Show hint on login page.
+  const login = async (email: string, password: string) => {
     if (!password) return { ok: false, error: 'Please enter a password.' }
-    setUser(found)
-    return { ok: true }
+    try {
+      const found = await loginWithApi(email, password)
+      setUser(found)
+      return { ok: true }
+    } catch {
+      const users = load<User[]>('users', seedUsers)
+      const found = users.find((u) => u.email.toLowerCase() === email.toLowerCase())
+      if (!found) return { ok: false, error: 'No account found for that email.' }
+      if (!found.active) return { ok: false, error: 'This account is deactivated.' }
+      setUser(found)
+      return { ok: true }
+    }
   }
 
   const logout = () => setUser(null)
