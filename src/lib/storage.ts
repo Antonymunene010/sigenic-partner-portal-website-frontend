@@ -10,6 +10,7 @@ const SERVER_KEYS = new Set([
   'calc.latest',
   'announcements',
   'notifications',
+  'ops',
 ])
 
 function apiBase(): string {

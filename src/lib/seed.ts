@@ -4,13 +4,14 @@ import type {
   Doc,
   Invoice,
   Notification,
+  OpsConfig,
   SuccessStory,
   Ticket,
   User,
 } from './types'
 import { load, saveLocalOnly } from './storage'
 
-const SEED_VERSION = 7
+const SEED_VERSION = 8
 
 export function seedIfNeeded() {
   const cur = load<number>('seed.v', 0)
@@ -24,6 +25,7 @@ export function seedIfNeeded() {
   saveLocalOnly('calc', seedCalc)
   saveLocalOnly('announcements', seedAnnouncements)
   saveLocalOnly('notifications', seedNotifications)
+  saveLocalOnly('ops', seedOps)
 }
 
 const iso = (daysAgo: number, hoursAgo = 0) =>
@@ -670,6 +672,253 @@ export const seedCalc: CalcConfig = {
       scrapReductionPct: 0.3,
       downtimeReductionPct: 3.2,
       compatibleMachines: ['mch-sg-etch-600', 'mch-sg-dep-300', 'mch-sg-litho-900', 'mch-sg-cmp-220'],
+    },
+  ],
+}
+
+const commonOnboarding = (done: string[]) => [
+  {
+    key: 'partner_created',
+    label: 'Partner created',
+    done: done.includes('partner_created'),
+    completedAt: done.includes('partner_created') ? iso(54) : undefined,
+  },
+  {
+    key: 'kickoff_completed',
+    label: 'Kickoff completed',
+    done: done.includes('kickoff_completed'),
+    completedAt: done.includes('kickoff_completed') ? iso(42) : undefined,
+  },
+  {
+    key: 'training_completed',
+    label: 'Training completed',
+    done: done.includes('training_completed'),
+    completedAt: done.includes('training_completed') ? iso(36) : undefined,
+  },
+  {
+    key: 'data_access_granted',
+    label: 'Data access granted',
+    done: done.includes('data_access_granted'),
+    completedAt: done.includes('data_access_granted') ? iso(31) : undefined,
+  },
+  {
+    key: 'zendesk_enabled',
+    label: 'Zendesk access enabled',
+    done: done.includes('zendesk_enabled'),
+    completedAt: done.includes('zendesk_enabled') ? iso(30) : undefined,
+  },
+  {
+    key: 'calculator_enabled',
+    label: 'Calculator enabled',
+    done: done.includes('calculator_enabled'),
+    completedAt: done.includes('calculator_enabled') ? iso(27) : undefined,
+  },
+]
+
+export const seedOps: OpsConfig = {
+  partners: [
+    {
+      id: 'partner-siliconpeak',
+      name: 'SiliconPeak Labs',
+      status: 'active',
+      tier: 'plus',
+      primaryContact: 'Wei Tan',
+      billingContact: 'Wei Tan',
+      sites: [
+        { id: 'site-tuas-1', name: 'Tuas 1', region: 'Singapore', fabs: ['SG · Tuas 1', 'SG · Woodlands'] },
+      ],
+      permissions: {
+        calculator: true,
+        case_studies: true,
+        service_requests: true,
+        billing: true,
+        zendesk: true,
+      },
+      contractStart: iso(310),
+      renewalDate: '2026-10-01T00:00:00.000Z',
+      serviceTier: 'APAC · Partner Plus',
+      subscriptionType: 'Optimization subscription',
+      trial: false,
+      onboarding: commonOnboarding([
+        'partner_created',
+        'kickoff_completed',
+        'training_completed',
+        'data_access_granted',
+        'zendesk_enabled',
+        'calculator_enabled',
+      ]),
+    },
+    {
+      id: 'partner-novacell',
+      name: 'NovaCell Systems',
+      status: 'active',
+      tier: 'strategic',
+      primaryContact: 'Karen Lim',
+      billingContact: 'Finance Ops',
+      sites: [{ id: 'site-hsinchu-7', name: 'Hsinchu 7', region: 'Taiwan', fabs: ['TW · Hsinchu'] }],
+      permissions: {
+        calculator: true,
+        case_studies: true,
+        service_requests: true,
+        billing: false,
+        zendesk: true,
+      },
+      contractStart: iso(190),
+      renewalDate: '2027-01-15T00:00:00.000Z',
+      serviceTier: 'Strategic yield program',
+      subscriptionType: 'Enterprise MSA',
+      trial: false,
+      onboarding: commonOnboarding([
+        'partner_created',
+        'kickoff_completed',
+        'training_completed',
+        'data_access_granted',
+        'zendesk_enabled',
+      ]),
+    },
+    {
+      id: 'partner-quantex',
+      name: 'Quantex Semiconductors',
+      status: 'onboarding',
+      tier: 'standard',
+      primaryContact: 'Daniel Ong',
+      billingContact: 'Daniel Ong',
+      sites: [{ id: 'site-johor-pilot', name: 'Johor pilot', region: 'Malaysia', fabs: ['MY · Johor'] }],
+      permissions: {
+        calculator: true,
+        case_studies: false,
+        service_requests: true,
+        billing: false,
+        zendesk: true,
+      },
+      contractStart: iso(36),
+      renewalDate: '2026-12-20T00:00:00.000Z',
+      serviceTier: 'Pilot advisory',
+      subscriptionType: '90-day pilot',
+      trial: true,
+      onboarding: commonOnboarding(['partner_created', 'kickoff_completed', 'zendesk_enabled']),
+    },
+    {
+      id: 'partner-aperture',
+      name: 'Aperture Wafer Co.',
+      status: 'inactive',
+      tier: 'trial',
+      primaryContact: 'Marta Gomez',
+      billingContact: 'Marta Gomez',
+      sites: [{ id: 'site-aperture-tw', name: 'Aperture Taiwan', region: 'Taiwan', fabs: ['TW · Hsinchu'] }],
+      permissions: {
+        calculator: false,
+        case_studies: true,
+        service_requests: false,
+        billing: false,
+        zendesk: false,
+      },
+      contractStart: iso(430),
+      renewalDate: '2026-06-30T00:00:00.000Z',
+      serviceTier: 'Trial archive',
+      subscriptionType: 'Expired trial',
+      trial: true,
+      onboarding: commonOnboarding(['partner_created']),
+    },
+  ],
+  knowledge: seedDocs.map((doc, index) => ({
+    docId: doc.id,
+    owner: index % 2 === 0 ? 'Support Ops' : 'Product',
+    status: index === 7 ? 'review_needed' : 'approved',
+    featured: index < 3,
+    reviewDue: iso(index === 7 ? 5 : -(30 + index * 8)),
+    visibleTo: index % 3 === 0 ? ['strategic', 'plus'] : ['trial', 'standard', 'plus', 'strategic'],
+    tags: doc.keywords.slice(0, 4),
+  })),
+  workflows: [
+    {
+      id: 'demo',
+      label: 'Demo request',
+      enabled: true,
+      route: 'sales',
+      ownerRole: 'Sales admin',
+      requiredFields: ['product area', 'facility', 'timeframe', 'format'],
+      zendeskTags: ['demo', 'partner_portal'],
+    },
+    {
+      id: 'onboarding',
+      label: 'Feature onboarding',
+      enabled: true,
+      route: 'ops',
+      ownerRole: 'Customer success',
+      requiredFields: ['feature', 'team', 'timeline'],
+      zendeskTags: ['onboarding', 'enablement'],
+    },
+    {
+      id: 'data',
+      label: 'Data analysis request',
+      enabled: true,
+      route: 'ops',
+      ownerRole: 'Analytics lead',
+      requiredFields: ['signals', 'lots', 'time window', 'question'],
+      zendeskTags: ['data_analysis', 'partner_portal'],
+    },
+    {
+      id: 'consulting',
+      label: 'Consulting / advisory',
+      enabled: true,
+      route: 'sales',
+      ownerRole: 'Solutions lead',
+      requiredFields: ['scope', 'constraints', 'stakeholders'],
+      zendeskTags: ['consulting', 'roi'],
+    },
+    {
+      id: 'feature',
+      label: 'Feature request',
+      enabled: true,
+      route: 'zendesk',
+      ownerRole: 'Product triage',
+      requiredFields: ['problem', 'desired outcome', 'impact'],
+      zendeskTags: ['feature_request'],
+    },
+    {
+      id: 'bug',
+      label: 'Bug / issue',
+      enabled: true,
+      route: 'zendesk',
+      ownerRole: 'Support admin',
+      requiredFields: ['tool ID', 'lot number', 'steps to reproduce'],
+      zendeskTags: ['support', 'bug'],
+    },
+    {
+      id: 'support',
+      label: 'General support',
+      enabled: true,
+      route: 'zendesk',
+      ownerRole: 'Support admin',
+      requiredFields: ['question', 'product area'],
+      zendeskTags: ['support'],
+    },
+  ],
+  audit: [
+    {
+      id: 'audit-001',
+      actor: 'Priya Nair',
+      action: 'Updated score rule',
+      target: 'Excursion early-warning',
+      details: 'Raised scrap reduction assumption from 3.4% to 4.0%.',
+      createdAt: iso(2, 3),
+    },
+    {
+      id: 'audit-002',
+      actor: 'Priya Nair',
+      action: 'Published announcement',
+      target: 'Portal v0.9',
+      details: 'Notified partners about calculator updates.',
+      createdAt: iso(2),
+    },
+    {
+      id: 'audit-003',
+      actor: 'Support Ops',
+      action: 'Featured article',
+      target: 'Overlay drift after scanner firmware 2.4.1',
+      details: 'Pinned known issue after support spike.',
+      createdAt: iso(1, 5),
     },
   ],
 }

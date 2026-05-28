@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Plus, Save, Trash2, RotateCcw } from 'lucide-react'
 import { load, save, uid } from '../../lib/storage'
-import type { CalcConfig, Machine, Process } from '../../lib/types'
+import type { CalcConfig, Department, Machine, MachineParam, Process } from '../../lib/types'
 import { seedCalc } from '../../lib/seed'
 import { fmtUSD } from '../../lib/format'
 
@@ -38,6 +38,15 @@ export default function AdminCalculator() {
       params: [],
     }
     change((c) => ({ ...c, machines: [...c.machines, m] }))
+  }
+
+  const addDepartment = () => {
+    const dept: Department = {
+      id: uid('dept'),
+      name: 'New department',
+      machineIds: [],
+    }
+    change((c) => ({ ...c, departments: [...c.departments, dept] }))
   }
 
   const addProcess = () => {
@@ -116,6 +125,42 @@ export default function AdminCalculator() {
             value={cfg.globals.serviceFeePct}
             onChange={(v) => change((c) => ({ ...c, globals: { ...c.globals, serviceFeePct: v } }))}
           />
+        </div>
+      </section>
+
+      {/* Departments */}
+      <section className="card mb-5">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-line dark:border-line-dark">
+          <div>
+            <h3 className="text-[13px] font-medium">Departments / process categories</h3>
+            <div className="text-[11px] text-muted dark:text-muted-dark mt-0.5">
+              Maps calculators to visible machine groups.
+            </div>
+          </div>
+          <button onClick={addDepartment} className="btn-outline h-8 text-[12px]">
+            <Plus size={12} /> Add department
+          </button>
+        </div>
+        <div className="divide-hair">
+          {cfg.departments.map((department) => (
+            <DepartmentRow
+              key={department.id}
+              department={department}
+              machines={cfg.machines}
+              onChange={(next) =>
+                change((c) => ({
+                  ...c,
+                  departments: c.departments.map((item) => (item.id === department.id ? next : item)),
+                }))
+              }
+              onDelete={() =>
+                change((c) => ({
+                  ...c,
+                  departments: c.departments.filter((item) => item.id !== department.id),
+                }))
+              }
+            />
+          ))}
         </div>
       </section>
 
@@ -217,7 +262,78 @@ function GlobalField({ label, unit, value, onChange, step = 1 }: { label: string
   )
 }
 
+function DepartmentRow({
+  department,
+  machines,
+  onChange,
+  onDelete,
+}: {
+  department: Department
+  machines: Machine[]
+  onChange: (department: Department) => void
+  onDelete: () => void
+}) {
+  const toggleMachine = (id: string) => {
+    const has = department.machineIds.includes(id)
+    onChange({
+      ...department,
+      machineIds: has ? department.machineIds.filter((item) => item !== id) : [...department.machineIds, id],
+    })
+  }
+
+  return (
+    <div className="p-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
+      <div className="md:col-span-3">
+        <label className="label">Department</label>
+        <input className="input" value={department.name} onChange={(e) => onChange({ ...department, name: e.target.value })} />
+      </div>
+      <div className="md:col-span-8">
+        <label className="label">Visible machines</label>
+        <div className="flex flex-wrap gap-1.5">
+          {machines.map((machine) => {
+            const on = department.machineIds.includes(machine.id)
+            return (
+              <button
+                key={machine.id}
+                onClick={() => toggleMachine(machine.id)}
+                className={`text-[11px] px-2 py-1 rounded border transition ${
+                  on
+                    ? 'bg-accent border-accent text-accent-ink'
+                    : 'border-line dark:border-line-dark text-muted dark:text-muted-dark hover:text-ink dark:hover:text-ink-dark'
+                }`}
+              >
+                {machine.name}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+      <div className="md:col-span-1 flex items-end h-full">
+        <button onClick={onDelete} className="btn-outline h-10 w-full text-danger border-danger/20 hover:bg-danger/5" aria-label="Delete department">
+          <Trash2 size={13} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function MachineRow({ m, onChange, onDelete }: { m: Machine; onChange: (m: Machine) => void; onDelete: () => void }) {
+  const addParam = () => {
+    const param: MachineParam = {
+      key: `param${m.params.length + 1}`,
+      label: 'New parameter',
+      unit: '%',
+      default: 1,
+      min: 0,
+      max: 10,
+      step: 0.1,
+    }
+    onChange({ ...m, params: [...m.params, param] })
+  }
+
+  const updateParam = (index: number, param: MachineParam) =>
+    onChange({ ...m, params: m.params.map((item, i) => (i === index ? param : item)) })
+
   return (
     <div className="p-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
       <div className="md:col-span-3">
@@ -227,7 +343,7 @@ function MachineRow({ m, onChange, onDelete }: { m: Machine; onChange: (m: Machi
       <div className="md:col-span-2">
         <label className="label">Family</label>
         <select className="select" value={m.family} onChange={(e) => onChange({ ...m, family: e.target.value as Machine['family'] })}>
-          {['Lithography', 'Etch', 'Deposition', 'Inspection', 'Metrology'].map((f) => (
+          {['Lithography', 'Etch', 'CMP', 'Deposition', 'Inspection', 'Metrology'].map((f) => (
             <option key={f} value={f}>{f}</option>
           ))}
         </select>
@@ -250,6 +366,80 @@ function MachineRow({ m, onChange, onDelete }: { m: Machine; onChange: (m: Machi
           <Trash2 size={13} />
         </button>
       </div>
+      <div className="md:col-span-12 border-t border-line dark:border-line-dark pt-3">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <div className="text-[12.5px] font-medium">Tunable parameters</div>
+            <div className="text-[10.5px] text-muted dark:text-muted-dark mt-0.5">
+              Used by the calculator parameter boost model.
+            </div>
+          </div>
+          <button onClick={addParam} className="btn-outline h-8 text-[12px]">
+            <Plus size={12} /> Add parameter
+          </button>
+        </div>
+        <div className="space-y-2">
+          {m.params.map((param, index) => (
+            <div key={`${param.key}-${index}`} className="grid grid-cols-2 md:grid-cols-12 gap-2 items-end">
+              <div className="md:col-span-2">
+                <label className="label">Key</label>
+                <input className="input h-8 text-[12px] font-mono" value={param.key} onChange={(e) => updateParam(index, { ...param, key: e.target.value })} />
+              </div>
+              <div className="md:col-span-3">
+                <label className="label">Label</label>
+                <input className="input h-8 text-[12px]" value={param.label} onChange={(e) => updateParam(index, { ...param, label: e.target.value })} />
+              </div>
+              <div className="md:col-span-1">
+                <label className="label">Unit</label>
+                <input className="input h-8 text-[12px]" value={param.unit} onChange={(e) => updateParam(index, { ...param, unit: e.target.value })} />
+              </div>
+              <ParamNumber label="Default" value={param.default} set={(v) => updateParam(index, { ...param, default: v })} />
+              <ParamNumber label="Min" value={param.min} set={(v) => updateParam(index, { ...param, min: v })} />
+              <ParamNumber label="Max" value={param.max} set={(v) => updateParam(index, { ...param, max: v })} />
+              <ParamNumber label="Step" value={param.step} set={(v) => updateParam(index, { ...param, step: v })} step={0.01} />
+              <div className="md:col-span-1">
+                <button
+                  onClick={() => onChange({ ...m, params: m.params.filter((_, i) => i !== index) })}
+                  className="btn-outline h-8 w-full text-danger border-danger/20 hover:bg-danger/5"
+                  aria-label="Delete parameter"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            </div>
+          ))}
+          {m.params.length === 0 && (
+            <div className="rounded-md border border-dashed border-line dark:border-line-dark p-3 text-[12px] text-muted dark:text-muted-dark">
+              No parameters yet. Add one so admins can tune this machine without code changes.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ParamNumber({
+  label,
+  value,
+  set,
+  step = 0.1,
+}: {
+  label: string
+  value: number
+  set: (value: number) => void
+  step?: number
+}) {
+  return (
+    <div className="md:col-span-1">
+      <label className="label">{label}</label>
+      <input
+        type="number"
+        step={step}
+        className="input h-8 text-[12px] font-mono num"
+        value={value}
+        onChange={(e) => set(+e.target.value || 0)}
+      />
     </div>
   )
 }

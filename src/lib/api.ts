@@ -6,6 +6,7 @@ import {
   seedDocs,
   seedInvoices,
   seedNotifications,
+  seedOps,
   seedStories,
   seedTickets,
   seedUsers,
@@ -21,6 +22,7 @@ type BootstrapPayload = {
   calc: CalcConfig
   announcements: unknown[]
   notifications: unknown[]
+  ops: unknown
   'calc.latest': unknown
 }
 
@@ -33,6 +35,7 @@ const RESOURCE_FALLBACKS: BootstrapPayload = {
   calc: seedCalc,
   announcements: seedAnnouncements,
   notifications: seedNotifications,
+  ops: seedOps,
   'calc.latest': null,
 }
 

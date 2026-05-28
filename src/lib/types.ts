@@ -218,3 +218,82 @@ export interface CalcResult {
   score: number
   breakdown: { label: string; value: number }[]
 }
+
+/* ----- Admin operations layer ----- */
+
+export type PartnerStatus = 'active' | 'onboarding' | 'inactive'
+export type PartnerTier = 'trial' | 'standard' | 'plus' | 'strategic'
+
+export type PermissionKey =
+  | 'calculator'
+  | 'case_studies'
+  | 'service_requests'
+  | 'billing'
+  | 'zendesk'
+
+export interface PartnerSite {
+  id: string
+  name: string
+  region: string
+  fabs: string[]
+}
+
+export interface OnboardingMilestone {
+  key: string
+  label: string
+  done: boolean
+  completedAt?: string
+}
+
+export interface PartnerCompany {
+  id: string
+  name: string
+  status: PartnerStatus
+  tier: PartnerTier
+  primaryContact: string
+  billingContact: string
+  sites: PartnerSite[]
+  permissions: Record<PermissionKey, boolean>
+  contractStart: string
+  renewalDate: string
+  serviceTier: string
+  subscriptionType: string
+  trial: boolean
+  onboarding: OnboardingMilestone[]
+}
+
+export interface KnowledgeGovernance {
+  docId: string
+  owner: string
+  status: 'draft' | 'approved' | 'review_needed'
+  featured: boolean
+  reviewDue: string
+  visibleTo: string[]
+  tags: string[]
+}
+
+export interface RequestWorkflow {
+  id: TicketCategory
+  label: string
+  enabled: boolean
+  route: 'zendesk' | 'sales' | 'ops'
+  ownerRole: string
+  requiredFields: string[]
+  zendeskTags: string[]
+}
+
+export interface AuditEvent {
+  id: string
+  actor: string
+  action: string
+  target: string
+  details: string
+  createdAt: string
+}
+
+export interface OpsConfig {
+  partners: PartnerCompany[]
+  knowledge: KnowledgeGovernance[]
+  workflows: RequestWorkflow[]
+  audit: AuditEvent[]
+}

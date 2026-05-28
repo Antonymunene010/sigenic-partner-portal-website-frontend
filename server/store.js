@@ -10,9 +10,10 @@ export const allowedResources = new Set([
   'calc.latest',
   'announcements',
   'notifications',
+  'ops',
 ])
 
-const jsonResourceKeys = ['stories', 'docs', 'invoices', 'calc', 'calc.latest', 'announcements', 'notifications']
+const jsonResourceKeys = ['stories', 'docs', 'invoices', 'calc', 'calc.latest', 'announcements', 'notifications', 'ops']
 
 function dbConfig() {
   const connectionString = process.env.DATABASE_URL

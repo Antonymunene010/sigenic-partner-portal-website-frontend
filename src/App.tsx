@@ -10,6 +10,7 @@ import { WordMark } from './components/Logo'
 import Login from './pages/Login'
 import { AppLayout } from './components/AppLayout'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { FeatureGate } from './components/FeatureGate'
 
 import Dashboard from './pages/Dashboard'
 import Support from './pages/Support'
@@ -62,17 +63,17 @@ export default function App() {
               }
             >
               <Route index element={<Dashboard />} />
-              <Route path="support" element={<Support />} />
-              <Route path="support/new" element={<NewTicket />} />
-              <Route path="support/:id" element={<TicketDetail />} />
-              <Route path="stories" element={<Stories />} />
-              <Route path="stories/:slug" element={<StoryDetail />} />
+              <Route path="support" element={<FeatureGate feature="zendesk"><Support /></FeatureGate>} />
+              <Route path="support/new" element={<FeatureGate feature="zendesk"><NewTicket /></FeatureGate>} />
+              <Route path="support/:id" element={<FeatureGate feature="zendesk"><TicketDetail /></FeatureGate>} />
+              <Route path="stories" element={<FeatureGate feature="case_studies"><Stories /></FeatureGate>} />
+              <Route path="stories/:slug" element={<FeatureGate feature="case_studies"><StoryDetail /></FeatureGate>} />
               <Route path="docs" element={<Docs />} />
               <Route path="docs/:slug" element={<DocDetail />} />
-              <Route path="services" element={<Services />} />
+              <Route path="services" element={<FeatureGate feature="service_requests"><Services /></FeatureGate>} />
               <Route path="demo" element={<Navigate to="/app/services" replace />} />
-              <Route path="billing" element={<Billing />} />
-              <Route path="calculator" element={<Calculator />} />
+              <Route path="billing" element={<FeatureGate feature="billing"><Billing /></FeatureGate>} />
+              <Route path="calculator" element={<FeatureGate feature="calculator"><Calculator /></FeatureGate>} />
               <Route
                 path="admin/*"
                 element={

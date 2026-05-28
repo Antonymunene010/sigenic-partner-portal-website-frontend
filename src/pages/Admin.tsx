@@ -5,10 +5,12 @@ import AdminStories from './admin/AdminStories'
 import AdminUsers from './admin/AdminUsers'
 import AdminAnnouncements from './admin/AdminAnnouncements'
 import AdminAnalytics from './admin/AdminAnalytics'
+import AdminOperations from './admin/AdminOperations'
 import { PageHeader } from '../components/PageHeader'
 import { Shield } from 'lucide-react'
 
 const TABS = [
+  { to: 'operations', label: 'Operations' },
   { to: 'calculator', label: 'Scoring rules' },
   { to: 'stories', label: 'Success stories' },
   { to: 'announcements', label: 'Announcements' },
@@ -53,7 +55,8 @@ export default function Admin() {
       </nav>
 
       <Routes>
-        <Route index element={<Navigate to="calculator" replace />} />
+        <Route index element={<Navigate to="operations" replace />} />
+        <Route path="operations" element={<AdminOperations />} />
         <Route path="calculator" element={<AdminCalculator />} />
         <Route path="stories" element={<AdminStories />} />
         <Route path="announcements" element={<AdminAnnouncements />} />

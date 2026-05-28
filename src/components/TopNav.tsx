@@ -23,6 +23,8 @@ import { Avatar } from './Avatar'
 import { NotificationsMenu } from './NotificationsMenu'
 import { ThemeToggle } from './ThemeToggle'
 import { useOutsideClick } from '../lib/useOutsideClick'
+import { partnerAllows } from '../lib/permissions'
+import type { PermissionKey } from '../lib/types'
 
 type NavItem = {
   to: string
@@ -31,16 +33,17 @@ type NavItem = {
   icon?: LucideIcon
   highlight?: boolean
   adminOnly?: boolean
+  feature?: PermissionKey
 }
 
 const PRIMARY_NAV: NavItem[] = [
   { to: '/app', label: 'Overview', end: true },
-  { to: '/app/stories', label: 'Success stories', icon: Sparkles },
-  { to: '/app/services', label: 'Services', icon: CalendarClock },
-  { to: '/app/calculator', label: 'Savings calculator', icon: Calculator, highlight: true },
+  { to: '/app/stories', label: 'Success stories', icon: Sparkles, feature: 'case_studies' },
+  { to: '/app/services', label: 'Services', icon: CalendarClock, feature: 'service_requests' },
+  { to: '/app/calculator', label: 'Savings calculator', icon: Calculator, highlight: true, feature: 'calculator' },
   { to: '/app/docs', label: 'Knowledge base', icon: BookOpen },
-  { to: '/app/support', label: 'Support', icon: LifeBuoy },
-  { to: '/app/billing', label: 'Billing', icon: CreditCard },
+  { to: '/app/support', label: 'Support', icon: LifeBuoy, feature: 'zendesk' },
+  { to: '/app/billing', label: 'Billing', icon: CreditCard, feature: 'billing' },
   { to: '/app/admin', label: 'Admin', icon: Shield, adminOnly: true },
 ]
 
@@ -103,7 +106,11 @@ export function TopNav() {
 
   if (!user) return null
 
-  const navItems = PRIMARY_NAV.filter((item) => !item.adminOnly || user.role === 'admin')
+  const navItems = PRIMARY_NAV.filter((item) => {
+    if (item.adminOnly && user.role !== 'admin') return false
+    if (item.feature && !partnerAllows(user, item.feature)) return false
+    return true
+  })
   const mainNavItems = navItems.filter((i) => !i.adminOnly)
   const adminNavItem = navItems.find((i) => i.adminOnly)
 
