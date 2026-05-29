@@ -15,5 +15,41 @@ services:
       timeout: 5s
       retries: 10
 
+  # Local SMTP sink — captures every outbound email so notifications are testable.
+  # Web UI: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    environment:
+      MP_MAX_MESSAGES: 500
+
+  app:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    environment:
+      PORT: 8787
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/partner_portal
+      DATABASE_SSL: "false"
+      AUTH_SECRET: ${AUTH_SECRET:-change-me-in-production}
+      SEED_DEFAULT_PASSWORD: ${SEED_DEFAULT_PASSWORD:-demo}
+      # Email via the bundled mailpit SMTP sink (override for a real provider).
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      EMAIL_FROM: ${EMAIL_FROM:-Sigenic Partner Portal <no-reply@sigenic.com>}
+      # Optional real Zendesk integration — leave blank for local mock mode.
+      ZENDESK_SUBDOMAIN: ${ZENDESK_SUBDOMAIN:-}
+      ZENDESK_EMAIL: ${ZENDESK_EMAIL:-}
+      ZENDESK_API_TOKEN: ${ZENDESK_API_TOKEN:-}
+      ZENDESK_SYNC_INTERVAL_MS: ${ZENDESK_SYNC_INTERVAL_MS:-60000}
+      CORS_ORIGIN: "*"
+    ports:
+      - "8787:8787"
+
 volumes:
   postgres_data:

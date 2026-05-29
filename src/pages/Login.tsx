@@ -1,211 +1,117 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { ArrowRight, ShieldCheck, Sparkles, Zap } from 'lucide-react'
+import { useState } from 'react'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { ArrowRight } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { WordMark } from '../components/Logo'
 import { ThemeToggle } from '../components/ThemeToggle'
+import { Field } from '../components/ui'
+
+const DEMO_ACCOUNTS = [
+  { email: 'founder@sigenic.com', label: 'Super Admin · Sigenic' },
+  { email: 'admin@sigenic.com', label: 'Admin · Sigenic' },
+  { email: 'support@sigenic.com', label: 'Support Engineer · Sigenic' },
+  { email: 'admin@apacpartners.com', label: 'Distributor Admin · APAC' },
+  { email: 'leo@apacpartners.com', label: 'Distributor User · APAC' },
+  { email: 'karen@novacell.sg', label: 'Customer Admin · NovaCell' },
+  { email: 'wei@novacell.sg', label: 'Customer User · NovaCell' },
+  { email: 'daniel@quantex.com', label: 'Customer Admin · Quantex' },
+]
 
 export default function Login() {
   const { user, login } = useAuth()
-  const nav = useNavigate()
-  const [email, setEmail] = useState('partner@demo.com')
-  const [password, setPassword] = useState('demo')
+  const navigate = useNavigate()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [busy, setBusy] = useState(false)
 
-  useEffect(() => {
-    if (user) nav('/app', { replace: true })
-  }, [user, nav])
+  if (user) return <Navigate to="/app" replace />
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setBusy(true)
     setError(null)
-    setLoading(true)
     const res = await login(email, password)
-    if (res.ok) nav('/app', { replace: true })
-    else {
-      setError(res.error ?? 'Login failed')
-      setLoading(false)
-    }
-  }
-
-  const quick = async (who: 'partner@demo.com' | 'admin@demo.com') => {
-    setEmail(who)
-    setPassword('demo')
-    setError(null)
-    setLoading(true)
-    const res = await login(who, 'demo')
-    if (res.ok) nav('/app', { replace: true })
-    else {
-      setError(res.error ?? 'Login failed')
-      setLoading(false)
-    }
+    setBusy(false)
+    if (res.ok) navigate('/app')
+    else setError(res.error ?? 'Login failed.')
   }
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-canvas dark:bg-canvas-dark">
-      <aside className="relative hidden md:flex md:w-[52%] lg:w-[55%] bg-ink text-canvas dark:bg-surface-dark dark:text-ink-dark overflow-hidden">
-        <div className="absolute inset-0 bg-grid opacity-60" />
-        <div
-          className="absolute -top-32 -right-32 w-[520px] h-[520px] rounded-full blur-3xl opacity-20"
-          style={{ background: 'radial-gradient(circle at center, #CCFF00 0%, transparent 60%)' }}
-        />
-        <div
-          className="absolute -bottom-40 -left-40 w-[520px] h-[520px] rounded-full blur-3xl opacity-10"
-          style={{ background: 'radial-gradient(circle at center, #CCFF00 0%, transparent 60%)' }}
-        />
-        <div className="relative z-10 flex flex-col justify-between p-10 lg:p-14 w-full">
-          <div className="flex items-center gap-3">
-            <div className="text-canvas dark:text-ink-dark">
-              <WordMark />
-            </div>
-            <span className="text-[10px] font-mono uppercase tracking-[0.16em] opacity-60 border-l border-white/20 pl-3 ml-1">
-              Partner Portal
-            </span>
-          </div>
-
-          <div className="max-w-lg">
-            <div className="eyebrow mb-5 text-white/60 before:bg-white/30">Sigenic · Singapore</div>
-            <h1 className="text-[44px] lg:text-[56px] leading-[0.98] font-semibold tracking-tightest text-balance">
-              The quiet{' '}
-              <span className="text-accent">instruments</span>
-              <br />
-              behind your yield.
-            </h1>
-            <p className="mt-5 text-[15px] lg:text-base text-white/70 text-pretty leading-relaxed">
-              Submit support, request demos, manage billing, and model cost savings — one
-              portal for everything we do together.
-            </p>
-
-            <div className="mt-10 grid grid-cols-3 gap-5 max-w-md">
-              {[
-                { k: 'Yield lift', v: '+38%', n: 'avg across APAC partners' },
-                { k: 'Downtime', v: '−72%', n: 'predictive maintenance' },
-                { k: 'Payback', v: '4.1 mo', n: 'median engagement' },
-              ].map((s) => (
-                <div key={s.k}>
-                  <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-white/50">
-                    {s.k}
-                  </div>
-                  <div className="mt-1 text-2xl font-semibold tracking-tight num text-accent">
-                    {s.v}
-                  </div>
-                  <div className="mt-1 text-[10px] text-white/40 leading-tight">{s.n}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-[0.12em] text-white/40">
-            <span>Region · SG-1 · 1 Fusionopolis Way</span>
-            <span>v0.1 · demo build</span>
-          </div>
-        </div>
-      </aside>
-
-      <section className="flex-1 flex flex-col min-h-screen">
-        <div className="flex items-center justify-between p-5 md:hidden border-b border-line dark:border-line-dark">
-          <WordMark />
-          <ThemeToggle />
-        </div>
-        <div className="hidden md:flex items-center justify-end p-5">
-          <ThemeToggle />
-        </div>
-
-        <div className="flex-1 flex items-center justify-center px-6 py-10">
-          <div className="w-full max-w-[380px]">
-            <div className="eyebrow mb-4">Sign in to continue</div>
-            <h2 className="text-[28px] font-semibold tracking-tightest leading-tight">
-              Welcome back.
-            </h2>
-            <p className="mt-1.5 text-[14px] text-muted dark:text-muted-dark">
-              Enter your portal credentials to access your workspace.
-            </p>
-
-            <form onSubmit={submit} className="mt-8 space-y-4">
-              <div>
-                <label className="label">Work email</label>
-                <input
-                  type="email"
-                  autoComplete="email"
-                  className="input"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
+    <div className="min-h-screen grid lg:grid-cols-2 bg-canvas dark:bg-canvas-dark">
+      {/* Brand panel */}
+      <div className="hidden lg:flex flex-col justify-between p-12 bg-raised dark:bg-raised-dark border-r border-line dark:border-line-dark">
+        <WordMark />
+        <div className="max-w-md">
+          <h1 className="text-4xl font-semibold tracking-tightest leading-[1.1] text-balance">
+            The operating system for partner interactions with Sigenic.
+          </h1>
+          <p className="mt-4 text-muted dark:text-muted-dark text-pretty">
+            Self-service support, ROI estimation and case studies — under the Sigenic Care program.
+          </p>
+          <div className="mt-8 grid grid-cols-3 gap-4">
+            {[
+              ['+38%', 'yield uplift'],
+              ['4.1mo', 'payback'],
+              ['$2.4M', 'excursion avoided'],
+            ].map(([v, l]) => (
+              <div key={l}>
+                <div className="text-2xl font-semibold text-emphasis num">{v}</div>
+                <div className="text-xs text-muted dark:text-muted-dark mt-1">{l}</div>
               </div>
-              <div>
-                <label className="label flex justify-between">
-                  <span>Password</span>
-                  <button type="button" className="text-[11px] text-muted dark:text-muted-dark hover:text-ink dark:hover:text-ink-dark">
-                    Forgot?
-                  </button>
-                </label>
-                <input
-                  type="password"
-                  autoComplete="current-password"
-                  className="input"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
+            ))}
+          </div>
+        </div>
+        <span className="text-[11px] font-mono uppercase tracking-[0.12em] text-faint dark:text-faint-dark">© 2026 Sigenic · Singapore</span>
+      </div>
 
-              {error && (
-                <div className="text-[12px] text-danger bg-danger/5 border border-danger/20 rounded-md px-3 py-2">
-                  {error}
-                </div>
-              )}
+      {/* Form */}
+      <div className="flex flex-col">
+        <div className="flex items-center justify-between p-4">
+          <Link to="/" className="lg:hidden">
+            <WordMark />
+          </Link>
+          <span className="ml-auto">
+            <ThemeToggle />
+          </span>
+        </div>
+        <div className="flex-1 flex items-center justify-center px-6 pb-16">
+          <div className="w-full max-w-sm">
+            <h2 className="text-2xl font-semibold tracking-tight">Sign in</h2>
+            <p className="mt-1 text-sm text-muted dark:text-muted-dark">Access the Sigenic partner portal.</p>
 
-              <button type="submit" disabled={loading} className="btn-accent w-full h-10 disabled:opacity-60">
-                {loading ? 'Signing in…' : (
-                  <>
-                    Sign in <ArrowRight size={14} />
-                  </>
-                )}
+            <form onSubmit={submit} className="mt-6 space-y-4">
+              <Field label="Work email">
+                <input className="input" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" required />
+              </Field>
+              <Field label="Password">
+                <input className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••" required />
+              </Field>
+              {error && <p className="text-sm text-danger">{error}</p>}
+              <button className="btn-accent w-full" disabled={busy}>
+                {busy ? 'Signing in…' : 'Sign in'} <ArrowRight size={15} />
               </button>
             </form>
 
-            <div className="mt-7 pt-6 border-t border-line dark:border-line-dark">
-              <div className="eyebrow mb-3">Demo shortcuts</div>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => quick('partner@demo.com')}
-                  className="group text-left rounded-md border border-line dark:border-line-dark px-3 py-2.5 hover:border-ink dark:hover:border-ink-dark transition"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <Sparkles size={12} className="text-muted dark:text-muted-dark group-hover:text-emphasis" />
-                    <div className="text-[12px] font-medium">Partner</div>
-                  </div>
-                  <div className="text-[10px] font-mono text-faint dark:text-faint-dark mt-0.5">
-                    partner@demo.com
-                  </div>
-                </button>
-                <button
-                  onClick={() => quick('admin@demo.com')}
-                  className="group text-left rounded-md border border-line dark:border-line-dark px-3 py-2.5 hover:border-ink dark:hover:border-ink-dark transition"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <ShieldCheck size={12} className="text-muted dark:text-muted-dark group-hover:text-emphasis" />
-                    <div className="text-[12px] font-medium">Admin</div>
-                  </div>
-                  <div className="text-[10px] font-mono text-faint dark:text-faint-dark mt-0.5">
-                    admin@demo.com
-                  </div>
-                </button>
+            <div className="mt-8 pt-5 border-t border-line dark:border-line-dark">
+              <p className="stat-label mb-2">Demo accounts · password "demo"</p>
+              <div className="grid grid-cols-1 gap-1">
+                {DEMO_ACCOUNTS.map((a) => (
+                  <button
+                    key={a.email}
+                    type="button"
+                    onClick={() => { setEmail(a.email); setPassword('demo') }}
+                    className="text-left text-xs px-2.5 py-1.5 rounded-md hover:bg-raised dark:hover:bg-raised-dark text-muted dark:text-muted-dark hover:text-ink dark:hover:text-ink-dark transition flex items-center justify-between"
+                  >
+                    <span className="font-medium">{a.label}</span>
+                    <span className="font-mono text-faint">{a.email}</span>
+                  </button>
+                ))}
               </div>
-              <p className="mt-3 text-[11px] text-faint dark:text-faint-dark flex items-center gap-1.5">
-                <Zap size={11} /> Any password works in demo mode.
-              </p>
             </div>
           </div>
         </div>
-
-        <div className="p-5 text-[11px] font-mono uppercase tracking-[0.12em] text-faint dark:text-faint-dark border-t border-line dark:border-line-dark flex items-center justify-between">
-          <span>© 2026 Sigenic</span>
-          <span>Privacy · Terms</span>
-        </div>
-      </section>
+      </div>
     </div>
   )
 }
