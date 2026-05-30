@@ -43,6 +43,7 @@ const URGENCY_TO_PRIORITY = { low: 'low', medium: 'normal', high: 'high' }
 /* ----- http helpers ----- */
 
 function send(res, status, body, headers = {}) {
+  if (res.headersSent || res.writableEnded) return // response already sent — never double-write headers
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
@@ -720,7 +721,12 @@ const server = http.createServer((req, res) => {
       const auth = authUserFrom(req)
       if (!auth) return send(res, 401, { error: 'Authentication required.' })
       await handleApi(req, res, pathname, auth)
-    })().catch((error) => send(res, 500, { error: error.message }))
+    })().catch((error) => {
+      // A handler that already responded then threw must not crash the process:
+      // log it (so the offending route is identifiable) and only respond if we still can.
+      console.error(`[api] ${req.method} ${pathname} failed: ${error.stack || error.message}`)
+      if (!res.headersSent && !res.writableEnded) send(res, 500, { error: error.message })
+    })
     return
   }
   serveStatic(res, pathname)
