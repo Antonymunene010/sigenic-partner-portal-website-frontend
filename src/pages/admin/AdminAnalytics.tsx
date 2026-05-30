@@ -1,116 +1,153 @@
-import { useMemo, useState } from 'react'
-import { Activity, CalendarClock, LifeBuoy, Sparkles } from 'lucide-react'
-import { load } from '../../lib/storage'
-import type { Ticket, User } from '../../lib/types'
-import { seedTickets, seedUsers } from '../../lib/seed'
+import { useEffect, useState } from 'react'
+import { Building2, BadgeCheck, Inbox, Calculator, TrendingUp, Users } from 'lucide-react'
+import { getAnalytics } from '../../lib/api'
+import { useLookups } from '../../lib/data'
+import { PageHeader } from '../../components/PageHeader'
+import { Card, StatCard, Spinner } from '../../components/ui'
+import { Badge } from '../../components/Badge'
+import { DataTable } from '../../components/DataTable'
+import type { Column } from '../../components/DataTable'
 import { fmtNumber } from '../../lib/format'
-import clsx from 'clsx'
+import { REQUEST_TYPE_LABEL, COMPANY_TYPE_LABEL } from '../../lib/constants'
+import type { RequestType, CompanyType } from '../../lib/types'
+
+interface Analytics {
+  counts: {
+    companies: number
+    partners: number
+    activePartners: number
+    prospects: number
+    users: number
+    openRequests: number
+    calculatorRuns: number
+    calcToConsultation: number
+  }
+  requestsByType: Record<string, number>
+  requestsByStatus: Record<string, number>
+  requestsByOwner: Record<string, number>
+  runsByDepartment: Record<string, number>
+  topPartners: TopPartner[]
+}
+
+interface TopPartner {
+  id: string
+  name: string
+  type: CompanyType
+  requests: number
+  runs: number
+}
+
+type BarRow = { key: string; label: string; value: number }
+
+function BarChart({ rows, accent = false }: { rows: BarRow[]; accent?: boolean }) {
+  if (!rows.length) {
+    return <p className="text-sm text-muted dark:text-muted-dark">No data yet.</p>
+  }
+  const max = Math.max(1, ...rows.map((r) => r.value))
+  return (
+    <ul className="space-y-3">
+      {rows.map((r) => (
+        <li key={r.key}>
+          <div className="flex items-center justify-between text-sm mb-1">
+            <span className="truncate capitalize">{r.label}</span>
+            <span className="num text-xs text-muted dark:text-muted-dark">{fmtNumber(r.value)}</span>
+          </div>
+          <div className="h-2 rounded-full bg-raised dark:bg-raised-dark overflow-hidden">
+            <div
+              className={`h-full rounded-full ${accent ? 'bg-gold-gradient' : 'bg-accent'}`}
+              style={{ width: `${(r.value / max) * 100}%` }}
+            />
+          </div>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function toRows(map: Record<string, number> | undefined, label: (k: string) => string): BarRow[] {
+  return Object.entries(map ?? {})
+    .map(([key, value]) => ({ key, label: label(key), value }))
+    .sort((a, b) => b.value - a.value)
+}
 
 export default function AdminAnalytics() {
-  const [tickets] = useState(() => load<Ticket[]>('tickets', seedTickets))
-  const [users] = useState(() => load<User[]>('users', seedUsers))
+  const lookups = useLookups()
+  const [data, setData] = useState<Analytics | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const stats = useMemo(() => {
-    const byArea: Record<string, number> = {}
-    const byCategory: Record<string, number> = {}
-    for (const t of tickets) {
-      if (t.productArea) byArea[t.productArea] = (byArea[t.productArea] ?? 0) + 1
-      byCategory[t.category] = (byCategory[t.category] ?? 0) + 1
+  useEffect(() => {
+    let alive = true
+    getAnalytics()
+      .then((res) => {
+        if (alive) setData(res as unknown as Analytics)
+      })
+      .catch(() => {
+        if (alive) setData(null)
+      })
+      .finally(() => {
+        if (alive) setLoading(false)
+      })
+    return () => {
+      alive = false
     }
-    const resolved = tickets.filter((t) => t.status === 'resolved' || t.status === 'closed')
-    const resolutionHrs = resolved.length
-      ? resolved.reduce((a, t) => a + (+new Date(t.updatedAt) - +new Date(t.createdAt)) / 3600000, 0) / resolved.length
-      : 0
-    const fromCalc = tickets.filter((t) => t.source === 'calculator')
-    return {
-      total: tickets.length,
-      resolved: resolved.length,
-      open: tickets.filter((t) => t.status === 'open' || t.status === 'in_progress').length,
-      activePartners: users.filter((u) => u.active && u.role === 'partner').length,
-      avgResolutionHrs: resolutionHrs,
-      calcConversions: fromCalc.length,
-      byArea,
-      byCategory,
-    }
-  }, [tickets, users])
+  }, [])
+
+  if (loading) return <Spinner label="Loading analytics" />
+
+  const counts = data?.counts
+  const typeRows = toRows(data?.requestsByType, (k) => REQUEST_TYPE_LABEL[k as RequestType] ?? k)
+  const statusRows = toRows(data?.requestsByStatus, (k) => k.replace('_', ' '))
+  const deptRows = toRows(data?.runsByDepartment, (k) => lookups.departmentName(k))
+  const topPartners = data?.topPartners ?? []
+
+  const columns: Column<TopPartner>[] = [
+    { key: 'name', header: 'Partner', render: (p) => <span className="font-medium">{p.name}</span> },
+    {
+      key: 'type',
+      header: 'Type',
+      render: (p) => <Badge tone="neutral">{COMPANY_TYPE_LABEL[p.type] ?? p.type}</Badge>,
+    },
+    { key: 'requests', header: 'Requests', className: 'num', render: (p) => fmtNumber(p.requests) },
+    { key: 'runs', header: 'Calculator runs', className: 'num', render: (p) => fmtNumber(p.runs) },
+  ]
 
   return (
     <div>
-      <div className="mb-4">
-        <h2 className="text-[17px] font-semibold tracking-tight">Analytics & usage</h2>
-        <p className="text-[12.5px] text-muted dark:text-muted-dark mt-0.5">
-          Mock figures derived from the current portal state. Production would wire to a warehouse / event stream.
-        </p>
+      <PageHeader
+        eyebrow="Analytics"
+        title="Usage & GTM"
+        description="Internal view of partner activity, request flow and calculator adoption."
+      />
+
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-6">
+        <StatCard label="Partners" value={fmtNumber(counts?.partners ?? 0)} icon={<Building2 size={15} />} />
+        <StatCard label="Active partners" value={fmtNumber(counts?.activePartners ?? 0)} icon={<BadgeCheck size={15} />} />
+        <StatCard label="Open requests" value={fmtNumber(counts?.openRequests ?? 0)} icon={<Inbox size={15} />} />
+        <StatCard label="Calculator runs" value={fmtNumber(counts?.calculatorRuns ?? 0)} icon={<Calculator size={15} />} />
+        <StatCard
+          label="Calc → consultation"
+          value={fmtNumber(counts?.calcToConsultation ?? 0)}
+          accent
+          icon={<TrendingUp size={15} />}
+        />
+        <StatCard label="Users" value={fmtNumber(counts?.users ?? 0)} icon={<Users size={15} />} />
       </div>
 
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-        <Kpi label="Active partners" value={fmtNumber(stats.activePartners)} icon={Activity} />
-        <Kpi label="Open tickets" value={fmtNumber(stats.open)} icon={LifeBuoy} sub={`${stats.resolved} resolved`} />
-        <Kpi label="Avg resolution" value={`${stats.avgResolutionHrs.toFixed(1)} hrs`} icon={CalendarClock} sub="rolling" />
-        <Kpi label="Calculator → ticket" value={fmtNumber(stats.calcConversions)} icon={Sparkles} sub="consultation requests" />
-      </section>
-
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <HorizontalBars title="Tickets by product area" data={stats.byArea} />
-        <HorizontalBars title="Tickets by category" data={stats.byCategory} />
-      </section>
-
-      <section className="mt-5 card p-5">
-        <h3 className="text-[14px] font-medium mb-3">Top active partners</h3>
-        <ul className="divide-hair">
-          {users
-            .filter((u) => u.role === 'partner')
-            .map((u) => ({ u, count: tickets.filter((t) => t.requester === u.name).length }))
-            .sort((a, b) => b.count - a.count)
-            .slice(0, 5)
-            .map(({ u, count }) => (
-              <li key={u.id} className="py-2.5 flex items-center justify-between text-[13px]">
-                <span>
-                  <span className="font-medium">{u.name}</span>
-                  <span className="text-muted dark:text-muted-dark"> · {u.company}</span>
-                </span>
-                <span className="font-mono num text-[12.5px]">{count} tickets</span>
-              </li>
-            ))}
-        </ul>
-      </section>
-    </div>
-  )
-}
-
-function Kpi({ label, value, sub, icon: Icon }: { label: string; value: string; sub?: string; icon: typeof Activity }) {
-  return (
-    <div className="card p-4">
-      <div className="flex items-start justify-between">
-        <div className="stat-label">{label}</div>
-        <Icon size={14} className="text-faint dark:text-faint-dark" />
+      <div className="grid lg:grid-cols-3 gap-5 mb-5">
+        <Card title="Requests by type" eyebrow="Mix">
+          <BarChart rows={typeRows} />
+        </Card>
+        <Card title="Requests by status" eyebrow="Pipeline">
+          <BarChart rows={statusRows} />
+        </Card>
+        <Card title="Calculator runs by department" eyebrow="Adoption">
+          <BarChart rows={deptRows} accent />
+        </Card>
       </div>
-      <div className="mt-2 text-[26px] font-semibold tracking-tightest num leading-none">{value}</div>
-      {sub && <div className="mt-2 text-[11px] text-muted dark:text-muted-dark">{sub}</div>}
-    </div>
-  )
-}
 
-function HorizontalBars({ title, data }: { title: string; data: Record<string, number> }) {
-  const entries = Object.entries(data).sort((a, b) => b[1] - a[1])
-  const max = Math.max(...entries.map(([, v]) => v), 1)
-  return (
-    <div className="card p-5">
-      <h3 className="text-[14px] font-medium mb-3">{title}</h3>
-      <ul className="space-y-2.5">
-        {entries.map(([k, v]) => (
-          <li key={k}>
-            <div className="flex items-baseline justify-between text-[12.5px] mb-1">
-              <span className="capitalize">{k}</span>
-              <span className="font-mono num text-muted dark:text-muted-dark">{v}</span>
-            </div>
-            <div className="h-1.5 rounded-full bg-raised dark:bg-raised-dark overflow-hidden">
-              <div className={clsx('h-full rounded-full bg-accent transition-all')} style={{ width: `${(v / max) * 100}%` }} />
-            </div>
-          </li>
-        ))}
-        {entries.length === 0 && <li className="text-[12px] text-faint dark:text-faint-dark">No data yet.</li>}
-      </ul>
+      <Card title="Top partners" eyebrow="Engagement" padded={false}>
+        <DataTable<TopPartner> columns={columns} rows={topPartners} empty="No partner activity yet." />
+      </Card>
     </div>
   )
 }

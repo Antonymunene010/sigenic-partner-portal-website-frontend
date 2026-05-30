@@ -5,11 +5,11 @@
 @layer base {
   :root {
     color-scheme: light;
-    --emphasis: 61 82 0;
+    --emphasis: 159 127 58; /* deep gold #9F7F3A — readable on light */
   }
   html.dark {
     color-scheme: dark;
-    --emphasis: 204 255 0;
+    --emphasis: 230 199 122; /* warm gold #E6C77A — readable on dark */
   }
   html,
   body,
@@ -26,17 +26,17 @@
     @apply bg-canvas-dark text-ink-dark;
   }
   ::selection {
-    background-color: #ccff00;
-    color: #0a0a0a;
+    background-color: #c8a75b;
+    color: #0e0e10;
   }
   /* Hairline focus ring */
   :focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px #ccff00, 0 0 0 3px rgba(10, 10, 10, 0.6);
+    box-shadow: 0 0 0 2px #c8a75b, 0 0 0 3px rgba(14, 14, 16, 0.6);
     border-radius: 4px;
   }
   html.dark :focus-visible {
-    box-shadow: 0 0 0 2px #ccff00, 0 0 0 3px rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 0 2px #c8a75b, 0 0 0 3px rgba(255, 255, 255, 0.2);
   }
   /* Scrollbars */
   * {
@@ -111,9 +111,6 @@
   }
   .badge {
     @apply inline-flex items-center gap-1 text-2xs font-medium font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm border;
-  }
-  .kbd {
-    @apply inline-flex items-center justify-center min-w-[20px] h-5 px-1 text-2xs font-mono font-medium text-muted dark:text-muted-dark bg-raised dark:bg-raised-dark border border-line dark:border-line-dark rounded-xs;
   }
   .stat-label {
     @apply text-2xs uppercase tracking-[0.12em] text-muted dark:text-muted-dark font-medium;

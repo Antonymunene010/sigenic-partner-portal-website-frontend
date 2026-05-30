@@ -1,111 +1,182 @@
 import { useState } from 'react'
-import { Megaphone, Pin, Send, Trash2 } from 'lucide-react'
-import { load, save, uid } from '../../lib/storage'
-import type { Announcement } from '../../lib/types'
-import { seedAnnouncements } from '../../lib/seed'
-import { fmtRelative } from '../../lib/format'
-import { useNotifications } from '../../lib/notifications'
+import { Pin, Trash2, Megaphone } from 'lucide-react'
 import { useAuth } from '../../lib/auth'
-import clsx from 'clsx'
+import { useData } from '../../lib/data'
+import { can } from '../../lib/permissions'
+import { publishAnnouncement, deleteAnnouncement } from '../../lib/api'
+import { PageHeader } from '../../components/PageHeader'
+import { Card, EmptyState, Field, Spinner, useToast } from '../../components/ui'
+import { Badge } from '../../components/Badge'
+import { AUDIENCE_TYPES, AUDIENCE_LABEL, AUDIENCE_TONE } from '../../lib/constants'
+import { fmtRelative } from '../../lib/format'
+import type { AudienceType } from '../../lib/types'
+
+interface FormState {
+  title: string
+  body: string
+  audienceType: AudienceType
+  pinned: boolean
+}
+
+const EMPTY_FORM: FormState = { title: '', body: '', audienceType: 'all', pinned: false }
 
 export default function AdminAnnouncements() {
   const { user } = useAuth()
-  const { push } = useNotifications()
-  const [items, setItems] = useState<Announcement[]>(() => load<Announcement[]>('announcements', seedAnnouncements))
-  const [title, setTitle] = useState('')
-  const [body, setBody] = useState('')
-  const [pinned, setPinned] = useState(false)
-  const [toast, setToast] = useState<string | null>(null)
+  const { announcements, ready, refresh } = useData()
+  const toast = useToast()
+  const [form, setForm] = useState<FormState>(EMPTY_FORM)
+  const [busy, setBusy] = useState(false)
+  const canManage = can(user, 'manage_announcements')
 
-  const persist = (next: Announcement[]) => { save('announcements', next); setItems(next) }
+  if (!ready) return <Spinner />
 
-  const publish = (e: React.FormEvent) => {
+  const sorted = [...announcements].sort((a, b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
+    return b.publishAt.localeCompare(a.publishAt)
+  })
+
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim() || !body.trim()) return
-    const entry: Announcement = {
-      id: uid('ann'),
-      title: title.trim(),
-      body: body.trim(),
-      author: user?.name ?? 'Sigenic',
-      createdAt: new Date().toISOString(),
-      pinned,
+    if (!form.title.trim() || !form.body.trim()) {
+      toast.push('Title and body are required.', 'error')
+      return
     }
-    persist([entry, ...items])
-    push({ kind: 'announcement', title: entry.title, body: entry.body })
-    setTitle(''); setBody(''); setPinned(false)
-    setToast('Published. In production this would fan out to every partner — in this demo it appears in your own notifications.')
-    setTimeout(() => setToast(null), 2600)
+    setBusy(true)
+    try {
+      const { recipients } = await publishAnnouncement({
+        title: form.title.trim(),
+        body: form.body.trim(),
+        audienceType: form.audienceType,
+        pinned: form.pinned,
+      })
+      await refresh()
+      setForm(EMPTY_FORM)
+      toast.push(`Published to ${recipients} recipient${recipients === 1 ? '' : 's'}.`)
+    } catch (err) {
+      toast.push(err instanceof Error ? err.message : 'Publish failed.', 'error')
+    } finally {
+      setBusy(false)
+    }
   }
 
-  const togglePin = (id: string) => persist(items.map((a) => a.id === id ? { ...a, pinned: !a.pinned } : a))
-  const del = (id: string) => persist(items.filter((a) => a.id !== id))
+  const remove = async (id: string) => {
+    setBusy(true)
+    try {
+      await deleteAnnouncement(id)
+      await refresh()
+      toast.push('Announcement deleted.')
+    } catch (err) {
+      toast.push(err instanceof Error ? err.message : 'Delete failed.', 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <div>
-      <div className="mb-4">
-        <h2 className="text-[17px] font-semibold tracking-tight">Announcements</h2>
-        <p className="text-[12.5px] text-muted dark:text-muted-dark mt-0.5">
-          Publish product updates, maintenance notices, or training advisories. Each publish creates an in-app notification for every partner.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Comms"
+        title="Announcements"
+        description="Broadcast updates to partners and internal teams. Pin the important ones to the top of their dashboard."
+      />
 
-      <form onSubmit={publish} className="card p-5 mb-5 space-y-4">
-        <div>
-          <label className="label" htmlFor="ann-title">Title</label>
-          <input id="ann-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Short headline" required />
-        </div>
-        <div>
-          <label className="label" htmlFor="ann-body">Body</label>
-          <textarea id="ann-body" className="textarea min-h-[100px]" value={body} onChange={(e) => setBody(e.target.value)} placeholder="What changed, why it matters, what partners should do." required />
-        </div>
-        <div className="flex items-center justify-between">
-          <label className="flex items-center gap-2 text-[12.5px]">
-            <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} />
-            Pin to top
-          </label>
-          <button type="submit" className="btn-accent h-9 text-[12.5px]">
-            <Send size={12} /> Publish
-          </button>
-        </div>
-      </form>
-
-      {toast && (
-        <div className="mb-4 px-3 py-2 rounded-md text-[12.5px] bg-success/10 text-success border border-success/20 animate-fade-up">
-          {toast}
-        </div>
-      )}
-
-      <div className="card overflow-hidden">
-        <div className="px-4 py-3 border-b border-line dark:border-line-dark flex items-center gap-2">
-          <Megaphone size={14} className="text-muted dark:text-muted-dark" />
-          <div className="text-[13px] font-medium">Published</div>
-          <span className="ml-auto text-[11px] font-mono uppercase tracking-[0.1em] text-faint dark:text-faint-dark">{items.length} total</span>
-        </div>
-        <ul className="divide-hair">
-          {items.map((a) => (
-            <li key={a.id} className="px-4 py-3 flex items-start gap-3">
-              <button
-                onClick={() => togglePin(a.id)}
-                className={clsx('mt-0.5 h-6 w-6 rounded-sm flex items-center justify-center transition',
-                  a.pinned ? 'bg-accent text-accent-ink' : 'text-faint dark:text-faint-dark hover:text-ink dark:hover:text-ink-dark')}
-                aria-label={a.pinned ? 'Unpin' : 'Pin'}
-              >
-                <Pin size={12} fill={a.pinned ? '#0A0A0A' : 'none'} />
-              </button>
-              <div className="flex-1 min-w-0">
-                <div className="text-[13.5px] font-medium">{a.title}</div>
-                <div className="text-[12.5px] text-muted dark:text-muted-dark mt-0.5 leading-relaxed">{a.body}</div>
-                <div className="mt-1.5 text-[10.5px] font-mono uppercase tracking-[0.1em] text-faint dark:text-faint-dark">
-                  {a.author} · {fmtRelative(a.createdAt)}
-                </div>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] items-start">
+        {canManage && (
+          <Card title="Publish announcement" eyebrow="New">
+            <form onSubmit={submit} className="flex flex-col gap-4">
+              <Field label="Title" htmlFor="ann-title">
+                <input
+                  id="ann-title"
+                  className="input"
+                  value={form.title}
+                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder="e.g. Q3 platform maintenance window"
+                />
+              </Field>
+              <Field label="Body" htmlFor="ann-body">
+                <textarea
+                  id="ann-body"
+                  className="textarea"
+                  rows={5}
+                  value={form.body}
+                  onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
+                  placeholder="What partners need to know…"
+                />
+              </Field>
+              <Field label="Audience" htmlFor="ann-audience">
+                <select
+                  id="ann-audience"
+                  className="select"
+                  value={form.audienceType}
+                  onChange={(e) => setForm((f) => ({ ...f, audienceType: e.target.value as AudienceType }))}
+                >
+                  {AUDIENCE_TYPES.map((a) => (
+                    <option key={a.value} value={a.value}>
+                      {a.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.pinned}
+                  onChange={(e) => setForm((f) => ({ ...f, pinned: e.target.checked }))}
+                />
+                Pin to top
+              </label>
+              <div>
+                <button type="submit" className="btn btn-accent" disabled={busy}>
+                  {busy ? 'Publishing…' : 'Publish'}
+                </button>
               </div>
-              <button onClick={() => del(a.id)} className="text-faint dark:text-faint-dark hover:text-danger" aria-label="Delete announcement">
-                <Trash2 size={12} />
-              </button>
-            </li>
-          ))}
-          {items.length === 0 && <li className="py-10 text-center text-[12.5px] text-muted dark:text-muted-dark">No announcements yet.</li>}
-        </ul>
+            </form>
+          </Card>
+        )}
+
+        <div className="flex flex-col gap-3">
+          {sorted.length === 0 ? (
+            <Card padded={false}>
+              <EmptyState
+                icon={<Megaphone size={24} />}
+                title="No announcements yet"
+                hint={canManage ? 'Publish your first announcement using the form.' : 'Check back later for updates.'}
+              />
+            </Card>
+          ) : (
+            sorted.map((a) => (
+              <Card key={a.id}>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                      {a.pinned && (
+                        <Badge tone="accent" dot>
+                          <Pin size={11} /> Pinned
+                        </Badge>
+                      )}
+                      <Badge tone={AUDIENCE_TONE[a.audienceType]}>{AUDIENCE_LABEL[a.audienceType]}</Badge>
+                      <span className="text-xs text-faint dark:text-faint-dark">{fmtRelative(a.publishAt)}</span>
+                    </div>
+                    <h3 className="text-[15px] font-semibold tracking-tight">{a.title}</h3>
+                    <p className="mt-1 text-sm text-muted dark:text-muted-dark leading-relaxed whitespace-pre-line">
+                      {a.body}
+                    </p>
+                  </div>
+                  {canManage && (
+                    <button
+                      className="btn btn-ghost text-xs shrink-0"
+                      onClick={() => remove(a.id)}
+                      disabled={busy}
+                      aria-label="Delete announcement"
+                    >
+                      <Trash2 size={13} /> Delete
+                    </button>
+                  )}
+                </div>
+              </Card>
+            ))
+          )}
+        </div>
       </div>
     </div>
   )

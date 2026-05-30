@@ -1,19 +1,25 @@
 import { Pool } from 'pg'
+import { hashPassword } from './auth.js'
+import { SCHEMA_SQL, LEGACY_CHECK_SQL, LEGACY_DROP_SQL } from './schema.js'
+import { SEED } from './seed.js'
+import { isInternal, audienceMatches, can } from './permissions.js'
 
-export const allowedResources = new Set([
-  'users',
-  'tickets',
-  'stories',
-  'docs',
-  'invoices',
-  'calc',
-  'calc.latest',
-  'announcements',
-  'notifications',
-  'ops',
-])
+const DEFAULT_PASSWORD = process.env.SEED_DEFAULT_PASSWORD || 'demo'
 
-const jsonResourceKeys = ['stories', 'docs', 'invoices', 'calc', 'calc.latest', 'announcements', 'notifications', 'ops']
+/* ----- key-case helpers ----- */
+const toCamel = (s) => s.replace(/_([a-z0-9])/g, (_, c) => c.toUpperCase())
+const isDate = (v) => v instanceof Date
+const rowToObj = (row) => {
+  if (!row) return row
+  const out = {}
+  for (const [k, v] of Object.entries(row)) out[toCamel(k)] = isDate(v) ? v.toISOString() : v
+  return out
+}
+const pick = (data, snake) => {
+  if (data[snake] !== undefined) return data[snake]
+  const camel = toCamel(snake)
+  return data[camel]
+}
 
 function dbConfig() {
   const connectionString = process.env.DATABASE_URL
@@ -28,265 +34,21 @@ function dbConfig() {
 
 export function createStore() {
   const pool = new Pool(dbConfig())
-
   const query = (text, params) => pool.query(text, params)
 
-  async function init() {
-    await query(`
-      CREATE TABLE IF NOT EXISTS app_resources (
-        key text PRIMARY KEY,
-        value jsonb NOT NULL,
-        updated_at timestamptz NOT NULL DEFAULT now()
-      );
+  /** column metadata per table: { name, isJson } — introspected after init. */
+  const COLS = {}
 
-      CREATE TABLE IF NOT EXISTS users (
-        id text PRIMARY KEY,
-        email text NOT NULL UNIQUE,
-        name text NOT NULL,
-        company text NOT NULL,
-        role text NOT NULL CHECK (role IN ('partner', 'admin')),
-        avatar text,
-        active boolean NOT NULL DEFAULT true,
-        created_at timestamptz NOT NULL DEFAULT now(),
-        updated_at timestamptz NOT NULL DEFAULT now()
-      );
-
-      CREATE TABLE IF NOT EXISTS tickets (
-        id text PRIMARY KEY,
-        subject text NOT NULL,
-        status text NOT NULL,
-        priority text NOT NULL,
-        category text NOT NULL,
-        product_area text,
-        customer_impact text,
-        requester text NOT NULL,
-        assignee text,
-        tags text[] NOT NULL DEFAULT '{}',
-        messages jsonb NOT NULL DEFAULT '[]'::jsonb,
-        source text,
-        zendesk_ticket_id text,
-        created_at timestamptz NOT NULL DEFAULT now(),
-        updated_at timestamptz NOT NULL DEFAULT now()
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_tickets_updated_at ON tickets(updated_at DESC);
-      CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
-      CREATE INDEX IF NOT EXISTS idx_users_email_lower ON users(lower(email));
-    `)
-  }
-
-  async function health() {
-    const res = await query('select current_database() as database, current_schema() as schema')
-    return res.rows[0]
-  }
-
-  async function isEmpty() {
+  async function loadColumns() {
     const res = await query(`
-      SELECT
-        (SELECT count(*)::int FROM users) AS users,
-        (SELECT count(*)::int FROM tickets) AS tickets,
-        (SELECT count(*)::int FROM app_resources) AS resources
+      SELECT table_name, column_name, data_type
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+      ORDER BY ordinal_position
     `)
-    const row = res.rows[0]
-    return row.users === 0 && row.tickets === 0 && row.resources === 0
-  }
-
-  async function getUsers() {
-    const res = await query(`
-      SELECT id, email, name, company, role, avatar, active, created_at AS "createdAt"
-      FROM users
-      ORDER BY created_at DESC, name ASC
-    `)
-    return res.rows.map((row) => ({
-      ...row,
-      createdAt: toIso(row.createdAt),
-    }))
-  }
-
-  async function getUserByEmail(email) {
-    const res = await query(
-      `
-        SELECT id, email, name, company, role, avatar, active, created_at AS "createdAt"
-        FROM users
-        WHERE lower(email) = lower($1)
-        LIMIT 1
-      `,
-      [email],
-    )
-    const row = res.rows[0]
-    return row ? { ...row, createdAt: toIso(row.createdAt) } : null
-  }
-
-  async function replaceUsers(users) {
-    await transaction(async (client) => {
-      await client.query('DELETE FROM users')
-      for (const user of users ?? []) {
-        await upsertUser(user, client)
-      }
-    })
-    return getUsers()
-  }
-
-  async function upsertUser(user, client = { query }) {
-    await client.query(
-      `
-        INSERT INTO users (id, email, name, company, role, avatar, active, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8::timestamptz, now()), now())
-        ON CONFLICT (id) DO UPDATE SET
-          email = EXCLUDED.email,
-          name = EXCLUDED.name,
-          company = EXCLUDED.company,
-          role = EXCLUDED.role,
-          avatar = EXCLUDED.avatar,
-          active = EXCLUDED.active,
-          created_at = EXCLUDED.created_at,
-          updated_at = now()
-      `,
-      [
-        user.id,
-        user.email,
-        user.name,
-        user.company,
-        user.role,
-        user.avatar ?? null,
-        user.active ?? true,
-        user.createdAt ?? null,
-      ],
-    )
-  }
-
-  async function getTickets() {
-    const res = await query(`
-      SELECT
-        id,
-        subject,
-        status,
-        priority,
-        category,
-        product_area AS "productArea",
-        customer_impact AS "customerImpact",
-        requester,
-        assignee,
-        tags,
-        messages,
-        source,
-        created_at AS "createdAt",
-        updated_at AS "updatedAt"
-      FROM tickets
-      ORDER BY updated_at DESC, created_at DESC
-    `)
-    return res.rows.map(rowToTicket)
-  }
-
-  async function replaceTickets(tickets) {
-    await transaction(async (client) => {
-      await client.query('DELETE FROM tickets')
-      for (const ticket of tickets ?? []) {
-        await upsertTicket(ticket, null, client)
-      }
-    })
-    return getTickets()
-  }
-
-  async function upsertTicket(ticket, zendeskTicketId = null, client = { query }) {
-    await client.query(
-      `
-        INSERT INTO tickets (
-          id, subject, status, priority, category, product_area, customer_impact,
-          requester, assignee, tags, messages, source, zendesk_ticket_id, created_at, updated_at
-        )
-        VALUES (
-          $1, $2, $3, $4, $5, $6, $7,
-          $8, $9, $10, $11::jsonb, $12, $13,
-          COALESCE($14::timestamptz, now()),
-          COALESCE($15::timestamptz, now())
-        )
-        ON CONFLICT (id) DO UPDATE SET
-          subject = EXCLUDED.subject,
-          status = EXCLUDED.status,
-          priority = EXCLUDED.priority,
-          category = EXCLUDED.category,
-          product_area = EXCLUDED.product_area,
-          customer_impact = EXCLUDED.customer_impact,
-          requester = EXCLUDED.requester,
-          assignee = EXCLUDED.assignee,
-          tags = EXCLUDED.tags,
-          messages = EXCLUDED.messages,
-          source = EXCLUDED.source,
-          zendesk_ticket_id = COALESCE(EXCLUDED.zendesk_ticket_id, tickets.zendesk_ticket_id),
-          created_at = EXCLUDED.created_at,
-          updated_at = EXCLUDED.updated_at
-      `,
-      [
-        ticket.id,
-        ticket.subject,
-        ticket.status,
-        ticket.priority,
-        ticket.category,
-        ticket.productArea ?? null,
-        ticket.customerImpact ?? null,
-        ticket.requester,
-        ticket.assignee ?? null,
-        ticket.tags ?? [],
-        JSON.stringify(ticket.messages ?? []),
-        ticket.source ?? null,
-        zendeskTicketId,
-        ticket.createdAt ?? null,
-        ticket.updatedAt ?? null,
-      ],
-    )
-    return ticket
-  }
-
-  async function getResource(key) {
-    if (key === 'users') return getUsers()
-    if (key === 'tickets') return getTickets()
-    const res = await query('SELECT value FROM app_resources WHERE key = $1', [key])
-    return res.rows[0]?.value ?? fallbackFor(key)
-  }
-
-  async function putResource(key, value) {
-    if (key === 'users') return replaceUsers(value)
-    if (key === 'tickets') return replaceTickets(value)
-    await query(
-      `
-        INSERT INTO app_resources (key, value, updated_at)
-        VALUES ($1, $2::jsonb, now())
-        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()
-      `,
-      [key, JSON.stringify(value ?? fallbackFor(key))],
-    )
-    return value
-  }
-
-  async function bootstrap(resources) {
-    if (await isEmpty()) {
-      await transaction(async (client) => {
-        for (const user of resources?.users ?? []) await upsertUser(user, client)
-        for (const ticket of resources?.tickets ?? []) await upsertTicket(ticket, null, client)
-        for (const key of jsonResourceKeys) {
-          if (key in (resources ?? {})) {
-            await client.query(
-              `
-                INSERT INTO app_resources (key, value, updated_at)
-                VALUES ($1, $2::jsonb, now())
-                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()
-              `,
-              [key, JSON.stringify(resources[key] ?? fallbackFor(key))],
-            )
-          }
-        }
-      })
+    for (const r of res.rows) {
+      ;(COLS[r.table_name] ??= []).push({ name: r.column_name, isJson: r.data_type === 'jsonb' })
     }
-    return publicData()
-  }
-
-  async function publicData() {
-    const entries = []
-    for (const key of allowedResources) {
-      entries.push([key, await getResource(key)])
-    }
-    return Object.fromEntries(entries)
   }
 
   async function transaction(fn) {
@@ -304,42 +66,431 @@ export function createStore() {
     }
   }
 
+  /* ----- generic CRUD ----- */
+
+  function buildInsert(table, data) {
+    const cols = COLS[table] ?? []
+    const names = []
+    const placeholders = []
+    const values = []
+    let i = 1
+    for (const col of cols) {
+      const v = pick(data, col.name)
+      if (v === undefined) continue
+      names.push(col.name)
+      if (col.isJson) {
+        placeholders.push(`$${i}::jsonb`)
+        values.push(v === null ? null : JSON.stringify(v))
+      } else {
+        placeholders.push(`$${i}`)
+        values.push(v)
+      }
+      i++
+    }
+    return { text: `INSERT INTO ${table} (${names.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING *`, values }
+  }
+
+  async function insert(table, data, client = { query }) {
+    const { text, values } = buildInsert(table, data)
+    const res = await client.query(text, values)
+    return rowToObj(res.rows[0])
+  }
+
+  async function update(table, id, data) {
+    const cols = COLS[table] ?? []
+    const sets = []
+    const values = []
+    let i = 1
+    const hasUpdatedAt = cols.some((c) => c.name === 'updated_at')
+    for (const col of cols) {
+      if (col.name === 'id' || col.name === 'created_at' || col.name === 'updated_at') continue
+      const v = pick(data, col.name)
+      if (v === undefined) continue
+      if (col.isJson) {
+        sets.push(`${col.name} = $${i}::jsonb`)
+        values.push(v === null ? null : JSON.stringify(v))
+      } else {
+        sets.push(`${col.name} = $${i}`)
+        values.push(v)
+      }
+      i++
+    }
+    if (!sets.length) return getOne(table, id)
+    if (hasUpdatedAt) sets.push('updated_at = now()')
+    values.push(id)
+    const res = await query(`UPDATE ${table} SET ${sets.join(', ')} WHERE id = $${i} RETURNING *`, values)
+    return rowToObj(res.rows[0])
+  }
+
+  async function list(table, { where = '', params = [], order = '' } = {}) {
+    const res = await query(`SELECT * FROM ${table} ${where ? 'WHERE ' + where : ''} ${order ? 'ORDER BY ' + order : ''}`, params)
+    return res.rows.map(rowToObj)
+  }
+
+  async function getOne(table, id) {
+    const res = await query(`SELECT * FROM ${table} WHERE id = $1 LIMIT 1`, [id])
+    return res.rows[0] ? rowToObj(res.rows[0]) : null
+  }
+
+  async function remove(table, id) {
+    const res = await query(`DELETE FROM ${table} WHERE id = $1 RETURNING id`, [id])
+    return res.rowCount > 0
+  }
+
+  /* ----- init + seed ----- */
+
+  async function init() {
+    // Drop legacy 2-role tables if present and the new schema hasn't been created.
+    const legacy = (await query(LEGACY_CHECK_SQL)).rows[0]
+    if (!legacy.has_companies && (legacy.has_legacy_resources || legacy.has_legacy_users)) {
+      await query(LEGACY_DROP_SQL)
+      console.log('[store] dropped legacy pre-PRD tables (fresh PRD schema)')
+    }
+    await query(SCHEMA_SQL)
+    await loadColumns()
+    await seedIfEmpty()
+  }
+
+  async function seedIfEmpty() {
+    const count = (await query('SELECT count(*)::int AS n FROM companies')).rows[0].n
+    if (count > 0) return
+    await transaction(async (client) => {
+      const order = [
+        'companies', 'sites', 'users', 'departments', 'processes', 'machines',
+        'scoring_models', 'scoring_rules', 'financial_assumptions', 'success_stories',
+        'knowledge_articles', 'announcements', 'invoices', 'calculator_runs',
+        'service_requests', 'audit_logs',
+      ]
+      for (const table of order) {
+        for (const row of SEED[table] ?? []) {
+          const data = { ...row }
+          if (table === 'users') data.password_hash = hashPassword(DEFAULT_PASSWORD)
+          await insert(table, data, client)
+        }
+      }
+    })
+    console.log('[store] seeded demo data')
+  }
+
+  async function health() {
+    const res = await query('select current_database() as database, current_schema() as schema')
+    return res.rows[0]
+  }
+
+  /* ----- auth ----- */
+
+  async function getUserAuthByEmail(email) {
+    const res = await query(
+      `SELECT u.*, c.company_name, c.company_type
+       FROM users u LEFT JOIN companies c ON c.id = u.company_id
+       WHERE lower(u.email) = lower($1) LIMIT 1`,
+      [email],
+    )
+    if (!res.rows[0]) return null
+    const u = rowToObj(res.rows[0])
+    return u // includes passwordHash, companyType, companyName
+  }
+
+  async function getUserById(id) {
+    const res = await query(
+      `SELECT u.id, u.company_id, u.site_id, u.full_name, u.email, u.user_type, u.role,
+              u.avatar, u.status, u.last_login_at, u.created_at, u.updated_at,
+              c.company_name, c.company_type
+       FROM users u LEFT JOIN companies c ON c.id = u.company_id
+       WHERE u.id = $1 LIMIT 1`,
+      [id],
+    )
+    return res.rows[0] ? rowToObj(res.rows[0]) : null
+  }
+
+  async function setLastLogin(id) {
+    await query('UPDATE users SET last_login_at = now() WHERE id = $1', [id])
+  }
+
+  async function setPassword(id, password) {
+    await query('UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2', [hashPassword(password), id])
+    return getUserById(id)
+  }
+
+  async function createUser(data, password) {
+    const existing = await query('SELECT id FROM users WHERE lower(email) = lower($1)', [data.email])
+    if (existing.rows[0]) throw new Error('A user with that email already exists.')
+    const payload = { ...data, password_hash: hashPassword(password || DEFAULT_PASSWORD) }
+    return insert('users', payload)
+  }
+
+  /* ----- scoring resolution ----- */
+
+  async function getActiveScoringModel() {
+    const res = await query(`SELECT * FROM scoring_models WHERE status = 'active' ORDER BY effective_from DESC NULLS LAST LIMIT 1`)
+    return res.rows[0] ? rowToObj(res.rows[0]) : null
+  }
+
+  async function getRulesForModel(modelId) {
+    return list('scoring_rules', { where: 'scoring_model_id = $1', params: [modelId] })
+  }
+
+  /** Resolve the most specific financial assumption: site → company → global. */
+  async function resolveAssumption(modelId, companyId, siteId) {
+    const rows = await list('financial_assumptions', { where: 'scoring_model_id = $1', params: [modelId] })
+    const score = (a) => (a.siteId === siteId && siteId ? 3 : 0) + (a.companyId === companyId && companyId ? 2 : 0) + (!a.companyId && !a.siteId ? 1 : 0)
+    let best = null
+    let bestScore = -1
+    for (const a of rows) {
+      const s = score(a)
+      if (s > bestScore) {
+        best = a
+        bestScore = s
+      }
+    }
+    return best
+  }
+
+  /* ----- service requests ----- */
+
+  const OWNER_TEAM_BY_TYPE = {
+    support: 'support',
+    demo: 'sales',
+    consultation: 'sales',
+    onboarding: 'ops',
+    feature_request: 'product',
+  }
+
+  function ownerTeamFor(type) {
+    return OWNER_TEAM_BY_TYPE[type] ?? 'support'
+  }
+
+  async function getServiceRequestById(id) {
+    return getOne('service_requests', id)
+  }
+
+  async function addServiceRequestMessage(id, message, newStatus) {
+    const sr = await getServiceRequestById(id)
+    if (!sr) return null
+    const messages = [...(sr.messages ?? []), message]
+    return update('service_requests', id, { messages, ...(newStatus ? { status: newStatus } : {}) })
+  }
+
+  async function getZendeskLinkedRequests() {
+    return list('service_requests', { where: 'zendesk_ticket_id IS NOT NULL', params: [] })
+  }
+
+  /** Merge a Zendesk sync result (status + new public comments) into a service request thread. */
+  async function applyZendeskSync(zendeskTicketId, sync) {
+    const res = await query('SELECT * FROM service_requests WHERE zendesk_ticket_id = $1 LIMIT 1', [zendeskTicketId])
+    if (!res.rows[0]) return null
+    const sr = rowToObj(res.rows[0])
+    const messages = sr.messages ?? []
+    const known = new Set(messages.map((m) => m.zendeskCommentId).filter(Boolean))
+    const firstBody = messages[0]?.body
+    let changed = false
+    for (const comment of sync.comments ?? []) {
+      if (known.has(comment.zendeskCommentId)) continue
+      if (comment.body && firstBody && comment.body.trim() === firstBody.trim()) continue
+      messages.push({
+        id: `zen-${comment.zendeskCommentId}`,
+        author: 'Sigenic (Zendesk)',
+        authorRole: 'agent',
+        body: comment.body,
+        createdAt: comment.createdAt,
+        zendeskCommentId: comment.zendeskCommentId,
+      })
+      changed = true
+    }
+    const patch = {}
+    if (changed) patch.messages = messages
+    if (sync.status && sync.status !== sr.status) {
+      patch.status = sync.status === 'closed' || sync.status === 'solved' ? 'closed' : 'routed'
+      changed = true
+    }
+    if (changed) return update('service_requests', sr.id, patch)
+    return sr
+  }
+
+  /* ----- audit / email / notifications ----- */
+
+  async function appendAudit(entry) {
+    return insert('audit_logs', entry)
+  }
+
+  async function appendEmail(record) {
+    return insert('email_outbox', {
+      id: record.id,
+      to_email: record.to,
+      subject: record.subject,
+      body: record.body ?? record.text ?? '',
+      mode: record.mode,
+    })
+  }
+
+  async function getEmails() {
+    return list('email_outbox', { order: 'created_at DESC' })
+  }
+
+  /** Fan an announcement out to in-app notifications. Returns the matched users
+   *  so the caller can reuse them (e.g. for the email broadcast) without re-querying. */
+  async function notifyUsers(audienceType, notification) {
+    const users = await list('users', { order: 'created_at DESC' })
+    const targets = users.filter((u) => audienceMatches(u, audienceType))
+    await Promise.all(
+      targets.map((u) =>
+        insert('notifications', {
+          id: `ntf-${u.id}-${notification.refId}`.slice(0, 60),
+          user_id: u.id,
+          company_id: u.companyId,
+          kind: notification.kind ?? 'announcement',
+          title: notification.title,
+          body: notification.body,
+          link: notification.link ?? null,
+        }).catch(() => {}),
+      ),
+    )
+    return targets
+  }
+
+  /** Mark all of a user's notifications read in one statement. */
+  async function markNotificationsRead(userId) {
+    await query('UPDATE notifications SET read = true WHERE user_id = $1 AND read = false', [userId])
+  }
+
+  /* ----- role-scoped hydrate bundle for the frontend ----- */
+
+  async function hydrateFor(user) {
+    const me = await getUserById(user.sub ?? user.id)
+    const internal = isInternal(me)
+    const companyId = me?.companyId ?? null
+    const scoped = { where: 'company_id = $1', params: [companyId] }
+
+    // All queries below are independent given `me`/`companyId`, so fire them
+    // concurrently (pg pools the connections) instead of ~20 serial round-trips.
+    const [
+      company,
+      companiesAll,
+      sites,
+      users,
+      departments,
+      processes,
+      machines,
+      scoringModels,
+      scoringRules,
+      financialAssumptions,
+      calculatorRuns,
+      serviceRequests,
+      allArticles,
+      allStories,
+      allAnnouncements,
+      invoices,
+      notifications,
+      auditLogs,
+    ] = await Promise.all([
+      companyId ? getOne('companies', companyId) : Promise.resolve(null),
+      internal ? list('companies', { order: 'company_name ASC' }) : Promise.resolve(null),
+      internal ? list('sites', { order: 'site_name ASC' }) : list('sites', scoped),
+      internal ? list('users', { order: 'full_name ASC' }) : list('users', { ...scoped, order: 'full_name ASC' }),
+      list('departments', { order: 'name ASC' }),
+      list('processes', { order: 'process_name ASC' }),
+      list('machines', { order: 'machine_name ASC' }),
+      // internal: full config; external: only the active model summary
+      internal ? list('scoring_models', { order: 'created_at DESC' }) : getActiveScoringModel().then((m) => (m ? [m] : [])),
+      internal ? list('scoring_rules', { order: 'created_at ASC' }) : Promise.resolve([]),
+      internal ? list('financial_assumptions', {}) : Promise.resolve([]),
+      internal ? list('calculator_runs', { order: 'created_at DESC' }) : list('calculator_runs', { ...scoped, order: 'created_at DESC' }),
+      internal ? list('service_requests', { order: 'updated_at DESC' }) : list('service_requests', { ...scoped, order: 'updated_at DESC' }),
+      list('knowledge_articles', { order: 'updated_at DESC' }),
+      list('success_stories', { order: 'published_at DESC NULLS LAST' }),
+      list('announcements', { order: 'pinned DESC, publish_at DESC' }),
+      internal ? list('invoices', { order: 'issued_at DESC' }) : list('invoices', { ...scoped, order: 'issued_at DESC' }),
+      list('notifications', { where: 'user_id = $1', params: [me?.id], order: 'created_at DESC' }),
+      can(me, 'view_audit_logs') ? list('audit_logs', { order: 'created_at DESC' }) : Promise.resolve([]),
+    ])
+
+    const companies = internal ? companiesAll : company ? [company] : []
+    const activeModel = (internal ? scoringModels.find((m) => m.status === 'active') : scoringModels[0]) ?? null
+    const knowledgeArticles = internal ? allArticles : allArticles.filter((a) => a.active && audienceMatches(me, a.audienceType))
+    const successStories = internal ? allStories : allStories.filter((s) => s.status === 'published' && s.visibility !== 'internal')
+    const now = Date.now()
+    const announcements = internal
+      ? allAnnouncements
+      : allAnnouncements.filter(
+          (a) =>
+            a.active &&
+            audienceMatches(me, a.audienceType) &&
+            (!a.publishAt || new Date(a.publishAt).getTime() <= now) &&
+            (!a.expireAt || new Date(a.expireAt).getTime() >= now) &&
+            (!a.companyId || a.companyId === companyId),
+        )
+
+    return {
+      me,
+      company,
+      companies,
+      sites,
+      users,
+      departments,
+      processes,
+      machines,
+      scoringModels,
+      scoringRules,
+      financialAssumptions,
+      activeScoringModelId: activeModel?.id ?? null,
+      calculatorRuns,
+      serviceRequests,
+      knowledgeArticles,
+      successStories,
+      announcements,
+      invoices,
+      notifications,
+      auditLogs,
+    }
+  }
+
+  /** Public (unauthenticated) bundle for the marketing site. */
+  async function publicBundle() {
+    const stories = (await list('success_stories', { order: 'published_at DESC NULLS LAST' })).filter(
+      (s) => s.status === 'published' && s.visibility === 'public',
+    )
+    const articles = (await list('knowledge_articles', { order: 'updated_at DESC' })).filter(
+      (a) => a.active && a.featured && a.audienceType === 'all',
+    )
+    return { successStories: stories, knowledgeArticles: articles }
+  }
+
   return {
+    // lifecycle
     init,
     health,
-    bootstrap,
-    getUserByEmail,
-    getTickets,
-    upsertTicket,
-    getResource,
-    putResource,
+    transaction,
+    // generic
+    insert,
+    update,
+    list,
+    getOne,
+    remove,
+    rowToObj,
+    // auth
+    getUserAuthByEmail,
+    getUserById,
+    setLastLogin,
+    setPassword,
+    createUser,
+    // scoring
+    getActiveScoringModel,
+    getRulesForModel,
+    resolveAssumption,
+    // service requests
+    ownerTeamFor,
+    getServiceRequestById,
+    addServiceRequestMessage,
+    getZendeskLinkedRequests,
+    applyZendeskSync,
+    // audit / email / notifications
+    appendAudit,
+    appendEmail,
+    getEmails,
+    notifyUsers,
+    markNotificationsRead,
+    // bundles
+    hydrateFor,
+    publicBundle,
   }
-}
-
-function rowToTicket(row) {
-  return {
-    id: row.id,
-    subject: row.subject,
-    status: row.status,
-    priority: row.priority,
-    category: row.category,
-    productArea: row.productArea ?? undefined,
-    customerImpact: row.customerImpact ?? undefined,
-    requester: row.requester,
-    assignee: row.assignee ?? undefined,
-    tags: row.tags ?? [],
-    messages: row.messages ?? [],
-    source: row.source ?? undefined,
-    createdAt: toIso(row.createdAt),
-    updatedAt: toIso(row.updatedAt),
-  }
-}
-
-function fallbackFor(key) {
-  if (key === 'calc' || key === 'calc.latest') return null
-  return []
-}
-
-function toIso(value) {
-  return value instanceof Date ? value.toISOString() : value
 }
