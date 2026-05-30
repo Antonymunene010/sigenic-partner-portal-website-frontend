@@ -40,9 +40,10 @@ export const URGENCY_TONE: Record<Urgency, Tone> = Object.fromEntries(
 
 export const REQUEST_STATUSES: { value: RequestStatus; label: string; tone: Tone }[] = [
   { value: 'new', label: 'New', tone: 'accent' },
-  { value: 'submitted', label: 'Submitted', tone: 'info' },
-  { value: 'in_review', label: 'In review', tone: 'warn' },
-  { value: 'routed', label: 'Routed', tone: 'info' },
+  { value: 'open', label: 'Open', tone: 'info' },
+  { value: 'pending', label: 'Pending', tone: 'warn' },
+  { value: 'hold', label: 'On hold', tone: 'neutral' },
+  { value: 'solved', label: 'Solved', tone: 'success' },
   { value: 'closed', label: 'Closed', tone: 'neutral' },
 ]
 

@@ -29,7 +29,7 @@ export type ModelStatus = 'draft' | 'active' | 'archived'
 
 export type RequestType = 'support' | 'demo' | 'onboarding' | 'consultation' | 'feature_request'
 export type Urgency = 'low' | 'medium' | 'high'
-export type RequestStatus = 'new' | 'submitted' | 'in_review' | 'routed' | 'closed'
+export type RequestStatus = 'new' | 'open' | 'pending' | 'hold' | 'solved' | 'closed'
 export type RequestSource = 'landing_page' | 'portal_form' | 'calculator_cta' | 'dashboard'
 export type OwnerTeam = 'support' | 'sales' | 'ops' | 'product'
 

@@ -4,23 +4,9 @@
  * credentials are absent every call degrades gracefully to a local-only mock.
  */
 
-// Zendesk status -> portal status
-const STATUS_IN = {
-  new: 'open',
-  open: 'open',
-  pending: 'in_progress',
-  hold: 'in_progress',
-  solved: 'resolved',
-  closed: 'closed',
-}
-
-// portal status -> Zendesk status
-const STATUS_OUT = {
-  open: 'open',
-  in_progress: 'pending',
-  resolved: 'solved',
-  closed: 'closed',
-}
+// The portal stores the same status vocabulary as Zendesk, so syncing needs no
+// translation — only a whitelist so unknown values fall back to a safe default.
+const VALID_STATUSES = new Set(['new', 'open', 'pending', 'hold', 'solved', 'closed'])
 
 const PRIORITY_OUT = { low: 'low', normal: 'normal', high: 'high', urgent: 'urgent' }
 
@@ -93,7 +79,7 @@ export async function createZendeskTicket(ticket) {
             subject: ticket.subject,
             comment: { body: firstMessage },
             priority: PRIORITY_OUT[ticket.priority] ?? undefined,
-            status: STATUS_OUT[ticket.status] ?? undefined,
+            status: VALID_STATUSES.has(ticket.status) ? ticket.status : undefined,
             tags: ['partner_portal', ...(ticket.tags ?? [])],
           },
         }),
@@ -138,7 +124,7 @@ export async function syncZendeskTicket(zendeskId) {
   const zt = ticketRes.ticket
   if (!zt) return null
   return {
-    status: STATUS_IN[zt.status] ?? 'open',
+    status: VALID_STATUSES.has(zt.status) ? zt.status : 'open',
     updatedAt: zt.updated_at,
     comments: (commentsRes.comments ?? []).map((c) => ({
       zendeskCommentId: String(c.id),

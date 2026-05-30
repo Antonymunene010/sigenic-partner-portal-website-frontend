@@ -300,7 +300,7 @@ export function createStore() {
     const patch = {}
     if (changed) patch.messages = messages
     if (sync.status && sync.status !== sr.status) {
-      patch.status = sync.status === 'closed' || sync.status === 'solved' ? 'closed' : 'routed'
+      patch.status = sync.status
       changed = true
     }
     if (changed) return update('service_requests', sr.id, patch)

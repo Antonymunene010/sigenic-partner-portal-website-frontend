@@ -367,7 +367,7 @@ async function handleApi(req, res, pathname, auth) {
       process_id: request.processId ?? null,
       machine_id: request.machineId ?? null,
       urgency: request.urgency ?? 'medium',
-      status: 'submitted',
+      status: 'new',
       source: request.source ?? 'portal_form',
       owner_team: store.ownerTeamFor(request.requestType),
       linked_calculator_run_id: request.linkedCalculatorRunId ?? null,
@@ -379,7 +379,7 @@ async function handleApi(req, res, pathname, auth) {
       const zid = await createZendeskForRequest(payload)
       if (zid) {
         payload.zendesk_ticket_id = zid
-        payload.status = 'routed'
+        payload.status = 'open'
       }
     }
     const created = await store.insert('service_requests', payload)
@@ -402,7 +402,7 @@ async function handleApi(req, res, pathname, auth) {
     if (!isInternal(auth) && !canSeeCompany(auth, current.companyId)) return forbidden(res)
     const message = { id: uid('m'), author: auth.name, authorRole: isInternal(auth) ? 'agent' : 'you', body: body.trim(), createdAt: nowIso() }
     const reopen = current.status === 'closed'
-    const updated = await store.addServiceRequestMessage(srMsg[1], message, reopen ? 'routed' : current.status)
+    const updated = await store.addServiceRequestMessage(srMsg[1], message, reopen ? 'open' : current.status)
     if (current.zendeskTicketId) {
       await addZendeskComment(current.zendeskTicketId, message.body, auth.name).catch((e) => console.warn(`[zendesk:comment] ${e.message}`))
     }

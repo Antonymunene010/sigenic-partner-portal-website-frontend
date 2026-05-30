@@ -188,7 +188,7 @@ CREATE TABLE IF NOT EXISTS service_requests (
   process_id text REFERENCES processes(id) ON DELETE SET NULL,
   machine_id text REFERENCES machines(id) ON DELETE SET NULL,
   urgency text NOT NULL DEFAULT 'medium' CHECK (urgency IN ('low','medium','high')),
-  status text NOT NULL DEFAULT 'new' CHECK (status IN ('new','submitted','in_review','routed','closed')),
+  status text NOT NULL DEFAULT 'new' CHECK (status IN ('new','open','pending','hold','solved','closed')),
   source text NOT NULL DEFAULT 'portal_form'
     CHECK (source IN ('landing_page','portal_form','calculator_cta','dashboard')),
   owner_team text NOT NULL DEFAULT 'support' CHECK (owner_team IN ('support','sales','ops','product')),
