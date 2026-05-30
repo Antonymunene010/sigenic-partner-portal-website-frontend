@@ -26,6 +26,7 @@ import {
   syncZendeskTicket,
   zendeskEnabled,
 } from './zendesk.js'
+import { fetchNotionArticles, notionEnabled } from './notion.js'
 import { computeRoi, toCalculatorRun, toLimited } from './calc.js'
 import { invoicePdf, reportPdf } from './pdf.js'
 
@@ -136,6 +137,41 @@ async function runZendeskSync() {
   return { synced }
 }
 
+/* ----- Notion → knowledge_articles sync ----- */
+
+async function runNotionSync() {
+  if (!notionEnabled()) return { synced: 0, mode: 'mock' }
+  const articles = await fetchNotionArticles()
+  let synced = 0
+  for (const article of articles) {
+    try {
+      await store.upsertNotionArticle(article)
+      synced++
+    } catch (error) {
+      console.warn(`[notion:sync] ${article.sourceRefId}: ${error.message}`)
+    }
+  }
+  return { synced }
+}
+
+/**
+ * Run `fn` on a fixed interval with NO overlapping cycles: the next run is
+ * armed only after the current one settles, so a slow sync can't stack up the
+ * way a plain setInterval would. Fires once immediately.
+ */
+function scheduleLoop(fn, intervalMs, label) {
+  const tick = async () => {
+    try {
+      await fn()
+    } catch (error) {
+      console.warn(`[${label}] cycle failed: ${error.message}`)
+    } finally {
+      setTimeout(tick, intervalMs).unref()
+    }
+  }
+  tick()
+}
+
 /* ----- request → Zendesk ticket helper ----- */
 
 async function createZendeskForRequest(payload) {
@@ -227,7 +263,7 @@ async function handlePublic(req, res, pathname) {
     return true
   }
   if (pathname === '/api/health' && req.method === 'GET') {
-    send(res, 200, { ok: true, database: await store.health(), zendesk: zendeskEnabled(), email: emailMode() })
+    send(res, 200, { ok: true, database: await store.health(), zendesk: zendeskEnabled(), notion: notionEnabled(), email: emailMode() })
     return true
   }
   if (pathname === '/api/public' && req.method === 'GET') {
@@ -425,6 +461,12 @@ async function handleApi(req, res, pathname, auth) {
   if (pathname === '/api/service-requests/sync' && req.method === 'POST') {
     if (!can(auth, 'view_ticket_oversight')) return forbidden(res)
     return send(res, 200, await runZendeskSync())
+  }
+
+  /* ---- knowledge base ---- */
+  if (pathname === '/api/knowledge/sync' && req.method === 'POST') {
+    if (!can(auth, 'manage_knowledge')) return forbidden(res)
+    return send(res, 200, await runNotionSync())
   }
 
   /* ---- users ---- */
@@ -660,9 +702,14 @@ await initEmail()
 
 if (zendeskEnabled()) {
   const interval = Number(process.env.ZENDESK_SYNC_INTERVAL_MS || 60000)
-  runZendeskSync().catch(() => {})
-  setInterval(() => runZendeskSync().catch(() => {}), interval).unref()
+  scheduleLoop(runZendeskSync, interval, 'zendesk:sync')
   console.log(`[zendesk] two-way sync enabled (every ${interval}ms).`)
+}
+
+if (notionEnabled()) {
+  const interval = Number(process.env.NOTION_SYNC_INTERVAL_MS || 300000)
+  scheduleLoop(runNotionSync, interval, 'notion:sync')
+  console.log(`[notion] knowledge-base sync enabled (every ${interval}ms).`)
 }
 
 const server = http.createServer((req, res) => {

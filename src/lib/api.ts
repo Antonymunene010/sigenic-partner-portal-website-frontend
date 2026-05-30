@@ -97,6 +97,11 @@ export function syncRequests(): Promise<{ synced: number; mode?: string }> {
   return request('/api/service-requests/sync', { method: 'POST' })
 }
 
+/* ---------- knowledge base ---------- */
+export function syncKnowledge(): Promise<{ synced: number; mode?: string }> {
+  return request('/api/knowledge/sync', { method: 'POST' })
+}
+
 /* ---------- users ---------- */
 export function createUserApi(user: Partial<User>, password?: string): Promise<{ user: User }> {
   return request('/api/users', { method: 'POST', body: JSON.stringify({ user, password }) })

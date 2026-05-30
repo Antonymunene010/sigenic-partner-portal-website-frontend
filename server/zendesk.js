@@ -27,7 +27,20 @@ export function zendeskEnabled() {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-/** Retry an async fn with exponential backoff. */
+// Per-request ceiling (shared default for Zendesk + Notion fetches) so a hung
+// connection can't stall a sync loop.
+const REQUEST_TIMEOUT_MS = Number(process.env.ZENDESK_TIMEOUT_MS || 10000)
+
+// Retry-After arrives in seconds; honour it (capped) over blind backoff.
+function parseRetryAfter(value) {
+  const seconds = Number(value)
+  return Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds * 1000, 30000) : undefined
+}
+
+/**
+ * Retry an async fn with exponential backoff. Stops early on non-retryable
+ * errors (4xx except 429) and honours a server-provided Retry-After delay.
+ */
 export async function withRetry(fn, { retries = 3, baseDelay = 300, label = 'zendesk' } = {}) {
   let lastError
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -35,8 +48,9 @@ export async function withRetry(fn, { retries = 3, baseDelay = 300, label = 'zen
       return await fn()
     } catch (error) {
       lastError = error
+      if (error?.retryable === false) throw error
       if (attempt < retries) {
-        const delay = baseDelay * 2 ** attempt
+        const delay = error?.retryAfterMs ?? baseDelay * 2 ** attempt
         console.warn(`[${label}] attempt ${attempt + 1} failed (${error.message}); retrying in ${delay}ms`)
         await sleep(delay)
       }
@@ -45,20 +59,52 @@ export async function withRetry(fn, { retries = 3, baseDelay = 300, label = 'zen
   throw lastError
 }
 
-async function zendeskFetch(creds, path, init) {
-  const res = await fetch(`https://${creds.subdomain}.zendesk.com${path}`, {
-    ...init,
-    headers: {
-      Authorization: creds.authHeader,
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
-  })
+/**
+ * fetch() with a hard timeout and transient-error classification, shared by the
+ * Zendesk and Notion integrations (Notion imports it). On a non-2xx response it
+ * throws an Error tagged with the signals withRetry() reads: `retryable` (429 +
+ * 5xx are transient; other 4xx are not) and, on 429, `retryAfterMs` honouring
+ * the server's Retry-After header. Network failures and timeouts are retryable.
+ * `parseError(payload, status)` turns the provider's error body into a message.
+ */
+export async function resilientFetch(url, init = {}, { timeoutMs = REQUEST_TIMEOUT_MS, parseError } = {}) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  let res
+  try {
+    res = await fetch(url, { ...init, signal: controller.signal })
+  } catch (error) {
+    // Network failure or timeout — both transient, so worth a retry.
+    const reason = error.name === 'AbortError' ? `timed out after ${timeoutMs}ms` : error.message
+    throw Object.assign(new Error(`request failed (${reason})`), { retryable: true })
+  } finally {
+    clearTimeout(timer)
+  }
   const payload = await res.json().catch(() => null)
   if (!res.ok) {
-    throw new Error(payload?.error?.title || payload?.error || `Zendesk ${res.status}`)
+    const message = parseError?.(payload, res.status) ?? `HTTP ${res.status}`
+    // Retry only transient failures: 429 (rate limit) and 5xx (server). Other
+    // 4xx are client errors that won't fix themselves on a second attempt.
+    const retryable = res.status === 429 || res.status >= 500
+    const retryAfterMs = res.status === 429 ? parseRetryAfter(res.headers.get('retry-after')) : undefined
+    throw Object.assign(new Error(message), { retryable, retryAfterMs })
   }
   return payload
+}
+
+async function zendeskFetch(creds, path, init) {
+  return resilientFetch(
+    `https://${creds.subdomain}.zendesk.com${path}`,
+    {
+      ...init,
+      headers: {
+        Authorization: creds.authHeader,
+        'Content-Type': 'application/json',
+        ...(init?.headers ?? {}),
+      },
+    },
+    { parseError: (payload, status) => payload?.error?.title || payload?.error || `Zendesk ${status}` },
+  )
 }
 
 /** Create a Zendesk ticket (with retry). Returns {mode, id}. */

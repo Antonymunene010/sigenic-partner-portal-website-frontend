@@ -307,6 +307,47 @@ export function createStore() {
     return sr
   }
 
+  /**
+   * Upsert a knowledge article pulled from Notion (keyed by source_ref_id).
+   * Notion owns the *content* (title/summary/slug/body); the portal owns
+   * *governance* (featured/active/audience/category/tags) per PRD §8, so an
+   * existing row keeps its locally-edited governance fields on re-sync. First
+   * import seeds governance from Notion. Returns 'created' | 'updated'.
+   */
+  async function upsertNotionArticle(article) {
+    const res = await query(
+      `SELECT * FROM knowledge_articles WHERE source_type = 'notion' AND source_ref_id = $1 LIMIT 1`,
+      [article.sourceRefId],
+    )
+    const existing = res.rows[0] ? rowToObj(res.rows[0]) : null
+    if (!existing) {
+      await insert('knowledge_articles', {
+        id: `kb-notion-${String(article.sourceRefId).replace(/-/g, '')}`,
+        source_type: 'notion',
+        source_ref_id: article.sourceRefId,
+        slug: article.slug || null,
+        title: article.title,
+        summary: article.summary,
+        category: article.category,
+        tags_json: article.tags ?? [],
+        body: article.body,
+        active: article.active,
+        featured: article.featured,
+        audience_type: article.audienceType ?? 'all',
+        last_reviewed_at: article.lastReviewedAt ?? null,
+      })
+      return 'created'
+    }
+    await update('knowledge_articles', existing.id, {
+      title: article.title,
+      summary: article.summary,
+      slug: existing.slug || article.slug || null,
+      body: article.body,
+      last_reviewed_at: article.lastReviewedAt ?? existing.lastReviewedAt ?? null,
+    })
+    return 'updated'
+  }
+
   /* ----- audit / email / notifications ----- */
 
   async function appendAudit(entry) {
@@ -483,6 +524,7 @@ export function createStore() {
     addServiceRequestMessage,
     getZendeskLinkedRequests,
     applyZendeskSync,
+    upsertNotionArticle,
     // audit / email / notifications
     appendAudit,
     appendEmail,

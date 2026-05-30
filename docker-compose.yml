@@ -47,6 +47,11 @@ services:
       ZENDESK_EMAIL: ${ZENDESK_EMAIL:-}
       ZENDESK_API_TOKEN: ${ZENDESK_API_TOKEN:-}
       ZENDESK_SYNC_INTERVAL_MS: ${ZENDESK_SYNC_INTERVAL_MS:-60000}
+      # Optional Notion knowledge-base source — leave blank to keep KB portal-only.
+      NOTION_TOKEN: ${NOTION_TOKEN:-}
+      NOTION_KB_DATABASE_ID: ${NOTION_KB_DATABASE_ID:-}
+      NOTION_SYNC_INTERVAL_MS: ${NOTION_SYNC_INTERVAL_MS:-300000}
+      NOTION_VERSION: ${NOTION_VERSION:-2022-06-28}
       CORS_ORIGIN: "*"
     ports:
       - "8787:8787"
