@@ -2,8 +2,6 @@ import type { PoolClient, QueryResult } from 'pg'
 import { hashPassword } from '../infra/auth'
 import { SCHEMA_SQL, LEGACY_CHECK_SQL, LEGACY_DROP_SQL } from './schema'
 import { SEED } from './seed'
-import { isInternal, audienceMatches, can } from '../../shared/permissions'
-import type { HydrateBundle } from '../../shared/types'
 import { createPool, transaction as runTransaction } from './pool'
 import { buildInsert, buildUpdate, rowToObj, loadColumns, type ColumnMap } from './columns'
 
@@ -12,6 +10,10 @@ const DEFAULT_PASSWORD = process.env.SEED_DEFAULT_PASSWORD || 'demo'
 /** Anything exposing a pg-style query() — the pool itself or a transaction client. */
 type Queryable = { query: (text: string, params?: any[]) => Promise<QueryResult> }
 
+/**
+ * The data-access layer: generic CRUD + hand-written queries. Pure persistence —
+ * no permission/audience filtering lives here (that's the service layer's job).
+ */
 export function createStore() {
   const pool = createPool()
   const query = (text: string, params?: any[]) => pool.query(text, params)
@@ -285,124 +287,14 @@ export function createStore() {
     return list('email_outbox', { order: 'created_at DESC' })
   }
 
-  /** Fan an announcement out to in-app notifications. Returns the matched users
-   *  so the caller can reuse them (e.g. for the email broadcast) without re-querying. */
-  async function notifyUsers(
-    audienceType: string,
-    notification: { refId: string; kind?: string; title: string; body?: string; link?: string },
-  ): Promise<any[]> {
-    const users = await list('users', { order: 'created_at DESC' })
-    const targets = users.filter((u: any) => audienceMatches(u, audienceType))
-    await Promise.all(
-      targets.map((u: any) =>
-        insert('notifications', {
-          id: `ntf-${u.id}-${notification.refId}`.slice(0, 60),
-          user_id: u.id,
-          company_id: u.companyId,
-          kind: notification.kind ?? 'announcement',
-          title: notification.title,
-          body: notification.body,
-          link: notification.link ?? null,
-        }).catch(() => {}),
-      ),
-    )
-    return targets
+  /** Insert one in-app notification (audience filtering is done by the service layer). */
+  async function insertNotification(notification: Record<string, unknown>): Promise<any> {
+    return insert('notifications', notification)
   }
 
   /** Mark all of a user's notifications read in one statement. */
   async function markNotificationsRead(userId: string): Promise<void> {
     await query('UPDATE notifications SET read = true WHERE user_id = $1 AND read = false', [userId])
-  }
-
-  /* ----- role-scoped hydrate bundle for the frontend ----- */
-
-  async function hydrateFor(user: { sub?: string; id?: string }): Promise<HydrateBundle> {
-    const me = await getUserById((user.sub ?? user.id) as string)
-    const internal = isInternal(me)
-    const companyId = me?.companyId ?? null
-    const scoped = { where: 'company_id = $1', params: [companyId] }
-
-    // All queries below are independent given `me`/`companyId`, so fire them
-    // concurrently (pg pools the connections) instead of ~20 serial round-trips.
-    const [
-      company,
-      companiesAll,
-      sites,
-      users,
-      departments,
-      processes,
-      machines,
-      scoringModels,
-      scoringRules,
-      financialAssumptions,
-      calculatorRuns,
-      serviceRequests,
-      allArticles,
-      allStories,
-      allAnnouncements,
-      invoices,
-      notifications,
-      auditLogs,
-    ] = await Promise.all([
-      companyId ? getOne('companies', companyId) : Promise.resolve(null),
-      internal ? list('companies', { order: 'company_name ASC' }) : Promise.resolve(null),
-      internal ? list('sites', { order: 'site_name ASC' }) : list('sites', scoped),
-      internal ? list('users', { order: 'full_name ASC' }) : list('users', { ...scoped, order: 'full_name ASC' }),
-      list('departments', { order: 'name ASC' }),
-      list('processes', { order: 'process_name ASC' }),
-      list('machines', { order: 'machine_name ASC' }),
-      // internal: full config; external: only the active model summary
-      internal ? list('scoring_models', { order: 'created_at DESC' }) : getActiveScoringModel().then((m) => (m ? [m] : [])),
-      internal ? list('scoring_rules', { order: 'created_at ASC' }) : Promise.resolve([]),
-      internal ? list('financial_assumptions', {}) : Promise.resolve([]),
-      internal ? list('calculator_runs', { order: 'created_at DESC' }) : list('calculator_runs', { ...scoped, order: 'created_at DESC' }),
-      internal ? list('service_requests', { order: 'updated_at DESC' }) : list('service_requests', { ...scoped, order: 'updated_at DESC' }),
-      list('knowledge_articles', { order: 'updated_at DESC' }),
-      list('success_stories', { order: 'published_at DESC NULLS LAST' }),
-      list('announcements', { order: 'pinned DESC, publish_at DESC' }),
-      internal ? list('invoices', { order: 'issued_at DESC' }) : list('invoices', { ...scoped, order: 'issued_at DESC' }),
-      list('notifications', { where: 'user_id = $1', params: [me?.id], order: 'created_at DESC' }),
-      can(me, 'view_audit_logs') ? list('audit_logs', { order: 'created_at DESC' }) : Promise.resolve([]),
-    ])
-
-    const companies = internal ? companiesAll ?? [] : company ? [company] : []
-    const activeModel = (internal ? scoringModels.find((m: any) => m.status === 'active') : scoringModels[0]) ?? null
-    const knowledgeArticles = internal ? allArticles : allArticles.filter((a: any) => a.active && audienceMatches(me, a.audienceType))
-    const successStories = internal ? allStories : allStories.filter((s: any) => s.status === 'published' && s.visibility !== 'internal')
-    const now = Date.now()
-    const announcements = internal
-      ? allAnnouncements
-      : allAnnouncements.filter(
-          (a: any) =>
-            a.active &&
-            audienceMatches(me, a.audienceType) &&
-            (!a.publishAt || new Date(a.publishAt).getTime() <= now) &&
-            (!a.expireAt || new Date(a.expireAt).getTime() >= now) &&
-            (!a.companyId || a.companyId === companyId),
-        )
-
-    return {
-      me,
-      company,
-      companies,
-      sites,
-      users,
-      departments,
-      processes,
-      machines,
-      scoringModels,
-      scoringRules,
-      financialAssumptions,
-      activeScoringModelId: activeModel?.id ?? null,
-      calculatorRuns,
-      serviceRequests,
-      knowledgeArticles,
-      successStories,
-      announcements,
-      invoices,
-      notifications,
-      auditLogs,
-    }
   }
 
   /** Public (unauthenticated) bundle for the marketing site. */
@@ -449,10 +341,12 @@ export function createStore() {
     appendAudit,
     appendEmail,
     getEmails,
-    notifyUsers,
+    insertNotification,
     markNotificationsRead,
     // bundles
-    hydrateFor,
     publicBundle,
   }
 }
+
+/** The assembled data-access store, dependency-injected into the service layer. */
+export type Store = ReturnType<typeof createStore>

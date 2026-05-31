@@ -1,0 +1,76 @@
+import { can, type Capability } from '../../shared/permissions'
+import { forbidden, notFound } from '../http/errors'
+import { audit } from './audit'
+import { uid } from '../util/ids'
+import type { Store } from '../db/store'
+import type { AuthPayload } from '../infra/auth'
+
+interface ResourceCfg {
+  table: string
+  manage: Capability
+  read: Capability | null
+  entity: string
+  prefix: string
+  companyScoped?: boolean
+}
+
+/** Config-driven admin resources: one CRUD shape, role + company-scope per entry. */
+export const RESOURCES: Record<string, ResourceCfg> = {
+  companies: { table: 'companies', manage: 'manage_companies', read: 'view_all_companies', entity: 'company', prefix: 'co' },
+  sites: { table: 'sites', manage: 'manage_companies', read: 'view_all_companies', entity: 'site', prefix: 'site', companyScoped: true },
+  departments: { table: 'departments', manage: 'manage_master_data', read: 'view_master_data', entity: 'department', prefix: 'dep' },
+  processes: { table: 'processes', manage: 'manage_master_data', read: 'view_master_data', entity: 'process', prefix: 'proc' },
+  machines: { table: 'machines', manage: 'manage_master_data', read: 'view_master_data', entity: 'machine', prefix: 'mac' },
+  'scoring-models': { table: 'scoring_models', manage: 'manage_scoring', read: 'manage_scoring', entity: 'scoring_model', prefix: 'sm' },
+  'scoring-rules': { table: 'scoring_rules', manage: 'manage_scoring', read: 'manage_scoring', entity: 'scoring_rule', prefix: 'sr-rule' },
+  'financial-assumptions': { table: 'financial_assumptions', manage: 'manage_scoring', read: 'manage_scoring', entity: 'financial_assumption', prefix: 'fa' },
+  'knowledge-articles': { table: 'knowledge_articles', manage: 'manage_knowledge', read: null, entity: 'knowledge_article', prefix: 'kb' },
+  'success-stories': { table: 'success_stories', manage: 'manage_success_stories', read: null, entity: 'success_story', prefix: 'story' },
+  invoices: { table: 'invoices', manage: 'manage_billing', read: 'view_all_companies', entity: 'invoice', prefix: 'inv', companyScoped: true },
+}
+
+export function isResource(name: string): boolean {
+  return Object.prototype.hasOwnProperty.call(RESOURCES, name)
+}
+
+export async function listResource(store: Store, auth: AuthPayload, resource: string): Promise<{ items: any[] }> {
+  const cfg = RESOURCES[resource]
+  if (cfg.read && !can(auth, cfg.read)) {
+    // Company-scoped fallback: a user without the global read cap still sees their own company's rows.
+    if (cfg.companyScoped && auth.companyId) {
+      const rows = await store.list(cfg.table, { where: 'company_id = $1', params: [auth.companyId], order: 'created_at DESC' })
+      return { items: rows }
+    }
+    throw forbidden()
+  }
+  return { items: await store.list(cfg.table, { order: 'created_at DESC' }) }
+}
+
+export async function createResource(store: Store, auth: AuthPayload, resource: string, body: any): Promise<any> {
+  const cfg = RESOURCES[resource]
+  if (!can(auth, cfg.manage)) throw forbidden()
+  const item = body.item ?? body
+  const newId = item.id ?? uid(cfg.prefix)
+  const created = await store.insert(cfg.table, { ...item, id: newId })
+  await audit(store, auth, cfg.entity, newId, 'create', null, created)
+  return created
+}
+
+export async function updateResource(store: Store, auth: AuthPayload, resource: string, id: string, body: any): Promise<any> {
+  const cfg = RESOURCES[resource]
+  if (!can(auth, cfg.manage)) throw forbidden()
+  const before = await store.getOne(cfg.table, id)
+  if (!before) throw notFound('Not found.')
+  const updated = await store.update(cfg.table, id, body.item ?? body, { touch: body.touch })
+  await audit(store, auth, cfg.entity, id, 'update', before, updated)
+  return updated
+}
+
+export async function deleteResource(store: Store, auth: AuthPayload, resource: string, id: string): Promise<{ ok: boolean }> {
+  const cfg = RESOURCES[resource]
+  if (!can(auth, cfg.manage)) throw forbidden()
+  const before = await store.getOne(cfg.table, id)
+  const ok = await store.remove(cfg.table, id)
+  await audit(store, auth, cfg.entity, id, 'delete', before, null)
+  return { ok }
+}
