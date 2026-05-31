@@ -50,7 +50,9 @@ const CAPABILITIES = {
   submit_consultation_request: ALL_AUTH,
   access_knowledge_base: ALL_AUTH,
   manage_company_users: ['distributor_admin', 'customer_admin', 'super_admin'],
-  manage_internal_users: INTERNAL_MANAGE,
+  // PRD §5.1 "Manage own company users": for the internal Sigenic company, only
+  // super_admin qualifies. A plain admin runs partners/scoring/master data, not staff.
+  manage_internal_users: ['super_admin'],
   view_all_companies: INTERNAL_OVERSIGHT,
   manage_companies: INTERNAL_MANAGE,
   view_master_data: INTERNAL_OVERSIGHT,
@@ -95,7 +97,9 @@ export function assignableRoles(user) {
     case 'super_admin':
       return [...ROLES]
     case 'admin':
-      return ROLES.filter((r) => r !== 'super_admin')
+      // PRD §5.1 "Assign partner/customer roles": admin assigns external roles
+      // only. Internal Sigenic staff roles are super_admin's to assign.
+      return ['distributor_admin', 'distributor_user', 'customer_admin', 'customer_user']
     case 'distributor_admin':
       return ['distributor_admin', 'distributor_user']
     case 'customer_admin':
@@ -109,7 +113,9 @@ export function assignableRoles(user) {
 export function canManageUser(actor, targetCompanyId, targetRole) {
   if (!actor) return false
   if (actor.role === 'super_admin') return true
-  if (actor.role === 'admin') return targetRole !== 'super_admin'
+  // PRD §5.1: admin may assign partner/customer (external) roles, but managing
+  // internal Sigenic staff is super_admin-only ("Manage own company users": admin ❌).
+  if (actor.role === 'admin') return ROLE_META[targetRole]?.internal === false
   // External company admins: only their own company + their own org's roles.
   const meta = ROLE_META[actor.role]
   if (!meta?.companyAdmin) return false
