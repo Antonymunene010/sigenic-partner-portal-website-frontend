@@ -80,7 +80,7 @@ export async function createServiceRequest(store: Store, auth: AuthPayload, requ
 /** Append a message to a thread (reopening a closed request), mirroring to Zendesk + email. */
 export async function addServiceRequestMessage(store: Store, auth: AuthPayload, id: string, rawBody: string): Promise<any> {
   if (!rawBody?.trim()) throw badRequest('Message body is required.')
-  const current = await store.getServiceRequestById(id)
+  const current = await store.getOne('service_requests', id)
   if (!current) throw notFound('Request not found.')
   if (!isInternal(auth) && !canSeeCompany(auth, current.companyId)) throw forbidden()
   const message = { id: uid('m'), author: auth.name, authorRole: isInternal(auth) ? 'agent' : 'you', body: rawBody.trim(), createdAt: nowIso() }
@@ -97,7 +97,7 @@ export async function addServiceRequestMessage(store: Store, auth: AuthPayload, 
 /** Internal-only status/owner update for a request. */
 export async function updateServiceRequest(store: Store, auth: AuthPayload, id: string, patch: any): Promise<any> {
   if (!can(auth, 'view_ticket_oversight')) throw forbidden('Only internal staff can update request status.')
-  const before = await store.getServiceRequestById(id)
+  const before = await store.getOne('service_requests', id)
   if (!before) throw notFound('Request not found.')
   const updated = await store.update('service_requests', id, patch)
   await audit(store, auth, 'service_request', id, 'update', { status: before.status, ownerTeam: before.ownerTeam }, { status: updated.status, ownerTeam: updated.ownerTeam })

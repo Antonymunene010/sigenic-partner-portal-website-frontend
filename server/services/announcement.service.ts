@@ -28,8 +28,9 @@ export async function createAnnouncement(store: Store, auth: AuthPayload, announ
 
   const allUsers = await store.list('users', { order: 'created_at DESC' })
   const targets = allUsers.filter((u: any) => audienceMatches(u, created.audienceType))
+  // In-app notification + email per target are independent — fan them all out concurrently.
   await Promise.all(
-    targets.map((u: any) =>
+    targets.flatMap((u: any) => [
       store
         .insert('notifications', {
           id: `ntf-${u.id}-${created.id}`.slice(0, 60),
@@ -41,12 +42,8 @@ export async function createAnnouncement(store: Store, auth: AuthPayload, announ
           link: '/app',
         })
         .catch(() => {}),
-    ),
-  )
-  await Promise.all(
-    targets.map((u: any) =>
       sendEmail(store, { to: u.email, ...announcementEmail({ title: created.title, body: created.body, author: auth.name }) }).catch(() => {}),
-    ),
+    ]),
   )
   return { item: created, recipients: targets.length }
 }

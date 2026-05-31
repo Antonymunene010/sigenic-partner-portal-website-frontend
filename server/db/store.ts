@@ -152,17 +152,9 @@ export function createStore() {
   /** Resolve the most specific financial assumption: site → company → global. */
   async function resolveAssumption(modelId: string, companyId: string | null | undefined, siteId: string | null | undefined): Promise<any> {
     const rows = await list('financial_assumptions', { where: 'scoring_model_id = $1', params: [modelId] })
+    // Most specific wins: site (3) > company (2) > global (1).
     const score = (a: any) => (a.siteId === siteId && siteId ? 3 : 0) + (a.companyId === companyId && companyId ? 2 : 0) + (!a.companyId && !a.siteId ? 1 : 0)
-    let best: any = null
-    let bestScore = -1
-    for (const a of rows) {
-      const s = score(a)
-      if (s > bestScore) {
-        best = a
-        bestScore = s
-      }
-    }
-    return best
+    return rows.reduce<any>((best, a) => (best === null || score(a) > score(best) ? a : best), null)
   }
 
   /* ----- service requests ----- */
@@ -179,12 +171,8 @@ export function createStore() {
     return OWNER_TEAM_BY_TYPE[type] ?? 'support'
   }
 
-  async function getServiceRequestById(id: string): Promise<any> {
-    return getOne('service_requests', id)
-  }
-
   async function addServiceRequestMessage(id: string, message: any, newStatus?: string): Promise<any> {
-    const sr = await getServiceRequestById(id)
+    const sr = await getOne('service_requests', id)
     if (!sr) return null
     const messages = [...(sr.messages ?? []), message]
     return update('service_requests', id, { messages, ...(newStatus ? { status: newStatus } : {}) })
@@ -273,12 +261,12 @@ export function createStore() {
     return insert('audit_logs', entry)
   }
 
-  async function appendEmail(record: { id: string; to: string; subject: string; body?: string; text?: string; mode: string }): Promise<any> {
+  async function appendEmail(record: { id: string; to: string; subject: string; text?: string; mode: string }): Promise<any> {
     return insert('email_outbox', {
       id: record.id,
       to_email: record.to,
       subject: record.subject,
-      body: record.body ?? record.text ?? '',
+      body: record.text ?? '',
       mode: record.mode,
     })
   }
@@ -287,39 +275,21 @@ export function createStore() {
     return list('email_outbox', { order: 'created_at DESC' })
   }
 
-  /** Insert one in-app notification (audience filtering is done by the service layer). */
-  async function insertNotification(notification: Record<string, unknown>): Promise<any> {
-    return insert('notifications', notification)
-  }
-
   /** Mark all of a user's notifications read in one statement. */
   async function markNotificationsRead(userId: string): Promise<void> {
     await query('UPDATE notifications SET read = true WHERE user_id = $1 AND read = false', [userId])
-  }
-
-  /** Public (unauthenticated) bundle for the marketing site. */
-  async function publicBundle(): Promise<{ successStories: any[]; knowledgeArticles: any[] }> {
-    const stories = (await list('success_stories', { order: 'published_at DESC NULLS LAST' })).filter(
-      (s: any) => s.status === 'published' && s.visibility === 'public',
-    )
-    const articles = (await list('knowledge_articles', { order: 'updated_at DESC' })).filter(
-      (a: any) => a.active && a.featured && a.audienceType === 'all',
-    )
-    return { successStories: stories, knowledgeArticles: articles }
   }
 
   return {
     // lifecycle
     init,
     health,
-    transaction,
-    // generic
+    // generic CRUD
     insert,
     update,
     list,
     getOne,
     remove,
-    rowToObj,
     // auth
     getUserAuthByEmail,
     getUserById,
@@ -332,7 +302,6 @@ export function createStore() {
     resolveAssumption,
     // service requests
     ownerTeamFor,
-    getServiceRequestById,
     addServiceRequestMessage,
     getZendeskLinkedRequests,
     applyZendeskSync,
@@ -341,10 +310,7 @@ export function createStore() {
     appendAudit,
     appendEmail,
     getEmails,
-    insertNotification,
     markNotificationsRead,
-    // bundles
-    publicBundle,
   }
 }
 

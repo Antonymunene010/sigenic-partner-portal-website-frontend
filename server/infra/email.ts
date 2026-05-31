@@ -1,4 +1,4 @@
-import crypto from 'node:crypto'
+import { uid, nowIso } from '../util/ids'
 
 /** A persisted outbox record — every send (real or mocked) is recorded for audit. */
 export interface EmailRecord {
@@ -65,13 +65,13 @@ export async function sendEmail(
   { to, subject, text, html }: { to: string; subject: string; text?: string; html?: string },
 ): Promise<EmailRecord> {
   const record: EmailRecord = {
-    id: `mail-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}`,
+    id: uid('mail'),
     to,
     subject,
     text,
     mode,
     delivered: false,
-    createdAt: new Date().toISOString(),
+    createdAt: nowIso(),
   }
   if (transporter) {
     try {
