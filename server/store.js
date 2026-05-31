@@ -1,7 +1,7 @@
 import { Pool } from 'pg'
-import { hashPassword } from './auth.js'
-import { SCHEMA_SQL, LEGACY_CHECK_SQL, LEGACY_DROP_SQL } from './schema.js'
-import { SEED } from './seed.js'
+import { hashPassword } from './infra/auth'
+import { SCHEMA_SQL, LEGACY_CHECK_SQL, LEGACY_DROP_SQL } from './db/schema'
+import { SEED } from './db/seed'
 import { isInternal, audienceMatches, can } from '../shared/permissions'
 
 const DEFAULT_PASSWORD = process.env.SEED_DEFAULT_PASSWORD || 'demo'

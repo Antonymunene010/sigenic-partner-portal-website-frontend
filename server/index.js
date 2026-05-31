@@ -4,7 +4,7 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { createStore } from './store.js'
-import { bearerToken, signToken, verifyToken, verifyPassword } from './auth.js'
+import { bearerToken, signToken, verifyToken, verifyPassword } from './infra/auth'
 import {
   can,
   isInternal,
@@ -19,16 +19,16 @@ import {
   ticketCreatedEmail,
   ticketUpdatedEmail,
   announcementEmail,
-} from './email.js'
+} from './infra/email'
 import {
   createZendeskTicket,
   addZendeskComment,
   syncZendeskTicket,
   zendeskEnabled,
-} from './zendesk.js'
-import { fetchNotionArticles, notionEnabled } from './notion.js'
+} from './integration/zendesk'
+import { fetchNotionArticles, notionEnabled } from './integration/notion'
 import { computeRoi, toCalculatorRun, toLimited } from '../shared/calc'
-import { invoicePdf, reportPdf } from './pdf.js'
+import { invoicePdf, reportPdf } from './infra/pdf'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')

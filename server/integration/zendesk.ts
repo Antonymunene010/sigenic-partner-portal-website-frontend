@@ -8,9 +8,19 @@
 // translation — only a whitelist so unknown values fall back to a safe default.
 const VALID_STATUSES = new Set(['new', 'open', 'pending', 'hold', 'solved', 'closed'])
 
-const PRIORITY_OUT = { low: 'low', normal: 'normal', high: 'high', urgent: 'urgent' }
+const PRIORITY_OUT: Record<string, string> = { low: 'low', normal: 'normal', high: 'high', urgent: 'urgent' }
 
-function credentials() {
+interface ZendeskCreds {
+  subdomain: string
+  authHeader: string
+}
+
+interface RetryableError extends Error {
+  retryable?: boolean
+  retryAfterMs?: number
+}
+
+function credentials(): ZendeskCreds | null {
   const subdomain = process.env.ZENDESK_SUBDOMAIN
   const email = process.env.ZENDESK_EMAIL
   const token = process.env.ZENDESK_API_TOKEN
@@ -21,18 +31,18 @@ function credentials() {
   }
 }
 
-export function zendeskEnabled() {
+export function zendeskEnabled(): boolean {
   return credentials() !== null
 }
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 // Per-request ceiling (shared default for Zendesk + Notion fetches) so a hung
 // connection can't stall a sync loop.
 const REQUEST_TIMEOUT_MS = Number(process.env.ZENDESK_TIMEOUT_MS || 10000)
 
 // Retry-After arrives in seconds; honour it (capped) over blind backoff.
-function parseRetryAfter(value) {
+function parseRetryAfter(value: string | null): number | undefined {
   const seconds = Number(value)
   return Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds * 1000, 30000) : undefined
 }
@@ -41,12 +51,15 @@ function parseRetryAfter(value) {
  * Retry an async fn with exponential backoff. Stops early on non-retryable
  * errors (4xx except 429) and honours a server-provided Retry-After delay.
  */
-export async function withRetry(fn, { retries = 3, baseDelay = 300, label = 'zendesk' } = {}) {
-  let lastError
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  { retries = 3, baseDelay = 300, label = 'zendesk' }: { retries?: number; baseDelay?: number; label?: string } = {},
+): Promise<T> {
+  let lastError: unknown
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       return await fn()
-    } catch (error) {
+    } catch (error: any) {
       lastError = error
       if (error?.retryable === false) throw error
       if (attempt < retries) {
@@ -67,16 +80,20 @@ export async function withRetry(fn, { retries = 3, baseDelay = 300, label = 'zen
  * the server's Retry-After header. Network failures and timeouts are retryable.
  * `parseError(payload, status)` turns the provider's error body into a message.
  */
-export async function resilientFetch(url, init = {}, { timeoutMs = REQUEST_TIMEOUT_MS, parseError } = {}) {
+export async function resilientFetch(
+  url: string,
+  init: RequestInit = {},
+  { timeoutMs = REQUEST_TIMEOUT_MS, parseError }: { timeoutMs?: number; parseError?: (payload: any, status: number) => string } = {},
+): Promise<any> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
-  let res
+  let res: Response
   try {
     res = await fetch(url, { ...init, signal: controller.signal })
-  } catch (error) {
+  } catch (error: any) {
     // Network failure or timeout — both transient, so worth a retry.
     const reason = error.name === 'AbortError' ? `timed out after ${timeoutMs}ms` : error.message
-    throw Object.assign(new Error(`request failed (${reason})`), { retryable: true })
+    throw Object.assign(new Error(`request failed (${reason})`), { retryable: true } as RetryableError)
   } finally {
     clearTimeout(timer)
   }
@@ -87,12 +104,12 @@ export async function resilientFetch(url, init = {}, { timeoutMs = REQUEST_TIMEO
     // 4xx are client errors that won't fix themselves on a second attempt.
     const retryable = res.status === 429 || res.status >= 500
     const retryAfterMs = res.status === 429 ? parseRetryAfter(res.headers.get('retry-after')) : undefined
-    throw Object.assign(new Error(message), { retryable, retryAfterMs })
+    throw Object.assign(new Error(message), { retryable, retryAfterMs } as RetryableError)
   }
   return payload
 }
 
-async function zendeskFetch(creds, path, init) {
+async function zendeskFetch(creds: ZendeskCreds, path: string, init?: RequestInit): Promise<any> {
   return resilientFetch(
     `https://${creds.subdomain}.zendesk.com${path}`,
     {
@@ -107,13 +124,23 @@ async function zendeskFetch(creds, path, init) {
   )
 }
 
+interface TicketInput {
+  id: string
+  subject: string
+  requester?: string
+  requesterEmail?: string
+  priority?: string
+  status?: string
+  tags?: string[]
+  messages?: Array<{ authorRole?: string; body?: string }>
+}
+
 /** Create a Zendesk ticket (with retry). Returns {mode, id}. */
-export async function createZendeskTicket(ticket) {
+export async function createZendeskTicket(ticket: TicketInput): Promise<{ mode: string; id?: string | null; skipped?: boolean }> {
   const creds = credentials()
   if (!creds) return { mode: 'mock', skipped: true }
 
-  const firstMessage =
-    ticket.messages?.find((m) => m.authorRole === 'you')?.body ?? ticket.subject
+  const firstMessage = ticket.messages?.find((m) => m.authorRole === 'you')?.body ?? ticket.subject
 
   const payload = await withRetry(
     () =>
@@ -124,8 +151,8 @@ export async function createZendeskTicket(ticket) {
             external_id: ticket.id,
             subject: ticket.subject,
             comment: { body: firstMessage },
-            priority: PRIORITY_OUT[ticket.priority] ?? undefined,
-            status: VALID_STATUSES.has(ticket.status) ? ticket.status : undefined,
+            priority: ticket.priority ? PRIORITY_OUT[ticket.priority] ?? undefined : undefined,
+            status: ticket.status && VALID_STATUSES.has(ticket.status) ? ticket.status : undefined,
             tags: ['partner_portal', ...(ticket.tags ?? [])],
           },
         }),
@@ -136,7 +163,11 @@ export async function createZendeskTicket(ticket) {
 }
 
 /** Push a new portal reply to Zendesk as a public comment (with retry). */
-export async function addZendeskComment(zendeskId, body, author) {
+export async function addZendeskComment(
+  zendeskId: string | null | undefined,
+  body: string,
+  author: string,
+): Promise<{ mode: string; ok?: boolean; skipped?: boolean }> {
   const creds = credentials()
   if (!creds || !zendeskId) return { mode: 'mock', skipped: true }
   await withRetry(
@@ -152,11 +183,17 @@ export async function addZendeskComment(zendeskId, body, author) {
   return { mode: 'zendesk', ok: true }
 }
 
+export interface ZendeskSyncResult {
+  status: string
+  updatedAt: string
+  comments: Array<{ zendeskCommentId: string; body: string; public: boolean; authorId: string; createdAt: string }>
+}
+
 /**
  * Pull a Zendesk ticket's current status and public comments back into a shape
  * the local store can merge. Returns null when unavailable.
  */
-export async function syncZendeskTicket(zendeskId) {
+export async function syncZendeskTicket(zendeskId: string | null | undefined): Promise<ZendeskSyncResult | null> {
   const creds = credentials()
   if (!creds || !zendeskId) return null
   const [ticketRes, commentsRes] = await Promise.all([
@@ -172,7 +209,7 @@ export async function syncZendeskTicket(zendeskId) {
   return {
     status: VALID_STATUSES.has(zt.status) ? zt.status : 'open',
     updatedAt: zt.updated_at,
-    comments: (commentsRes.comments ?? []).map((c) => ({
+    comments: (commentsRes.comments ?? []).map((c: any) => ({
       zendeskCommentId: String(c.id),
       body: c.body,
       public: c.public,

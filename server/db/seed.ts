@@ -10,7 +10,7 @@
  * (overridable via SEED_DEFAULT_PASSWORD).
  */
 
-const iso = (d) => new Date(d).toISOString()
+const iso = (d: string) => new Date(d).toISOString()
 
 export const SEED = {
   /* ---------- organisations ---------- */

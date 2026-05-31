@@ -11,11 +11,32 @@
  * Status (select: Published → active). Page body becomes the article body.
  */
 
-import { withRetry, resilientFetch } from './zendesk.js'
+import { withRetry, resilientFetch } from './zendesk'
 
 const API = 'https://api.notion.com/v1'
 
-function credentials() {
+interface NotionCreds {
+  token: string
+  databaseId: string
+  version: string
+}
+
+/** A knowledge article mapped from a Notion page row, ready for the store to upsert. */
+export interface NotionArticle {
+  sourceRefId: string
+  title: string
+  summary: string | null
+  slug: string
+  category: string | null
+  tags: string[]
+  audienceType: string
+  featured: boolean
+  active: boolean
+  lastReviewedAt: string | null
+  body: string
+}
+
+function credentials(): NotionCreds | null {
   const token = process.env.NOTION_TOKEN
   const databaseId = process.env.NOTION_KB_DATABASE_ID
   if (!token || !databaseId) return null
@@ -26,11 +47,11 @@ function credentials() {
   }
 }
 
-export function notionEnabled() {
+export function notionEnabled(): boolean {
   return credentials() !== null
 }
 
-async function notionFetch(creds, path, init) {
+async function notionFetch(creds: NotionCreds, path: string, init?: RequestInit): Promise<any> {
   return resilientFetch(
     `${API}${path}`,
     {
@@ -48,10 +69,11 @@ async function notionFetch(creds, path, init) {
 
 /* ----- property extraction ----- */
 
-const plainText = (rich) => (rich ?? []).map((r) => r.plain_text ?? '').join('')
+const plainText = (rich: Array<{ plain_text?: string }> | null | undefined): string =>
+  (rich ?? []).map((r) => r.plain_text ?? '').join('')
 
 /** Read a single Notion property into a plain JS value. */
-function propValue(prop) {
+function propValue(prop: any): any {
   if (!prop) return null
   switch (prop.type) {
     case 'title':
@@ -61,7 +83,7 @@ function propValue(prop) {
     case 'select':
       return prop.select?.name ?? null
     case 'multi_select':
-      return (prop.multi_select ?? []).map((o) => o.name)
+      return (prop.multi_select ?? []).map((o: any) => o.name)
     case 'checkbox':
       return prop.checkbox
     case 'date':
@@ -74,18 +96,18 @@ function propValue(prop) {
 }
 
 /** Look up a property by name, case-insensitively. */
-function prop(props, name) {
+function prop(props: Record<string, any>, name: string): any {
   const key = Object.keys(props).find((k) => k.toLowerCase() === name.toLowerCase())
   return key ? propValue(props[key]) : null
 }
 
 /** The title column is marked type==='title' regardless of its name (e.g. 「名称」). */
-function titleValue(props) {
-  const entry = Object.values(props).find((p) => p?.type === 'title')
-  return entry ? plainText(entry.title) : null
+function titleValue(props: Record<string, any>): string | null {
+  const entry = Object.values(props).find((p: any) => p?.type === 'title')
+  return entry ? plainText((entry as any).title) : null
 }
 
-const AUDIENCE = {
+const AUDIENCE: Record<string, string> = {
   all: 'all',
   customer: 'customer',
   customers: 'customer',
@@ -93,13 +115,13 @@ const AUDIENCE = {
   distributors: 'distributor',
   internal: 'internal',
 }
-const normAudience = (v) => AUDIENCE[String(v ?? 'all').toLowerCase()] ?? 'all'
+const normAudience = (v: unknown): string => AUDIENCE[String(v ?? 'all').toLowerCase()] ?? 'all'
 
 /** Status select → active flag. Published/live/approved means surfaced. */
 const PUBLISHED = new Set(['published', 'live', 'active', 'approved'])
-const normActive = (status) => (status == null ? true : PUBLISHED.has(String(status).toLowerCase()))
+const normActive = (status: unknown): boolean => (status == null ? true : PUBLISHED.has(String(status).toLowerCase()))
 
-const slugify = (s) =>
+const slugify = (s: unknown): string =>
   String(s ?? '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
@@ -108,8 +130,8 @@ const slugify = (s) =>
 
 /* ----- page body → markdown-ish text ----- */
 
-function blocksToText(blocks) {
-  const lines = []
+function blocksToText(blocks: any[] | null | undefined): string {
+  const lines: string[] = []
   for (const b of blocks ?? []) {
     const data = b[b.type]
     const text = data?.rich_text ? plainText(data.rich_text) : ''
@@ -145,7 +167,7 @@ function blocksToText(blocks) {
   return lines.join('\n\n')
 }
 
-async function fetchPageBody(creds, pageId) {
+async function fetchPageBody(creds: NotionCreds, pageId: string): Promise<string> {
   const res = await withRetry(
     () => notionFetch(creds, `/blocks/${pageId}/children?page_size=100`, { method: 'GET' }),
     { label: 'notion:blocks' },
@@ -154,13 +176,13 @@ async function fetchPageBody(creds, pageId) {
 }
 
 /** The resolved title of a page row, or '' for an empty (draft) row. */
-function pageTitle(page) {
+function pageTitle(page: any): string {
   const props = page.properties ?? {}
   return (titleValue(props) || prop(props, 'Title') || prop(props, 'Name') || '').trim()
 }
 
 /** Map one Notion page (row) to a knowledge-article shape the store can upsert. */
-function pageToArticle(page, body) {
+function pageToArticle(page: any, body: string): NotionArticle {
   const props = page.properties ?? {}
   const title = pageTitle(page) || 'Untitled'
   return {
@@ -182,12 +204,12 @@ function pageToArticle(page, body) {
  * Pull every page in the configured Notion KB database, with bodies. Returns an
  * empty array when Notion is not configured. Handles pagination.
  */
-export async function fetchNotionArticles() {
+export async function fetchNotionArticles(): Promise<NotionArticle[]> {
   const creds = credentials()
   if (!creds) return []
 
-  const pages = []
-  let cursor
+  const pages: any[] = []
+  let cursor: string | undefined
   do {
     const payload = await withRetry(
       () =>
@@ -201,7 +223,7 @@ export async function fetchNotionArticles() {
     cursor = payload.has_more ? payload.next_cursor : undefined
   } while (cursor)
 
-  const articles = []
+  const articles: NotionArticle[] = []
   for (const page of pages) {
     if (!pageTitle(page)) continue // skip empty draft rows
     const body = await fetchPageBody(creds, page.id)

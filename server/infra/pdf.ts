@@ -1,7 +1,8 @@
 /**
  * Server-side PDF generation (PRD 6.5 "View invoices (PDF)" and 6.8
  * "Exportable report"). Uses pdfkit's built-in fonts so it needs no system
- * font packages inside the container.
+ * font packages inside the container. The pdfkit document is untyped here (no
+ * bundled .d.ts), so the `doc` handle is treated as `any`.
  */
 
 // Sigenic palette (PRD §11): near-black ink + gold accent.
@@ -9,26 +10,26 @@ const BRAND = '#0E0E10'
 const ACCENT = '#C8A75B'
 const MUTED = '#6b7280'
 
-const usd = (n) =>
+const usd = (n: number | null | undefined): string =>
   Number(n || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 })
-const num = (n, d = 1) =>
+const num = (n: number | null | undefined, d = 1): string =>
   Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d })
 
-async function newDoc() {
+async function newDoc(): Promise<any> {
   const { default: PDFDocument } = await import('pdfkit')
   return new PDFDocument({ size: 'A4', margin: 54 })
 }
 
-function collect(doc) {
+function collect(doc: any): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const chunks = []
-    doc.on('data', (c) => chunks.push(c))
+    const chunks: Buffer[] = []
+    doc.on('data', (c: Buffer) => chunks.push(c))
     doc.on('end', () => resolve(Buffer.concat(chunks)))
     doc.on('error', reject)
   })
 }
 
-function header(doc, title) {
+function header(doc: any, title: string): void {
   doc.fillColor(BRAND).fontSize(20).font('Helvetica-Bold').text('Sigenic', { continued: true })
   doc.fillColor(ACCENT).text(' /', { continued: true })
   doc.fillColor(MUTED).fontSize(11).font('Helvetica').text('  Partner Portal')
@@ -38,7 +39,7 @@ function header(doc, title) {
   doc.moveDown(1)
 }
 
-function row(doc, label, value) {
+function row(doc: any, label: string, value: unknown): void {
   const y = doc.y
   doc.fillColor(MUTED).fontSize(10).font('Helvetica').text(label, 54, y)
   doc.fillColor(BRAND).fontSize(10).font('Helvetica-Bold').text(String(value), 200, y)
@@ -46,7 +47,10 @@ function row(doc, label, value) {
 }
 
 /** Build an invoice PDF buffer. */
-export async function invoicePdf(invoice, { company, billingContact, email } = {}) {
+export async function invoicePdf(
+  invoice: any,
+  { company, billingContact, email }: { company?: string; billingContact?: string; email?: string } = {},
+): Promise<Buffer> {
   const doc = await newDoc()
   const done = collect(doc)
   header(doc, `Invoice ${invoice.id}`)
@@ -97,12 +101,13 @@ export async function invoicePdf(invoice, { company, billingContact, email } = {
   return done
 }
 
-const range = (r, fmt = (x) => x) => (r ? `${fmt(r.min)} — ${fmt(r.max)}` : '—')
-const usdRange = (r) => range(r, usd)
-const pctRange = (r) => range(r, (x) => `${num(x)}%`)
+const range = (r: { min: number; max: number } | null | undefined, fmt: (x: number) => string = (x) => String(x)): string =>
+  r ? `${fmt(r.min)} — ${fmt(r.max)}` : '—'
+const usdRange = (r: { min: number; max: number } | null | undefined) => range(r, usd)
+const pctRange = (r: { min: number; max: number } | null | undefined) => range(r, (x) => `${num(x)}%`)
 
 /** Build a Score Calculator ROI report PDF buffer (range-based, PRD calculator_runs). */
-export async function reportPdf(report) {
+export async function reportPdf(report: any): Promise<Buffer> {
   const doc = await newDoc()
   const done = collect(doc)
   header(doc, 'ROI Score Calculator — estimate')
@@ -148,9 +153,9 @@ export async function reportPdf(report) {
   return done
 }
 
-function fmtDate(iso) {
+function fmtDate(iso: string | null | undefined): string {
   try {
-    return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+    return new Date(iso as string).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
   } catch {
     return String(iso)
   }
