@@ -92,7 +92,7 @@ export function apiRouter(store: Store): Router {
 
   /* notifications */
   r.post('/notifications/:id/read', async (req, res) => {
-    await notificationService.markNotificationRead(store, req.params.id)
+    await notificationService.markNotificationRead(store, req.auth!, req.params.id)
     res.json({ ok: true })
   })
   r.post('/notifications/read-all', async (req, res) => {

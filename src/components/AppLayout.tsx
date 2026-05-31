@@ -57,7 +57,7 @@ function navFor(user: User): NavItem[] {
 
 export function AppLayout() {
   const { user } = useAuth()
-  const { company } = useData()
+  const { company, error, refresh } = useData()
   const [mobileOpen, setMobileOpen] = useState(false)
   if (!user) return null
   const items = navFor(user)
@@ -130,6 +130,12 @@ export function AppLayout() {
         <main className="flex-1 min-w-0">
           <div className="px-4 md:px-8 py-6 md:py-8">
             <div className="max-w-[1180px] mx-auto animate-fade-up">
+              {error && (
+                <div className="mb-5 flex items-center justify-between gap-3 rounded-md border border-line dark:border-line-dark bg-raised dark:bg-raised-dark px-4 py-3 text-sm">
+                  <span className="text-danger">Couldn't load the latest data — some sections may be empty or out of date.</span>
+                  <button className="btn-ghost text-xs shrink-0" onClick={() => refresh()}>Retry</button>
+                </div>
+              )}
               <Outlet />
             </div>
           </div>

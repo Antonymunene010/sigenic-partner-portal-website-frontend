@@ -25,6 +25,20 @@ export function rowToObj(row: Record<string, unknown> | null | undefined): any {
   return out
 }
 
+/**
+ * Columns dropped from generic reads/writes before a row reaches the API layer,
+ * keyed by table in camelCase (post-rowToObj). The login path reads the hash via
+ * a hand-written query (getUserAuthByEmail) that bypasses this, by design.
+ */
+export const SENSITIVE_COLUMNS: Record<string, string[]> = { users: ['passwordHash'] }
+
+/** rowToObj for a known table, with that table's sensitive columns stripped. */
+export function toApiRow(table: string, row: Record<string, unknown> | null | undefined): any {
+  const obj = rowToObj(row)
+  if (obj) for (const k of SENSITIVE_COLUMNS[table] ?? []) delete obj[k]
+  return obj
+}
+
 /** Read a field from a payload accepting either snake_case or camelCase keys. */
 export function pick(data: Record<string, unknown>, snake: string): unknown {
   if (data[snake] !== undefined) return data[snake]

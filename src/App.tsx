@@ -6,6 +6,7 @@ import { ToastProvider } from './components/ui'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { PublicLayout } from './components/PublicLayout'
 import { AppLayout } from './components/AppLayout'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 import Login from './pages/Login'
 import Landing from './pages/Landing'
@@ -39,61 +40,63 @@ import AdminAnalytics from './pages/admin/AdminAnalytics'
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <DataProvider>
-          <ToastProvider>
-            <Routes>
-              {/* Public marketing site */}
-              <Route element={<PublicLayout />}>
-                <Route path="/" element={<Landing />} />
-                <Route path="/stories" element={<PublicStories />} />
-                <Route path="/stories/:slug" element={<StoryDetail />} />
-                <Route path="/contact" element={<Contact />} />
-                <Route path="/calculator" element={<PublicCalculator />} />
-              </Route>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AuthProvider>
+          <DataProvider>
+            <ToastProvider>
+              <Routes>
+                {/* Public marketing site */}
+                <Route element={<PublicLayout />}>
+                  <Route path="/" element={<Landing />} />
+                  <Route path="/stories" element={<PublicStories />} />
+                  <Route path="/stories/:slug" element={<StoryDetail />} />
+                  <Route path="/contact" element={<Contact />} />
+                  <Route path="/calculator" element={<PublicCalculator />} />
+                </Route>
 
-              <Route path="/login" element={<Login />} />
+                <Route path="/login" element={<Login />} />
 
-              {/* Authenticated portal + internal admin */}
-              <Route
-                path="/app"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout />
-                  </ProtectedRoute>
-                }
-              >
-                <Route index element={<Dashboard />} />
-                <Route path="calculator" element={<ProtectedRoute cap="use_full_calculator"><Calculator /></ProtectedRoute>} />
-                <Route path="knowledge" element={<ProtectedRoute cap="access_knowledge_base"><KnowledgeBase /></ProtectedRoute>} />
-                <Route path="knowledge/:slug" element={<ProtectedRoute cap="access_knowledge_base"><ArticleDetail /></ProtectedRoute>} />
-                <Route path="requests" element={<ProtectedRoute cap="view_request_list"><RequestList /></ProtectedRoute>} />
-                <Route path="requests/new" element={<ProtectedRoute cap="submit_consultation_request"><NewRequest /></ProtectedRoute>} />
-                <Route path="requests/:id" element={<ProtectedRoute cap="view_request_list"><RequestDetail /></ProtectedRoute>} />
-                <Route path="company" element={<ProtectedRoute cap="view_company_profile"><CompanyProfile /></ProtectedRoute>} />
-                <Route path="users" element={<ProtectedRoute cap="manage_company_users"><UserManagement /></ProtectedRoute>} />
-                <Route path="billing" element={<Billing />} />
-                <Route path="account" element={<Account />} />
+                {/* Authenticated portal + internal admin */}
+                <Route
+                  path="/app"
+                  element={
+                    <ProtectedRoute>
+                      <AppLayout />
+                    </ProtectedRoute>
+                  }
+                >
+                  <Route index element={<Dashboard />} />
+                  <Route path="calculator" element={<ProtectedRoute cap="use_full_calculator"><Calculator /></ProtectedRoute>} />
+                  <Route path="knowledge" element={<ProtectedRoute cap="access_knowledge_base"><KnowledgeBase /></ProtectedRoute>} />
+                  <Route path="knowledge/:slug" element={<ProtectedRoute cap="access_knowledge_base"><ArticleDetail /></ProtectedRoute>} />
+                  <Route path="requests" element={<ProtectedRoute cap="view_request_list"><RequestList /></ProtectedRoute>} />
+                  <Route path="requests/new" element={<ProtectedRoute cap="submit_consultation_request"><NewRequest /></ProtectedRoute>} />
+                  <Route path="requests/:id" element={<ProtectedRoute cap="view_request_list"><RequestDetail /></ProtectedRoute>} />
+                  <Route path="company" element={<ProtectedRoute cap="view_company_profile"><CompanyProfile /></ProtectedRoute>} />
+                  <Route path="users" element={<ProtectedRoute cap="manage_company_users"><UserManagement /></ProtectedRoute>} />
+                  <Route path="billing" element={<Billing />} />
+                  <Route path="account" element={<Account />} />
 
-                {/* Internal admin */}
-                <Route path="admin/companies" element={<ProtectedRoute internal cap="view_all_companies"><AdminCompanies /></ProtectedRoute>} />
-                <Route path="admin/users" element={<ProtectedRoute internal cap="manage_internal_users"><AdminInternalUsers /></ProtectedRoute>} />
-                <Route path="admin/master-data" element={<ProtectedRoute internal cap="view_master_data"><AdminMasterData /></ProtectedRoute>} />
-                <Route path="admin/scoring" element={<ProtectedRoute internal cap="manage_scoring"><AdminScoring /></ProtectedRoute>} />
-                <Route path="admin/requests" element={<ProtectedRoute internal cap="view_ticket_oversight"><AdminRequests /></ProtectedRoute>} />
-                <Route path="admin/knowledge" element={<ProtectedRoute internal cap="manage_knowledge"><AdminKnowledge /></ProtectedRoute>} />
-                <Route path="admin/stories" element={<ProtectedRoute internal cap="manage_success_stories"><AdminStories /></ProtectedRoute>} />
-                <Route path="admin/announcements" element={<ProtectedRoute internal cap="manage_announcements"><AdminAnnouncements /></ProtectedRoute>} />
-                <Route path="admin/audit" element={<ProtectedRoute internal cap="view_audit_logs"><AdminAudit /></ProtectedRoute>} />
-                <Route path="admin/analytics" element={<ProtectedRoute internal cap="view_analytics"><AdminAnalytics /></ProtectedRoute>} />
-              </Route>
+                  {/* Internal admin */}
+                  <Route path="admin/companies" element={<ProtectedRoute internal cap="view_all_companies"><AdminCompanies /></ProtectedRoute>} />
+                  <Route path="admin/users" element={<ProtectedRoute internal cap="manage_internal_users"><AdminInternalUsers /></ProtectedRoute>} />
+                  <Route path="admin/master-data" element={<ProtectedRoute internal cap="view_master_data"><AdminMasterData /></ProtectedRoute>} />
+                  <Route path="admin/scoring" element={<ProtectedRoute internal cap="manage_scoring"><AdminScoring /></ProtectedRoute>} />
+                  <Route path="admin/requests" element={<ProtectedRoute internal cap="view_ticket_oversight"><AdminRequests /></ProtectedRoute>} />
+                  <Route path="admin/knowledge" element={<ProtectedRoute internal cap="manage_knowledge"><AdminKnowledge /></ProtectedRoute>} />
+                  <Route path="admin/stories" element={<ProtectedRoute internal cap="manage_success_stories"><AdminStories /></ProtectedRoute>} />
+                  <Route path="admin/announcements" element={<ProtectedRoute internal cap="manage_announcements"><AdminAnnouncements /></ProtectedRoute>} />
+                  <Route path="admin/audit" element={<ProtectedRoute internal cap="view_audit_logs"><AdminAudit /></ProtectedRoute>} />
+                  <Route path="admin/analytics" element={<ProtectedRoute internal cap="view_analytics"><AdminAnalytics /></ProtectedRoute>} />
+                </Route>
 
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </ToastProvider>
-        </DataProvider>
-      </AuthProvider>
-    </ThemeProvider>
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </ToastProvider>
+          </DataProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   )
 }

@@ -3,7 +3,7 @@ import { hashPassword } from '../infra/auth'
 import { SCHEMA_SQL, LEGACY_CHECK_SQL, LEGACY_DROP_SQL } from './schema'
 import { SEED } from './seed'
 import { createPool, transaction as runTransaction } from './pool'
-import { buildInsert, buildUpdate, rowToObj, loadColumns, type ColumnMap } from './columns'
+import { buildInsert, buildUpdate, rowToObj, toApiRow, loadColumns, type ColumnMap } from './columns'
 
 const DEFAULT_PASSWORD = process.env.SEED_DEFAULT_PASSWORD || 'demo'
 
@@ -30,7 +30,7 @@ export function createStore() {
   async function insert(table: string, data: Record<string, unknown>, client: Queryable = { query }): Promise<any> {
     const { text, values } = buildInsert(table, data, COLS)
     const res = await client.query(text, values)
-    return rowToObj(res.rows[0])
+    return toApiRow(table, res.rows[0])
   }
 
   // `opts.touch === false` skips the updated_at bump — used by inline status toggles so they don't
@@ -39,17 +39,17 @@ export function createStore() {
     const built = buildUpdate(table, id, data, COLS, opts)
     if (!built) return getOne(table, id)
     const res = await query(built.text, built.values)
-    return rowToObj(res.rows[0])
+    return toApiRow(table, res.rows[0])
   }
 
   async function list(table: string, { where = '', params = [], order = '' }: { where?: string; params?: any[]; order?: string } = {}): Promise<any[]> {
     const res = await query(`SELECT * FROM ${table} ${where ? 'WHERE ' + where : ''} ${order ? 'ORDER BY ' + order : ''}`, params)
-    return res.rows.map(rowToObj)
+    return res.rows.map((row) => toApiRow(table, row))
   }
 
   async function getOne(table: string, id: string): Promise<any> {
     const res = await query(`SELECT * FROM ${table} WHERE id = $1 LIMIT 1`, [id])
-    return res.rows[0] ? rowToObj(res.rows[0]) : null
+    return res.rows[0] ? toApiRow(table, res.rows[0]) : null
   }
 
   async function remove(table: string, id: string): Promise<boolean> {
@@ -275,6 +275,12 @@ export function createStore() {
     return list('email_outbox', { order: 'created_at DESC' })
   }
 
+  /** Mark one notification read, scoped to its owner. False if not found or not theirs. */
+  async function markNotificationRead(id: string, userId: string): Promise<boolean> {
+    const res = await query('UPDATE notifications SET read = true WHERE id = $1 AND user_id = $2 RETURNING id', [id, userId])
+    return (res.rowCount ?? 0) > 0
+  }
+
   /** Mark all of a user's notifications read in one statement. */
   async function markNotificationsRead(userId: string): Promise<void> {
     await query('UPDATE notifications SET read = true WHERE user_id = $1 AND read = false', [userId])
@@ -310,6 +316,7 @@ export function createStore() {
     appendAudit,
     appendEmail,
     getEmails,
+    markNotificationRead,
     markNotificationsRead,
   }
 }

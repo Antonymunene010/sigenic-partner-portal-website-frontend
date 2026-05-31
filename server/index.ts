@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadEnvFile } from './config/env'
+import { warnOnInsecureSecret } from './infra/auth'
 import { createStore } from './db/store'
 import { initEmail } from './infra/email'
 import { zendeskEnabled } from './integration/zendesk'
@@ -12,6 +13,7 @@ import { buildApp } from './app'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
 loadEnvFile(path.join(root, '.env'))
+warnOnInsecureSecret()
 
 const port = Number(process.env.PORT ?? 8787)
 

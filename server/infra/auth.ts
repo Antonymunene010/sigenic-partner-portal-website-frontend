@@ -2,11 +2,26 @@ import crypto from 'node:crypto'
 import type { IncomingHttpHeaders } from 'node:http'
 import type { CompanyType, Role, UserType } from '../../shared/types'
 
-const SECRET = process.env.AUTH_SECRET || process.env.JWT_SECRET || 'dev-insecure-secret-change-me'
-const TOKEN_TTL_SECONDS = Number(process.env.AUTH_TTL_SECONDS || 60 * 60 * 12) // 12h default
+// Secret + TTL are read lazily (via these helpers), NOT captured at module load.
+// index.ts loads .env as a normal statement that runs AFTER this module is
+// imported, so reading process.env on each use is what keeps env-load order from
+// silently leaving us on the insecure fallback — no import-order dependency.
+function secret(): string {
+  return process.env.AUTH_SECRET || process.env.JWT_SECRET || 'dev-insecure-secret-change-me'
+}
+function tokenTtlSeconds(): number {
+  return Number(process.env.AUTH_TTL_SECONDS || 60 * 60 * 12) // 12h default
+}
 
-if (SECRET === 'dev-insecure-secret-change-me') {
-  console.warn('[auth] AUTH_SECRET is unset — using an insecure development secret. Set AUTH_SECRET in production.')
+// Known weak placeholders that must be replaced before production (openssl rand -hex 32).
+const INSECURE_SECRETS = ['dev-insecure-secret-change-me', 'change-me-in-production']
+
+/** Warn if AUTH_SECRET is unset or a known placeholder. Call once at startup, after .env loads. */
+export function warnOnInsecureSecret(): void {
+  const current = secret()
+  if (INSECURE_SECRETS.includes(current)) {
+    console.warn(`[auth] AUTH_SECRET is a known placeholder ("${current}") — set a strong random value in production.`)
+  }
 }
 
 /** The decoded token payload — what every authenticated handler sees as `req.auth`. */
@@ -40,10 +55,10 @@ export function verifyPassword(password: string, stored: string | null | undefin
 }
 
 /** Sign a stateless HMAC token. Payload is public (do not put secrets in it). */
-export function signToken(payload: Omit<AuthPayload, 'exp'>, ttl = TOKEN_TTL_SECONDS): string {
+export function signToken(payload: Omit<AuthPayload, 'exp'>, ttl = tokenTtlSeconds()): string {
   const body = { ...payload, exp: Math.floor(Date.now() / 1000) + ttl }
   const data = Buffer.from(JSON.stringify(body)).toString('base64url')
-  const sig = crypto.createHmac('sha256', SECRET).update(data).digest('base64url')
+  const sig = crypto.createHmac('sha256', secret()).update(data).digest('base64url')
   return `${data}.${sig}`
 }
 
@@ -52,7 +67,7 @@ export function verifyToken(token: string | null | undefined): AuthPayload | nul
   if (!token || typeof token !== 'string' || !token.includes('.')) return null
   const [data, sig] = token.split('.')
   if (!data || !sig) return null
-  const expected = crypto.createHmac('sha256', SECRET).update(data).digest('base64url')
+  const expected = crypto.createHmac('sha256', secret()).update(data).digest('base64url')
   const sigBuf = Buffer.from(sig)
   const expBuf = Buffer.from(expected)
   if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return null

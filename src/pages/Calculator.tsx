@@ -22,6 +22,8 @@ export default function Calculator() {
   const [result, setResult] = useState<RoiResult | null>(null)
   const [savedRunId, setSavedRunId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [downloading, setDownloading] = useState(false)
+  const [requesting, setRequesting] = useState(false)
 
   const procOptions = useMemo(() => processes.filter((p) => !sel.departmentId || p.departmentId === sel.departmentId), [processes, sel.departmentId])
   const macOptions = useMemo(
@@ -53,7 +55,8 @@ export default function Calculator() {
   }
 
   const download = async () => {
-    if (!result) return
+    if (!result || downloading) return
+    setDownloading(true)
     try {
       await downloadReportPdf(
         {
@@ -71,10 +74,14 @@ export default function Calculator() {
       )
     } catch (e) {
       toast.push(e instanceof Error ? e.message : 'Download failed.', 'error')
+    } finally {
+      setDownloading(false)
     }
   }
 
   const requestConsultation = async () => {
+    if (requesting) return
+    setRequesting(true)
     try {
       const r = await createServiceRequest({
         requestType: 'consultation',
@@ -90,6 +97,8 @@ export default function Calculator() {
       navigate(`/app/requests/${r.item.id}`)
     } catch (e) {
       toast.push(e instanceof Error ? e.message : 'Request failed.', 'error')
+    } finally {
+      setRequesting(false)
     }
   }
 
@@ -201,11 +210,11 @@ export default function Calculator() {
               </div>
 
               <div className="mt-5 flex flex-wrap gap-2">
-                <button className="btn-outline" onClick={download}>
-                  <Download size={15} /> Download report
+                <button className="btn-outline" onClick={download} disabled={downloading}>
+                  <Download size={15} /> {downloading ? 'Preparing…' : 'Download report'}
                 </button>
-                <button className="btn-accent" onClick={requestConsultation}>
-                  <MessageSquarePlus size={15} /> Request consultation
+                <button className="btn-accent" onClick={requestConsultation} disabled={requesting}>
+                  <MessageSquarePlus size={15} /> {requesting ? 'Sending…' : 'Request consultation'}
                 </button>
               </div>
             </Card>

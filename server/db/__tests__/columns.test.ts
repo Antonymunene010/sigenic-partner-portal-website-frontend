@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { toCamel, rowToObj, pick, buildInsert, buildUpdate, type ColumnMap } from '../columns'
+import { toCamel, rowToObj, pick, buildInsert, buildUpdate, toApiRow, type ColumnMap } from '../columns'
 
 const COLS: ColumnMap = {
   widgets: [
@@ -26,6 +26,19 @@ test('rowToObj — snake→camel, Date→ISO, null passthrough', () => {
   )
   assert.equal(rowToObj(null), null)
   assert.equal(rowToObj(undefined), undefined)
+})
+
+test('toApiRow — strips password_hash for users, passes other tables through', () => {
+  // users: password_hash must never reach the API layer (login uses a separate query)
+  assert.deepStrictEqual(
+    toApiRow('users', { id: 'u1', email: 'a@b.com', password_hash: 'scrypt$secret', role: 'admin' }),
+    { id: 'u1', email: 'a@b.com', role: 'admin' },
+  )
+  // non-sensitive table is untouched (still snake→camel)
+  assert.deepStrictEqual(toApiRow('companies', { id: 'c1', company_name: 'Acme' }), { id: 'c1', companyName: 'Acme' })
+  // null/undefined passthrough
+  assert.equal(toApiRow('users', null), null)
+  assert.equal(toApiRow('users', undefined), undefined)
 })
 
 test('pick — snake key first, camelCase fallback, undefined when absent', () => {
