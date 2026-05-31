@@ -13,6 +13,8 @@ ENV NODE_ENV=production
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY server ./server
+COPY shared ./shared
 COPY --from=build /app/dist ./dist
 EXPOSE 8787
-CMD ["node", "server/index.js"]
+# Run TypeScript directly with tsx (a prod dependency); no build/emit step for the server.
+CMD ["npx", "tsx", "server/index.ts"]

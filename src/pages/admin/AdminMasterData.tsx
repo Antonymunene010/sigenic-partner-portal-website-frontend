@@ -7,6 +7,7 @@ import { CrudResource } from '../../components/CrudResource'
 import { Badge } from '../../components/Badge'
 import { chipClass } from '../../components/ui'
 import { boolTone } from '../../lib/constants'
+import { departmentOptions, processOptions } from '../../lib/options'
 import type { Department, Machine, Process } from '../../lib/types'
 
 type Tab = 'departments' | 'processes' | 'machines'
@@ -18,8 +19,8 @@ export default function AdminMasterData() {
   const [tab, setTab] = useState<Tab>('departments')
   const canManage = can(user, 'manage_master_data')
 
-  const deptOptions = departments.map((d) => ({ value: d.id, label: d.name }))
-  const procOptions = processes.map((p) => ({ value: p.id, label: p.processName }))
+  const deptOptions = departmentOptions(departments)
+  const procOptions = processOptions(processes)
   const activeBadge = (a: boolean) => <Badge tone={boolTone(a)}>{a ? 'active' : 'inactive'}</Badge>
 
   return (

@@ -10,6 +10,7 @@ import { Badge } from '../../components/Badge'
 import { useToast, chipClass } from '../../components/ui'
 import { METRIC_LABEL, METRIC_TYPES, MODEL_STATUS_TONE } from '../../lib/constants'
 import { fmtUSD } from '../../lib/format'
+import { departmentOptions, processOptions, machineOptions, companyOptions, scoringModelOptions } from '../../lib/options'
 import type { FinancialAssumption, ScoringModel, ScoringRule } from '../../lib/types'
 
 type Tab = 'models' | 'rules' | 'assumptions'
@@ -22,11 +23,11 @@ export default function AdminScoring() {
   const [tab, setTab] = useState<Tab>('models')
   const canManage = can(user, 'manage_scoring')
 
-  const modelOptions = scoringModels.map((m) => ({ value: m.id, label: m.versionName }))
-  const deptOptions = departments.map((d) => ({ value: d.id, label: d.name }))
-  const procOptions = processes.map((p) => ({ value: p.id, label: p.processName }))
-  const macOptions = machines.map((m) => ({ value: m.id, label: m.machineName }))
-  const coOptions = companies.map((c) => ({ value: c.id, label: c.companyName }))
+  const modelOptions = scoringModelOptions(scoringModels)
+  const deptOptions = departmentOptions(departments)
+  const procOptions = processOptions(processes)
+  const macOptions = machineOptions(machines)
+  const coOptions = companyOptions(companies)
 
   const activate = async (id: string) => {
     try {

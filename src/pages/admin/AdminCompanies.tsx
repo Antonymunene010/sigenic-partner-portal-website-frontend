@@ -5,6 +5,7 @@ import { COMPANY_TYPE_LABEL, ONBOARDING_STATUS_LABEL, ORG_STATUS_TONE } from '..
 import { PageHeader } from '../../components/PageHeader'
 import { CrudResource } from '../../components/CrudResource'
 import { Badge } from '../../components/Badge'
+import { companyOptions } from '../../lib/options'
 import type { Company } from '../../lib/types'
 
 export default function AdminCompanies() {
@@ -12,7 +13,7 @@ export default function AdminCompanies() {
   const { companies, refresh } = useData()
   const canManage = can(user, 'manage_companies')
 
-  const parentOptions = companies.map((c) => ({ value: c.id, label: c.companyName }))
+  const parentOptions = companyOptions(companies)
 
   return (
     <div>
