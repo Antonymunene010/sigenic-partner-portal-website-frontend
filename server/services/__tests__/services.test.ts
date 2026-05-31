@@ -73,7 +73,7 @@ test('admin.activateScoringModel — archives other active models, activates the
   const updates: any[] = []
   const store = {
     list: mock.fn(async () => [{ id: 'sm-old', status: 'active' }]),
-    update: mock.fn(async (table: string, id: string, data: any) => {
+    update: mock.fn(async (_table: string, id: string, data: any) => {
       updates.push({ id, data })
       return { id, ...data }
     }),

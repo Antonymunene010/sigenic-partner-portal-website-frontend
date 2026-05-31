@@ -1,0 +1,142 @@
+import { Router } from 'express'
+import { isInternal } from '../../shared/permissions'
+import { forbidden } from '../http/errors'
+import { emailMode } from '../infra/email'
+import * as authService from '../services/auth.service'
+import * as hydrateService from '../services/hydrate.service'
+import * as calculatorService from '../services/calculator.service'
+import * as requestService from '../services/serviceRequest.service'
+import * as announcementService from '../services/announcement.service'
+import * as userService from '../services/user.service'
+import * as adminService from '../services/admin.service'
+import * as knowledgeService from '../services/knowledge.service'
+import * as notificationService from '../services/notification.service'
+import * as pdfService from '../services/pdf.service'
+import * as resourceService from '../services/resource.service'
+import type { Store } from '../db/store'
+
+/**
+ * Authenticated routes. Specific paths are registered before the generic
+ * `/:resource` routes (which guard with isResource and next() through), matching
+ * the original dispatch order so bespoke endpoints win over generic CRUD.
+ */
+export function apiRouter(store: Store): Router {
+  const r = Router()
+
+  r.get('/hydrate', async (req, res) => {
+    res.json(await hydrateService.hydrate(store, req.auth!))
+  })
+  r.get('/auth/me', async (req, res) => {
+    res.json({ user: await authService.getMe(store, req.auth!) })
+  })
+  r.post('/auth/change-password', async (req, res) => {
+    const { currentPassword, newPassword } = req.body ?? {}
+    await authService.changePassword(store, req.auth!, currentPassword, newPassword)
+    res.json({ ok: true })
+  })
+
+  /* calculator */
+  r.post('/calculate', async (req, res) => {
+    res.json(await calculatorService.calculate(store, req.auth!, req.body ?? {}))
+  })
+
+  /* service requests */
+  r.post('/service-requests', async (req, res) => {
+    res.status(201).json({ item: await requestService.createServiceRequest(store, req.auth!, req.body?.request) })
+  })
+  r.post('/service-requests/:id/messages', async (req, res) => {
+    res.json({ item: await requestService.addServiceRequestMessage(store, req.auth!, req.params.id, req.body?.body) })
+  })
+  r.post('/service-requests/sync', async (req, res) => {
+    res.json(await requestService.triggerZendeskSync(store, req.auth!))
+  })
+  r.patch('/service-requests/:id', async (req, res) => {
+    const body = req.body ?? {}
+    res.json({ item: await requestService.updateServiceRequest(store, req.auth!, req.params.id, body.item ?? body) })
+  })
+
+  /* knowledge base */
+  r.post('/knowledge/sync', async (req, res) => {
+    res.json(await knowledgeService.triggerNotionSync(store, req.auth!))
+  })
+
+  /* users */
+  r.post('/users', async (req, res) => {
+    const { user, password } = req.body ?? {}
+    res.status(201).json({ user: await userService.createUser(store, req.auth!, user, password) })
+  })
+  r.post('/users/:id/reset-password', async (req, res) => {
+    await userService.resetUserPassword(store, req.auth!, req.params.id, req.body?.password)
+    res.json({ ok: true })
+  })
+  r.patch('/users/:id', async (req, res) => {
+    res.json({ user: await userService.updateUser(store, req.auth!, req.params.id, req.body ?? {}) })
+  })
+
+  /* scoring model activation (before the generic /:resource route) */
+  r.post('/scoring-models/:id/activate', async (req, res) => {
+    res.json({ item: await adminService.activateScoringModel(store, req.auth!, req.params.id) })
+  })
+
+  /* announcements */
+  r.post('/announcements', async (req, res) => {
+    res.status(201).json(await announcementService.createAnnouncement(store, req.auth!, req.body?.announcement))
+  })
+  r.patch('/announcements/:id', async (req, res) => {
+    res.json({ item: await announcementService.updateAnnouncement(store, req.auth!, req.params.id, req.body?.item) })
+  })
+  r.delete('/announcements/:id', async (req, res) => {
+    await announcementService.deleteAnnouncement(store, req.auth!, req.params.id)
+    res.json({ ok: true })
+  })
+
+  /* notifications */
+  r.post('/notifications/:id/read', async (req, res) => {
+    await notificationService.markNotificationRead(store, req.params.id)
+    res.json({ ok: true })
+  })
+  r.post('/notifications/read-all', async (req, res) => {
+    await notificationService.markAllNotificationsRead(store, req.auth!.sub)
+    res.json({ ok: true })
+  })
+
+  /* PDFs */
+  r.get('/invoices/:id/pdf', async (req, res) => {
+    const buffer = await pdfService.getInvoicePdf(store, req.auth!, req.params.id)
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${req.params.id}.pdf"` }).send(buffer)
+  })
+  r.post('/reports/calculation', async (req, res) => {
+    const report = req.body?.report
+    const buffer = await pdfService.generateReportPdf(report)
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${report?.estimateId || 'estimate'}.pdf"` }).send(buffer)
+  })
+
+  /* internal: email outbox + analytics */
+  r.get('/emails', async (req, res) => {
+    if (!isInternal(req.auth!)) throw forbidden()
+    res.json({ emails: await store.getEmails(), mode: emailMode() })
+  })
+  r.get('/analytics', async (req, res) => {
+    res.json(await adminService.buildAnalytics(store, req.auth!))
+  })
+
+  /* generic admin resources — registered last; isResource guards then next() */
+  r.get('/:resource', async (req, res, next) => {
+    if (!resourceService.isResource(req.params.resource)) return next()
+    res.json(await resourceService.listResource(store, req.auth!, req.params.resource))
+  })
+  r.post('/:resource', async (req, res, next) => {
+    if (!resourceService.isResource(req.params.resource)) return next()
+    res.status(201).json({ item: await resourceService.createResource(store, req.auth!, req.params.resource, req.body ?? {}) })
+  })
+  r.patch('/:resource/:id', async (req, res, next) => {
+    if (!resourceService.isResource(req.params.resource)) return next()
+    res.json({ item: await resourceService.updateResource(store, req.auth!, req.params.resource, req.params.id, req.body ?? {}) })
+  })
+  r.delete('/:resource/:id', async (req, res, next) => {
+    if (!resourceService.isResource(req.params.resource)) return next()
+    res.json(await resourceService.deleteResource(store, req.auth!, req.params.resource, req.params.id))
+  })
+
+  return r
+}

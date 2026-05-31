@@ -5,19 +5,21 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "backend": "tsx watch server/index.js",
+    "backend": "tsx watch server/index.ts",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
     "docker:up": "docker compose up --build",
     "docker:down": "docker compose down -v",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "start": "tsx server/index.js",
+    "start": "tsx server/index.ts",
     "typecheck": "tsc -b --noEmit",
     "test": "tsx --test \"shared/**/*.test.ts\" \"server/**/*.test.ts\""
   },
   "dependencies": {
+    "@types/express": "^5.0.6",
     "clsx": "^2.1.1",
+    "express": "^5.2.1",
     "lucide-react": "^0.460.0",
     "nodemailer": "^8.0.9",
     "pdfkit": "^0.18.0",
