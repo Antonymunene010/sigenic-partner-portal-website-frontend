@@ -8,11 +8,12 @@ import {
   assignableRoles,
   canManageUser,
   audienceMatches,
-} from '../permissions.js'
+  type Capability,
+} from '../permissions'
+import type { Role } from '../types'
 
 // Characterization of the PRD §5 permission matrix. These assert human-readable
-// facts (not a copy of the CAPABILITIES table) so they double as documentation
-// and survive the merge into shared/permissions.ts unchanged.
+// facts (not a copy of the CAPABILITIES table) so they double as documentation.
 
 test('roster is the 7 PRD roles', () => {
   assert.deepStrictEqual(ROLES, [
@@ -23,18 +24,18 @@ test('roster is the 7 PRD roles', () => {
 })
 
 test('isInternal — only Sigenic staff roles are internal', () => {
-  for (const role of ['super_admin', 'admin', 'support_engineer']) assert.equal(isInternal({ role }), true, role)
-  for (const role of ['distributor_admin', 'distributor_user', 'customer_admin', 'customer_user']) assert.equal(isInternal({ role }), false, role)
+  for (const role of ['super_admin', 'admin', 'support_engineer'] as Role[]) assert.equal(isInternal({ role }), true, role)
+  for (const role of ['distributor_admin', 'distributor_user', 'customer_admin', 'customer_user'] as Role[]) assert.equal(isInternal({ role }), false, role)
   assert.equal(isInternal(null), false)
 })
 
 test('can — null user and unknown capability are always denied', () => {
   assert.equal(can(null, 'use_full_calculator'), false)
-  assert.equal(can({ role: 'super_admin' }, 'not_a_capability'), false)
+  assert.equal(can({ role: 'super_admin' }, 'not_a_capability' as Capability), false)
 })
 
 test('can — super_admin holds every internal-management capability', () => {
-  for (const cap of ['manage_internal_users', 'manage_scoring', 'manage_companies', 'view_audit_logs', 'manage_announcements', 'manage_billing']) {
+  for (const cap of ['manage_internal_users', 'manage_scoring', 'manage_companies', 'view_audit_logs', 'manage_announcements', 'manage_billing'] as Capability[]) {
     assert.equal(can({ role: 'super_admin' }, cap), true, cap)
   }
 })

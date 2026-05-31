@@ -11,7 +11,7 @@ import {
   canSeeCompany,
   canManageUser,
   roleMeta,
-} from './permissions.js'
+} from '../shared/permissions'
 import {
   initEmail,
   emailMode,
@@ -27,7 +27,7 @@ import {
   zendeskEnabled,
 } from './zendesk.js'
 import { fetchNotionArticles, notionEnabled } from './notion.js'
-import { computeRoi, toCalculatorRun, toLimited } from './calc.js'
+import { computeRoi, toCalculatorRun, toLimited } from '../shared/calc'
 import { invoicePdf, reportPdf } from './pdf.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))

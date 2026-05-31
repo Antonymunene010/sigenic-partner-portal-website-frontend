@@ -7,25 +7,59 @@
  * (estimated_yield_improvement, estimated_monthly_savings, estimated_annual_savings)
  * exactly as required by the calculator_runs schema.
  *
- * Keep IN SYNC with the client copy in src/lib/calculator.ts so results match
- * whether computed server-side or client-side (offline fallback).
+ * This is the single source of truth: the portal always computes ROI server-side
+ * (/api/calculate, /api/public/calculate); the client only seeds default inputs.
  */
+import type { CalcSelection, MetricType, RoiResult } from './types'
 
-const METRICS = ['yield_improvement', 'scrap_reduction', 'downtime_reduction', 'detection_speed_improvement']
+const METRICS: MetricType[] = ['yield_improvement', 'scrap_reduction', 'downtime_reduction', 'detection_speed_improvement']
 
-const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v))
-const num = (v, fallback = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback)
+const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v))
+const num = (v: unknown, fallback = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : fallback)
 
 // Hard caps so a mis-configured rule cannot produce absurd percentages.
-const METRIC_CAP = {
+const METRIC_CAP: Record<MetricType, number> = {
   yield_improvement: 25,
   scrap_reduction: 60,
   downtime_reduction: 60,
   detection_speed_improvement: 90,
 }
 
+/** A scoring rule as stored — accepts both camelCase (API) and snake_case (raw row) keys. */
+export interface CalcRule {
+  id?: string
+  metricType?: MetricType
+  metric_type?: MetricType
+  machineId?: string | null
+  machine_id?: string | null
+  processId?: string | null
+  process_id?: string | null
+  departmentId?: string | null
+  department_id?: string | null
+  minValue?: number
+  min_value?: number
+  maxValue?: number
+  max_value?: number
+  weight?: number
+}
+
+export interface CalcModel {
+  id?: string
+  versionName?: string
+  version_name?: string
+}
+
+export interface CalcAssumption {
+  costPerWaferDefault?: number
+  cost_per_wafer_default?: number
+  monthlyVolumeDefault?: number
+  monthly_volume_default?: number
+  excursionCostDefault?: number
+  excursion_cost_default?: number
+}
+
 /** Specificity of a rule against a selection. -1 = does not apply. */
-function ruleSpecificity(rule, sel) {
+function ruleSpecificity(rule: CalcRule, sel: CalcSelection): number {
   let score = 0
   if (rule.machineId || rule.machine_id) {
     const m = rule.machineId ?? rule.machine_id
@@ -46,8 +80,8 @@ function ruleSpecificity(rule, sel) {
 }
 
 /** Most specific applicable rule for a metric (machine > process > department > global). */
-function pickRule(rules, metric, sel) {
-  let best = null
+function pickRule(rules: CalcRule[], metric: MetricType, sel: CalcSelection): CalcRule | null {
+  let best: CalcRule | null = null
   let bestScore = -1
   for (const r of rules) {
     const mt = r.metricType ?? r.metric_type
@@ -61,7 +95,7 @@ function pickRule(rules, metric, sel) {
   return best
 }
 
-function metricRange(rules, metric, sel, headroom) {
+function metricRange(rules: CalcRule[], metric: MetricType, sel: CalcSelection, headroom: number): { min: number; max: number; ruleId: string | null } {
   const rule = pickRule(rules, metric, sel)
   if (!rule) return { min: 0, max: 0, ruleId: null }
   const weight = clamp(num(rule.weight ?? 1, 1), 0.25, 2)
@@ -72,22 +106,23 @@ function metricRange(rules, metric, sel, headroom) {
   // upper bound only — the lower bound stays the conservative floor.
   const min = clamp(lo * weight, 0, cap)
   const max = clamp(hi * weight * headroom, min, cap)
-  return { min, max, ruleId: rule.id }
+  return { min, max, ruleId: rule.id ?? null }
 }
 
-/**
- * @param {object} args
- * @param {object} args.model     scoring_model row
- * @param {Array}  args.rules     scoring_rules for the model
- * @param {object} args.assumption resolved financial_assumptions row
- * @param {object} args.selection  { departmentId, processId, machineId, currentYieldPct, defectRate, throughput, scrapRate, downtime, costPerWafer, monthlyVolume, excursionCost }
- */
-export function computeRoi({ model, rules = [], assumption = {}, selection = {} }) {
+export interface ComputeRoiArgs {
+  model?: CalcModel | null
+  rules?: CalcRule[]
+  assumption?: CalcAssumption | null
+  selection?: CalcSelection
+}
+
+export function computeRoi({ model, rules = [], assumption = {}, selection = {} }: ComputeRoiArgs): RoiResult {
   const sel = selection
+  const a = assumption ?? {}
   // Resolve financial inputs: explicit input → assumption default.
-  const costPerWafer = num(sel.costPerWafer, num(assumption.costPerWaferDefault ?? assumption.cost_per_wafer_default, 550))
-  const monthlyVolume = num(sel.monthlyVolume, num(assumption.monthlyVolumeDefault ?? assumption.monthly_volume_default, 8000))
-  const excursionCost = num(sel.excursionCost, num(assumption.excursionCostDefault ?? assumption.excursion_cost_default, 450000))
+  const costPerWafer = num(sel.costPerWafer, num(a.costPerWaferDefault ?? a.cost_per_wafer_default, 550))
+  const monthlyVolume = num(sel.monthlyVolume, num(a.monthlyVolumeDefault ?? a.monthly_volume_default, 8000))
+  const excursionCost = num(sel.excursionCost, num(a.excursionCostDefault ?? a.excursion_cost_default, 450000))
 
   const currentYield = num(sel.currentYieldPct, 88)
   const scrapRate = num(sel.scrapRate, 3)
@@ -95,20 +130,20 @@ export function computeRoi({ model, rules = [], assumption = {}, selection = {} 
   const downtime = num(sel.downtime, 8)
 
   // Operational headroom — worse current state ⇒ more upside (lifts the max bound).
-  const headroom = {
+  const headroom: Record<MetricType, number> = {
     yield_improvement: clamp(1 + (88 - currentYield) / 120, 0.7, 1.5),
     scrap_reduction: clamp(1 + (scrapRate - 3) / 15 + defectRate / 10, 0.7, 1.5),
     downtime_reduction: clamp(1 + (downtime - 6) / 20, 0.7, 1.5),
     detection_speed_improvement: clamp(1 + defectRate / 8, 0.8, 1.4),
   }
 
-  const ranges = {}
+  const ranges = {} as Record<MetricType, { min: number; max: number; ruleId: string | null }>
   for (const metric of METRICS) ranges[metric] = metricRange(rules, metric, sel, headroom[metric])
 
   const baselineSpend = costPerWafer * monthlyVolume
 
   // Monthly savings for a given endpoint (lo = mins, hi = maxes).
-  const monthlyAt = (pick) => {
+  const monthlyAt = (pick: (r: { min: number; max: number }) => number) => {
     const yieldImp = pick(ranges.yield_improvement)
     const scrapRed = pick(ranges.scrap_reduction)
     const downRed = pick(ranges.downtime_reduction)
@@ -129,7 +164,7 @@ export function computeRoi({ model, rules = [], assumption = {}, selection = {} 
   const lo = monthlyAt((r) => r.min)
   const hi = monthlyAt((r) => r.max)
 
-  const mid = (r) => (r.min + r.max) / 2
+  const mid = (r: { min: number; max: number }) => (r.min + r.max) / 2
   const score = clamp(
     Math.round(
       mid(ranges.yield_improvement) * 5 +
@@ -144,8 +179,8 @@ export function computeRoi({ model, rules = [], assumption = {}, selection = {} 
     100,
   )
 
-  const round = (v) => Math.round(v)
-  const round2 = (v) => Math.round(v * 100) / 100
+  const round = (v: number) => Math.round(v)
+  const round2 = (v: number) => Math.round(v * 100) / 100
 
   return {
     modelId: model?.id ?? null,
@@ -171,7 +206,19 @@ export function computeRoi({ model, rules = [], assumption = {}, selection = {} 
  * Map a computeRoi() result + selection into a calculator_runs row payload
  * (snake_case columns). `runType` and ownership are supplied by the caller.
  */
-export function toCalculatorRun({ result, selection, runType, model, ids = {} }) {
+export function toCalculatorRun({
+  result,
+  selection,
+  runType,
+  model,
+  ids = {},
+}: {
+  result: RoiResult
+  selection: CalcSelection
+  runType: string
+  model?: CalcModel | null
+  ids?: { companyId?: string | null; siteId?: string | null; userId?: string | null }
+}) {
   return {
     company_id: ids.companyId ?? null,
     site_id: ids.siteId ?? null,
@@ -200,7 +247,7 @@ export function toCalculatorRun({ result, selection, runType, model, ids = {} })
 }
 
 /** Public/limited output — hides the breakdown and exact figures (PRD: public sees a teaser). */
-export function toLimited(result) {
+export function toLimited(result: RoiResult) {
   return {
     modelVersion: result.modelVersion,
     yieldImprovement: result.yieldImprovement,

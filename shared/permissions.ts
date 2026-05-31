@@ -1,17 +1,43 @@
 /**
- * Server-side permission matrix — the single source of truth for authorization.
- *
- * Encodes the PRD "Permission Matrix" (§5) plus the five MVP rules:
+ * The single authoritative permission matrix, shared by the Node API and the
+ * React client. Encodes the PRD "Permission Matrix" (§5) plus the five MVP rules:
  *  1. No multi-customer distributor switching.
  *  2. External users may not manage scoring logic.
  *  3. Ticket execution stays in Zendesk.
  *  4. Company-level visibility by default.
  *  5. Only internal users manage companies / master data / scoring / announcements.
  *
- * The client mirrors this in src/lib/permissions.ts — keep the two in sync.
+ * The server re-checks every mutation against `can`/`canManageUser`; the client
+ * uses the same functions to gate navigation and UI affordances (UX, not security).
  */
+import type { Role, User, UserType } from './types'
 
-export const ROLES = [
+export type Capability =
+  | 'use_full_calculator'
+  | 'save_calculator_result'
+  | 'download_report'
+  | 'view_company_profile'
+  | 'view_request_list'
+  | 'submit_support_request'
+  | 'submit_consultation_request'
+  | 'access_knowledge_base'
+  | 'manage_company_users'
+  | 'manage_internal_users'
+  | 'view_all_companies'
+  | 'manage_companies'
+  | 'view_master_data'
+  | 'manage_master_data'
+  | 'manage_scoring'
+  | 'manage_knowledge'
+  | 'manage_success_stories'
+  | 'view_ticket_oversight'
+  | 'resolve_tickets'
+  | 'manage_announcements'
+  | 'view_audit_logs'
+  | 'view_analytics'
+  | 'manage_billing'
+
+export const ROLES: Role[] = [
   'super_admin',
   'admin',
   'support_engineer',
@@ -21,7 +47,7 @@ export const ROLES = [
   'customer_user',
 ]
 
-export const ROLE_META = {
+export const ROLE_META: Record<Role, { userType: UserType; internal: boolean; companyAdmin: boolean; label: string }> = {
   super_admin: { userType: 'internal', internal: true, companyAdmin: true, label: 'Super Admin' },
   admin: { userType: 'internal', internal: true, companyAdmin: false, label: 'Admin' },
   support_engineer: { userType: 'internal', internal: true, companyAdmin: false, label: 'Support Engineer' },
@@ -32,15 +58,15 @@ export const ROLE_META = {
 }
 
 const ALL_AUTH = ROLES
-const INTERNAL_OVERSIGHT = ['support_engineer', 'admin', 'super_admin']
-const INTERNAL_MANAGE = ['admin', 'super_admin']
+const INTERNAL_OVERSIGHT: Role[] = ['support_engineer', 'admin', 'super_admin']
+const INTERNAL_MANAGE: Role[] = ['admin', 'super_admin']
 
 /**
  * Capability → roles allowed. Data-scope (own company vs all) is enforced
- * separately by companyScope()/canSeeCompany(); these flags answer "is the action
- * available to this role at all?".
+ * separately by canSeeCompany()/canManageUser(); these flags answer "is the
+ * action available to this role at all?".
  */
-const CAPABILITIES = {
+const CAPABILITIES: Record<Capability, Role[]> = {
   use_full_calculator: ALL_AUTH,
   save_calculator_result: ['customer_user', 'customer_admin', ...INTERNAL_OVERSIGHT],
   download_report: ALL_AUTH,
@@ -68,30 +94,32 @@ const CAPABILITIES = {
   manage_billing: INTERNAL_MANAGE,
 }
 
-export function isInternal(user) {
+export function isInternal(user: Pick<User, 'role'> | null | undefined): boolean {
   return Boolean(user && ROLE_META[user.role]?.internal)
 }
 
-export function roleMeta(role) {
+export function roleMeta(role: Role) {
   return ROLE_META[role] ?? null
 }
 
+export function roleLabel(role: Role): string {
+  return ROLE_META[role]?.label ?? role
+}
+
 /** True if the role may perform the given capability (ignoring data scope). */
-export function can(user, capability) {
+export function can(user: Pick<User, 'role'> | null | undefined, capability: Capability): boolean {
   if (!user) return false
-  const allowed = CAPABILITIES[capability]
-  if (!allowed) return false
-  return allowed.includes(user.role)
+  return CAPABILITIES[capability]?.includes(user.role) ?? false
 }
 
 /** Can this user see data belonging to companyId? */
-export function canSeeCompany(user, companyId) {
+export function canSeeCompany(user: Pick<User, 'role' | 'companyId'> | null | undefined, companyId: string | null | undefined): boolean {
   if (isInternal(user)) return true
-  return Boolean(companyId) && companyId === user.companyId
+  return Boolean(companyId) && companyId === user?.companyId
 }
 
 /** Roles an actor may assign to others (PRD: external admins restricted to own org type). */
-export function assignableRoles(user) {
+export function assignableRoles(user: Pick<User, 'role'> | null | undefined): Role[] {
   if (!user) return []
   switch (user.role) {
     case 'super_admin':
@@ -109,8 +137,12 @@ export function assignableRoles(user) {
   }
 }
 
-/** Can `actor` create/modify `targetUser` (with intended role)? */
-export function canManageUser(actor, targetCompanyId, targetRole) {
+/** Can `actor` create/modify a target user with the intended role/company? */
+export function canManageUser(
+  actor: Pick<User, 'role' | 'companyId'> | null | undefined,
+  targetCompanyId: string | null | undefined,
+  targetRole: Role,
+): boolean {
   if (!actor) return false
   if (actor.role === 'super_admin') return true
   // PRD §5.1: admin may assign partner/customer (external) roles, but managing
@@ -124,7 +156,7 @@ export function canManageUser(actor, targetCompanyId, targetRole) {
 }
 
 /** Audience filter for announcements / knowledge by user type. */
-export function audienceMatches(user, audienceType) {
+export function audienceMatches(user: Pick<User, 'role' | 'userType'> | null | undefined, audienceType: string): boolean {
   if (audienceType === 'all') return true
   if (!user) return false
   if (audienceType === 'internal') return isInternal(user)
