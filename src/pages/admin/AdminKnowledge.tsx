@@ -59,12 +59,14 @@ export default function AdminKnowledge() {
         resource="knowledge-articles"
         idPrefix="kb"
         canManage={canManage}
+        wide
+        inlineToggle={{ key: 'active' }}
         rows={knowledgeArticles}
         refresh={refresh}
         columns={[
           { key: 'title', header: 'Title', render: (a) => <span className="font-medium">{a.title}</span> },
           { key: 'category', header: 'Category', render: (a) => <span className="text-muted dark:text-muted-dark">{a.category}</span> },
-          { key: 'source', header: 'Source', render: (a) => <Badge tone={SOURCE_TONE[a.sourceType] ?? 'neutral'}>{a.sourceType}</Badge> },
+          { key: 'source', header: 'Source', sortAccessor: (a) => a.sourceType, render: (a) => <Badge tone={SOURCE_TONE[a.sourceType] ?? 'neutral'}>{a.sourceType}</Badge> },
           { key: 'audienceType', header: 'Audience', render: (a) => <span className="capitalize text-muted dark:text-muted-dark">{a.audienceType}</span> },
           { key: 'featured', header: 'Featured', render: (a) => (a.featured ? <Badge tone="accent">featured</Badge> : <span className="text-faint">—</span>) },
           { key: 'active', header: 'Status', render: (a) => <Badge tone={boolTone(a.active)}>{a.active ? 'active' : 'inactive'}</Badge> },

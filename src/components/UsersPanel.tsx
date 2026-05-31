@@ -83,7 +83,8 @@ export function UsersPanel({
     const next = u.status === 'active' ? 'inactive' : 'active'
     setBusyId(u.id)
     try {
-      await updateUserApi(u.id, { status: next })
+      // touch: false → keep the row in place under the default update-time sort after a toggle.
+      await updateUserApi(u.id, { status: next }, { touch: false })
       await refresh()
       toast.push(`${u.fullName} set to ${next}.`)
     } catch (e) {
@@ -111,6 +112,7 @@ export function UsersPanel({
     {
       key: 'name',
       header: 'Name',
+      sortAccessor: (u) => u.fullName,
       render: (u) => (
         <div className="flex items-center gap-2.5 min-w-0">
           <Avatar name={u.fullName} variant={avatarVariant} size="md" />
@@ -162,6 +164,7 @@ export function UsersPanel({
         columns={columns}
         rows={users}
         empty={<EmptyState title="No users yet" hint={emptyHint ?? 'Invite teammates to give them portal access.'} />}
+        defaultSort={{ key: 'updatedAt', dir: 'desc' }}
       />
 
       <Modal

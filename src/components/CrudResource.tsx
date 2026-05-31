@@ -20,6 +20,18 @@ export interface FieldSpec {
 
 type Row = { id: string }
 
+export interface InlineToggleSpec {
+  key: string
+  /** Value for the "on" state. Omit both onValue/offValue to use boolean true/false. */
+  onValue?: unknown
+  /** Value for the "off" state. */
+  offValue?: unknown
+  /** Label for the activate action, shown when the row is off. Defaults to "Activate". */
+  activateLabel?: string
+  /** Label for the deactivate action, shown when the row is on. Defaults to "Deactivate". */
+  deactivateLabel?: string
+}
+
 export function CrudResource<T extends Row>({
   title,
   description,
@@ -31,6 +43,8 @@ export function CrudResource<T extends Row>({
   idPrefix,
   canManage,
   newLabel,
+  inlineToggle,
+  wide,
 }: {
   title: string
   description?: string
@@ -42,12 +56,15 @@ export function CrudResource<T extends Row>({
   idPrefix: string
   canManage: boolean
   newLabel?: string
+  inlineToggle?: InlineToggleSpec
+  wide?: boolean
 }) {
   const toast = useToast()
   const [editing, setEditing] = useState<T | null>(null)
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState<Record<string, unknown>>({})
   const [busy, setBusy] = useState(false)
+  const [toggling, setToggling] = useState<string | null>(null)
 
   const open = (row: T | null) => {
     if (!canManage) return
@@ -115,8 +132,60 @@ export function CrudResource<T extends Row>({
     }
   }
 
+  const resolveToggle = (row: T, spec: InlineToggleSpec) => {
+    const current = (row as Record<string, unknown>)[spec.key]
+    const explicit = spec.onValue !== undefined || spec.offValue !== undefined
+    const active = explicit ? current === spec.onValue : Boolean(current)
+    const next = explicit ? (active ? spec.offValue : spec.onValue) : !current
+    return { active, next }
+  }
+
+  const toggle = async (row: T) => {
+    if (!inlineToggle) return
+    setToggling(row.id)
+    try {
+      const { next } = resolveToggle(row, inlineToggle)
+      // touch: false → don't bump updated_at, so the row keeps its place under the default
+      // update-time sort (it only moves when the list is actively sorted by the toggled column).
+      await updateResource(resource, row.id, { [inlineToggle.key]: next } as Partial<T>, { touch: false })
+      await refresh()
+    } catch (e) {
+      toast.push(e instanceof Error ? e.message : 'Update failed.', 'error')
+    } finally {
+      setToggling(null)
+    }
+  }
+
+  const toggleColumn: Column<T> | null =
+    canManage && inlineToggle
+      ? {
+          key: '_toggle',
+          header: '',
+          className: 'w-px text-right',
+          render: (row) => {
+            const { active } = resolveToggle(row, inlineToggle)
+            return (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  void toggle(row)
+                }}
+                disabled={toggling === row.id}
+                className="inline-flex items-center justify-center h-7 px-2.5 text-xs font-medium rounded-md border border-line dark:border-line-dark text-muted dark:text-muted-dark hover:bg-raised dark:hover:bg-raised-dark hover:text-ink dark:hover:text-ink-dark transition-colors disabled:opacity-50 whitespace-nowrap"
+              >
+                {active ? inlineToggle.deactivateLabel ?? 'Deactivate' : inlineToggle.activateLabel ?? 'Activate'}
+              </button>
+            )
+          },
+        }
+      : null
+
   const allColumns: Column<T>[] = canManage
-    ? [...columns, { key: '_edit', header: '', className: 'w-10 text-right', render: () => <Pencil size={13} className="text-faint inline" /> }]
+    ? [
+        ...columns,
+        ...(toggleColumn ? [toggleColumn] : []),
+        { key: '_edit', header: '', className: 'w-10 text-right', render: () => <Pencil size={13} className="text-faint inline" /> },
+      ]
     : columns
 
   return (
@@ -133,11 +202,17 @@ export function CrudResource<T extends Row>({
         )}
       </div>
 
-      <DataTable columns={allColumns} rows={rows} onRowClick={canManage ? open : undefined} />
+      <DataTable
+        columns={allColumns}
+        rows={rows}
+        onRowClick={canManage ? open : undefined}
+        defaultSort={{ key: 'updatedAt', dir: 'desc' }}
+      />
 
       <Modal
         open={creating || !!editing}
         onClose={close}
+        wide={wide}
         title={creating ? `New ${title.replace(/s$/, '')}` : `Edit ${title.replace(/s$/, '')}`}
         footer={
           <>

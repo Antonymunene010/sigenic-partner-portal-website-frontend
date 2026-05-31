@@ -28,6 +28,7 @@ export default function AdminAudit() {
     {
       key: 'actor',
       header: 'Actor',
+      sortAccessor: (l) => l.actorName ?? 'System',
       render: (l) => <span className="font-medium">{l.actorName ?? 'System'}</span>,
     },
     {
@@ -38,6 +39,7 @@ export default function AdminAudit() {
     {
       key: 'entity',
       header: 'Entity',
+      sortAccessor: (l) => l.entityType,
       render: (l) => (
         <span className="text-muted dark:text-muted-dark">
           <span className="font-mono text-xs">{l.entityType}</span>
@@ -76,6 +78,7 @@ export default function AdminAudit() {
             columns={columns}
             rows={rows}
             empty={<EmptyState title="No matching events" hint="Try a different entity type." />}
+            defaultSort={{ key: 'createdAt', dir: 'desc' }}
           />
         </Card>
       )}

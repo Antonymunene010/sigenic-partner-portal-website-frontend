@@ -96,7 +96,9 @@ export function createStore() {
     return rowToObj(res.rows[0])
   }
 
-  async function update(table, id, data) {
+  // `opts.touch === false` skips the updated_at bump — used by inline status toggles so they don't
+  // reorder update-time-sorted lists (a quick deactivate shouldn't count as a content edit).
+  async function update(table, id, data, opts = {}) {
     const cols = COLS[table] ?? []
     const sets = []
     const values = []
@@ -116,7 +118,7 @@ export function createStore() {
       i++
     }
     if (!sets.length) return getOne(table, id)
-    if (hasUpdatedAt) sets.push('updated_at = now()')
+    if (hasUpdatedAt && opts.touch !== false) sets.push('updated_at = now()')
     values.push(id)
     const res = await query(`UPDATE ${table} SET ${sets.join(', ')} WHERE id = $${i} RETURNING *`, values)
     return rowToObj(res.rows[0])

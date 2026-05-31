@@ -241,7 +241,7 @@ async function handleResource(req, res, auth, resource, id) {
     const body = await readJson(req)
     const before = await store.getOne(cfg.table, id)
     if (!before) return notFound(res, 'Not found.')
-    const updated = await store.update(cfg.table, id, body.item ?? body)
+    const updated = await store.update(cfg.table, id, body.item ?? body, { touch: body.touch })
     await audit(auth, cfg.entity, id, 'update', before, updated)
     return send(res, 200, { item: updated })
   }
@@ -501,10 +501,10 @@ async function handleApi(req, res, pathname, auth) {
   if (userOne && req.method === 'PATCH') {
     const target = await store.getOne('users', userOne[1])
     if (!target) return notFound(res, 'User not found.')
-    const fields = await readJson(req)
+    const { touch, ...fields } = await readJson(req)
     const nextRole = fields.role ?? target.role
     if (!canManageUser(auth, target.companyId, nextRole)) return forbidden(res)
-    const updated = await store.update('users', userOne[1], fields)
+    const updated = await store.update('users', userOne[1], fields, { touch })
     await audit(auth, 'user', userOne[1], 'update', { role: target.role, status: target.status }, { role: updated.role, status: updated.status })
     return send(res, 200, { user: updated })
   }
@@ -526,9 +526,9 @@ async function handleApi(req, res, pathname, auth) {
   if (activate && req.method === 'POST') {
     if (!can(auth, 'manage_scoring')) return forbidden(res)
     await store.list('scoring_models', { where: "status = 'active'", params: [] }).then((models) =>
-      Promise.all(models.filter((m) => m.id !== activate[1]).map((m) => store.update('scoring_models', m.id, { status: 'archived' }))),
+      Promise.all(models.filter((m) => m.id !== activate[1]).map((m) => store.update('scoring_models', m.id, { status: 'archived' }, { touch: false }))),
     )
-    const updated = await store.update('scoring_models', activate[1], { status: 'active' })
+    const updated = await store.update('scoring_models', activate[1], { status: 'active' }, { touch: false })
     await audit(auth, 'scoring_model', activate[1], 'activate', null, { status: 'active' })
     return send(res, 200, { item: updated })
   }

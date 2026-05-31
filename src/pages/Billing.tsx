@@ -40,6 +40,7 @@ export default function Billing() {
     {
       key: 'period',
       header: 'Period',
+      sortAccessor: (i) => i.periodStart,
       render: (i) => (
         <span>{i.periodStart ? fmtDate(i.periodStart) : '—'} – {i.periodEnd ? fmtDate(i.periodEnd) : '—'}</span>
       ),
@@ -86,7 +87,7 @@ export default function Billing() {
               <EmptyState title="No invoices yet" hint="Invoices will appear here once issued." />
             </div>
           ) : (
-            <DataTable columns={columns} rows={invoices} />
+            <DataTable columns={columns} rows={invoices} defaultSort={{ key: 'updatedAt', dir: 'desc' }} />
           )}
         </Card>
 

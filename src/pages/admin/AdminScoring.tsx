@@ -93,9 +93,9 @@ export default function AdminScoring() {
           rows={scoringRules}
           refresh={refresh}
           columns={[
-            { key: 'metricType', header: 'Metric', render: (r) => <span className="font-medium">{METRIC_LABEL[r.metricType]}</span> },
-            { key: 'scope', header: 'Scope', render: (r) => <span className="text-muted dark:text-muted-dark">{ruleScope(r)}</span> },
-            { key: 'range', header: 'Range', render: (r) => <span className="num">{r.minValue}–{r.maxValue}%</span> },
+            { key: 'metricType', header: 'Metric', sortAccessor: (r) => METRIC_LABEL[r.metricType], render: (r) => <span className="font-medium">{METRIC_LABEL[r.metricType]}</span> },
+            { key: 'scope', header: 'Scope', sortAccessor: (r) => ruleScope(r), render: (r) => <span className="text-muted dark:text-muted-dark">{ruleScope(r)}</span> },
+            { key: 'range', header: 'Range', sortAccessor: (r) => r.minValue, render: (r) => <span className="num">{r.minValue}–{r.maxValue}%</span> },
             { key: 'weight', header: 'Weight', render: (r) => <span className="num">{r.weight}</span> },
           ]}
           fields={[
@@ -122,9 +122,9 @@ export default function AdminScoring() {
           rows={financialAssumptions}
           refresh={refresh}
           columns={[
-            { key: 'scope', header: 'Scope', render: (a) => <span className="font-medium">{a.companyId ? lookups.companyName(a.companyId) : 'Global'}</span> },
-            { key: 'cpw', header: 'Cost / wafer', render: (a) => <span className="num">{fmtUSD(a.costPerWaferDefault)}</span> },
-            { key: 'vol', header: 'Monthly volume', render: (a) => <span className="num">{a.monthlyVolumeDefault.toLocaleString()}</span> },
+            { key: 'scope', header: 'Scope', sortAccessor: (a) => (a.companyId ? lookups.companyName(a.companyId) : 'Global'), render: (a) => <span className="font-medium">{a.companyId ? lookups.companyName(a.companyId) : 'Global'}</span> },
+            { key: 'cpw', header: 'Cost / wafer', sortAccessor: (a) => a.costPerWaferDefault, render: (a) => <span className="num">{fmtUSD(a.costPerWaferDefault)}</span> },
+            { key: 'vol', header: 'Monthly volume', sortAccessor: (a) => a.monthlyVolumeDefault, render: (a) => <span className="num">{a.monthlyVolumeDefault.toLocaleString()}</span> },
             { key: 'currency', header: 'Currency', render: (a) => a.currency },
           ]}
           fields={[

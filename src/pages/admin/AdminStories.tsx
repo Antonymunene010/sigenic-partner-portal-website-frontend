@@ -25,6 +25,8 @@ export default function AdminStories() {
         resource="success-stories"
         idPrefix="story"
         canManage={canManage}
+        wide
+        inlineToggle={{ key: 'status', onValue: 'published', offValue: 'draft', activateLabel: 'Publish', deactivateLabel: 'Unpublish' }}
         rows={successStories}
         refresh={refresh}
         columns={[
@@ -44,6 +46,7 @@ export default function AdminStories() {
           {
             key: 'visibility',
             header: 'Visibility',
+            sortAccessor: (s) => VISIBILITY_LABEL[s.visibility] ?? s.visibility,
             render: (s) => <span className="text-muted dark:text-muted-dark">{VISIBILITY_LABEL[s.visibility]}</span>,
           },
         ]}

@@ -76,11 +76,13 @@ export default function AdminRequests() {
     {
       key: 'owner',
       header: 'Owner',
+      sortAccessor: (r) => r.ownerTeam,
       render: (r) => <span className="text-muted dark:text-muted-dark capitalize">{r.ownerTeam}</span>,
     },
     {
       key: 'zendesk',
       header: 'Zendesk',
+      sortAccessor: (r) => r.zendeskTicketId,
       render: (r) =>
         r.zendeskTicketId ? (
           <Badge tone="info">#{r.zendeskTicketId}</Badge>
@@ -101,6 +103,7 @@ export default function AdminRequests() {
       key: 'updated',
       header: 'Updated',
       className: 'text-right',
+      sortAccessor: (r) => r.updatedAt,
       render: (r) => <span className="text-xs text-faint dark:text-faint-dark">{fmtRelative(r.updatedAt)}</span>,
     },
   ]
@@ -168,6 +171,7 @@ export default function AdminRequests() {
         rows={rows}
         onRowClick={(r) => navigate(`/app/requests/${r.id}`)}
         empty="No requests match these filters."
+        defaultSort={{ key: 'updated', dir: 'desc' }}
       />
     </div>
   )

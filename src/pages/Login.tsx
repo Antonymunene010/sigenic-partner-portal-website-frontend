@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { ArrowRight } from 'lucide-react'
+import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { WordMark } from '../components/Logo'
 import { ThemeToggle } from '../components/ThemeToggle'
@@ -41,7 +41,9 @@ export default function Login() {
     <div className="min-h-screen grid lg:grid-cols-2 bg-canvas dark:bg-canvas-dark">
       {/* Brand panel */}
       <div className="hidden lg:flex flex-col justify-between p-12 bg-raised dark:bg-raised-dark border-r border-line dark:border-line-dark">
-        <WordMark />
+        <Link to="/" aria-label="Back to home" className="self-start transition-opacity hover:opacity-80">
+          <WordMark />
+        </Link>
         <div className="max-w-md">
           <h1 className="text-4xl font-semibold tracking-tightest leading-[1.1] text-balance">
             The operating system for partner interactions with Sigenic.
@@ -68,12 +70,13 @@ export default function Login() {
       {/* Form */}
       <div className="flex flex-col">
         <div className="flex items-center justify-between p-4">
-          <Link to="/" className="lg:hidden">
-            <WordMark />
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted dark:text-muted-dark hover:text-ink dark:hover:text-ink-dark transition-colors"
+          >
+            <ArrowLeft size={16} /> Back to home
           </Link>
-          <span className="ml-auto">
-            <ThemeToggle />
-          </span>
+          <ThemeToggle />
         </div>
         <div className="flex-1 flex items-center justify-center px-6 pb-16">
           <div className="w-full max-w-sm">

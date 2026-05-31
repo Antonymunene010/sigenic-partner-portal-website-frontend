@@ -105,6 +105,7 @@ export default function AdminAnalytics() {
     {
       key: 'type',
       header: 'Type',
+      sortAccessor: (p) => COMPANY_TYPE_LABEL[p.type] ?? p.type,
       render: (p) => <Badge tone="neutral">{COMPANY_TYPE_LABEL[p.type] ?? p.type}</Badge>,
     },
     { key: 'requests', header: 'Requests', className: 'num', render: (p) => fmtNumber(p.requests) },

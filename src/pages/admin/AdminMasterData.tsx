@@ -40,6 +40,7 @@ export default function AdminMasterData() {
           resource="departments"
           idPrefix="dep"
           canManage={canManage}
+          inlineToggle={{ key: 'active' }}
           rows={departments}
           refresh={refresh}
           columns={[
@@ -62,12 +63,13 @@ export default function AdminMasterData() {
           resource="processes"
           idPrefix="proc"
           canManage={canManage}
+          inlineToggle={{ key: 'active' }}
           rows={processes}
           refresh={refresh}
           columns={[
             { key: 'processName', header: 'Process', render: (p) => <span className="font-medium">{p.processName}</span> },
-            { key: 'department', header: 'Department', render: (p) => lookups.departmentName(p.departmentId) },
-            { key: 'code', header: 'Code', render: (p) => <span className="font-mono text-xs text-muted dark:text-muted-dark">{p.processCode}</span> },
+            { key: 'department', header: 'Department', sortAccessor: (p) => lookups.departmentName(p.departmentId), render: (p) => lookups.departmentName(p.departmentId) },
+            { key: 'code', header: 'Code', sortAccessor: (p) => p.processCode, render: (p) => <span className="font-mono text-xs text-muted dark:text-muted-dark">{p.processCode}</span> },
             { key: 'active', header: 'Status', render: (p) => activeBadge(p.active) },
           ]}
           fields={[
@@ -86,12 +88,13 @@ export default function AdminMasterData() {
           resource="machines"
           idPrefix="mac"
           canManage={canManage}
+          inlineToggle={{ key: 'active' }}
           rows={machines}
           refresh={refresh}
           columns={[
             { key: 'machineName', header: 'Machine', render: (m) => <div><div className="font-medium">{m.machineName}</div><div className="text-xs text-muted dark:text-muted-dark">{[m.vendor, m.model].filter(Boolean).join(' · ')}</div></div> },
-            { key: 'department', header: 'Department', render: (m) => lookups.departmentName(m.departmentId) },
-            { key: 'category', header: 'Category', render: (m) => <span className="text-muted dark:text-muted-dark">{m.machineCategory}</span> },
+            { key: 'department', header: 'Department', sortAccessor: (m) => lookups.departmentName(m.departmentId), render: (m) => lookups.departmentName(m.departmentId) },
+            { key: 'category', header: 'Category', sortAccessor: (m) => m.machineCategory, render: (m) => <span className="text-muted dark:text-muted-dark">{m.machineCategory}</span> },
             { key: 'active', header: 'Status', render: (m) => activeBadge(m.active) },
           ]}
           fields={[

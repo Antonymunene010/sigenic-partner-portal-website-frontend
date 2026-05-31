@@ -96,7 +96,7 @@ export default function CompanyProfile() {
             {companySites.length === 0 ? (
               <EmptyState title="No sites yet" hint="Sites are added as your account is provisioned." />
             ) : (
-              <DataTable columns={siteColumns} rows={companySites} />
+              <DataTable columns={siteColumns} rows={companySites} defaultSort={{ key: 'updatedAt', dir: 'desc' }} />
             )}
           </Card>
 

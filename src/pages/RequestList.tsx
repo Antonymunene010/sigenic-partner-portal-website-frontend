@@ -37,9 +37,9 @@ export default function RequestList() {
       </div>
     ) },
     { key: 'urgency', header: 'Urgency', render: (r) => <Badge tone={URGENCY_TONE[r.urgency]}>{r.urgency}</Badge> },
-    { key: 'owner', header: 'Owner', render: (r) => <span className="text-muted dark:text-muted-dark capitalize">{r.ownerTeam}</span> },
+    { key: 'owner', header: 'Owner', sortAccessor: (r) => r.ownerTeam, render: (r) => <span className="text-muted dark:text-muted-dark capitalize">{r.ownerTeam}</span> },
     { key: 'status', header: 'Status', render: (r) => <Badge tone={REQUEST_STATUS_TONE[r.status]} dot>{REQUEST_STATUS_LABEL[r.status]}</Badge> },
-    { key: 'updated', header: 'Updated', className: 'text-right', render: (r) => <span className="text-xs text-faint dark:text-faint-dark">{fmtRelative(r.updatedAt)}</span> },
+    { key: 'updated', header: 'Updated', className: 'text-right', sortAccessor: (r) => r.updatedAt, render: (r) => <span className="text-xs text-faint dark:text-faint-dark">{fmtRelative(r.updatedAt)}</span> },
   ]
 
   return (
@@ -65,7 +65,7 @@ export default function RequestList() {
         </div>
       </div>
 
-      <DataTable columns={columns} rows={rows} onRowClick={(r) => navigate(`/app/requests/${r.id}`)} />
+      <DataTable columns={columns} rows={rows} onRowClick={(r) => navigate(`/app/requests/${r.id}`)} defaultSort={{ key: 'updated', dir: 'desc' }} />
     </div>
   )
 }

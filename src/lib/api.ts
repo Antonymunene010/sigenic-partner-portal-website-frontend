@@ -106,8 +106,9 @@ export function syncKnowledge(): Promise<{ synced: number; mode?: string }> {
 export function createUserApi(user: Partial<User>, password?: string): Promise<{ user: User }> {
   return request('/api/users', { method: 'POST', body: JSON.stringify({ user, password }) })
 }
-export function updateUserApi(id: string, fields: Partial<User>): Promise<{ user: User }> {
-  return request(`/api/users/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(fields) })
+export function updateUserApi(id: string, fields: Partial<User>, opts?: { touch?: boolean }): Promise<{ user: User }> {
+  // touch: false tells the server not to bump updated_at (used by the status toggle).
+  return request(`/api/users/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ ...fields, touch: opts?.touch }) })
 }
 export async function resetPasswordApi(id: string, password: string): Promise<void> {
   await request(`/api/users/${encodeURIComponent(id)}/reset-password`, { method: 'POST', body: JSON.stringify({ password }) })
@@ -130,8 +131,14 @@ export type ResourceName =
 export function createResource<T>(resource: ResourceName, item: Partial<T>): Promise<{ item: T }> {
   return request(`/api/${resource}`, { method: 'POST', body: JSON.stringify({ item }) })
 }
-export function updateResource<T>(resource: ResourceName, id: string, item: Partial<T>): Promise<{ item: T }> {
-  return request(`/api/${resource}/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ item }) })
+export function updateResource<T>(
+  resource: ResourceName,
+  id: string,
+  item: Partial<T>,
+  opts?: { touch?: boolean },
+): Promise<{ item: T }> {
+  // touch: false tells the server not to bump updated_at (used by inline status toggles).
+  return request(`/api/${resource}/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ item, touch: opts?.touch }) })
 }
 export function deleteResource(resource: ResourceName, id: string): Promise<{ ok: boolean }> {
   return request(`/api/${resource}/${encodeURIComponent(id)}`, { method: 'DELETE' })

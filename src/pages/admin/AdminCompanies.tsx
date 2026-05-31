@@ -31,9 +31,9 @@ export default function AdminCompanies() {
         refresh={refresh}
         columns={[
           { key: 'companyName', header: 'Company', render: (c) => <span className="font-medium">{c.companyName}</span> },
-          { key: 'companyType', header: 'Type', render: (c) => <Badge tone="neutral">{COMPANY_TYPE_LABEL[c.companyType]}</Badge> },
+          { key: 'companyType', header: 'Type', sortAccessor: (c) => COMPANY_TYPE_LABEL[c.companyType] ?? c.companyType, render: (c) => <Badge tone="neutral">{COMPANY_TYPE_LABEL[c.companyType]}</Badge> },
           { key: 'status', header: 'Status', render: (c) => <Badge tone={ORG_STATUS_TONE[c.status]}>{c.status}</Badge> },
-          { key: 'onboardingStatus', header: 'Onboarding', render: (c) => <Badge tone="info">{ONBOARDING_STATUS_LABEL[c.onboardingStatus]}</Badge> },
+          { key: 'onboardingStatus', header: 'Onboarding', sortAccessor: (c) => ONBOARDING_STATUS_LABEL[c.onboardingStatus] ?? c.onboardingStatus, render: (c) => <Badge tone="info">{ONBOARDING_STATUS_LABEL[c.onboardingStatus]}</Badge> },
           { key: 'industry', header: 'Industry', render: (c) => <span className="text-muted dark:text-muted-dark">{c.industry}</span> },
         ]}
         fields={[
