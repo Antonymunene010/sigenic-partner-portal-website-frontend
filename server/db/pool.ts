@@ -1,0 +1,32 @@
+import { Pool, type PoolClient, type PoolConfig } from 'pg'
+
+export function dbConfig(): PoolConfig {
+  const connectionString = process.env.DATABASE_URL
+  if (!connectionString) {
+    throw new Error('DATABASE_URL is required. Set it to your PostgreSQL connection string.')
+  }
+  return {
+    connectionString,
+    ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+  }
+}
+
+export function createPool(): Pool {
+  return new Pool(dbConfig())
+}
+
+/** Run `fn` inside a BEGIN/COMMIT transaction, rolling back on any error. */
+export async function transaction<T>(pool: Pool, fn: (client: PoolClient) => Promise<T>): Promise<T> {
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    const result = await fn(client)
+    await client.query('COMMIT')
+    return result
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
+  }
+}

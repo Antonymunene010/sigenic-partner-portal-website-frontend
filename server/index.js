@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
-import { createStore } from './store.js'
+import { createStore } from './db/store'
 import { bearerToken, signToken, verifyToken, verifyPassword } from './infra/auth'
 import {
   can,
