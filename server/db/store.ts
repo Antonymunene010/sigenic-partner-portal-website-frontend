@@ -205,14 +205,11 @@ export function createStore() {
       newComments++
     }
     const patch: Record<string, unknown> = {}
-    let changed = newComments > 0
+    const statusChanged = !!(sync.status && sync.status !== sr.status)
     if (newComments > 0) patch.messages = messages
-    if (sync.status && sync.status !== sr.status) {
-      patch.status = sync.status
-      changed = true
-    }
-    const request = changed ? await update('service_requests', sr.id, patch) : sr
-    return { request, newComments, changed }
+    if (statusChanged) patch.status = sync.status
+    const request = newComments > 0 || statusChanged ? await update('service_requests', sr.id, patch) : sr
+    return { request, newComments, statusChanged }
   }
 
   /**
@@ -272,6 +269,19 @@ export function createStore() {
     })
   }
 
+  /** Persist an in-app notification (snake_case mapping, mirrors appendEmail/appendAudit). */
+  async function appendNotification(record: { id: string; userId: string; companyId?: string | null; kind: string; title: string; body?: string; link?: string }): Promise<any> {
+    return insert('notifications', {
+      id: record.id,
+      user_id: record.userId,
+      company_id: record.companyId ?? null,
+      kind: record.kind,
+      title: record.title,
+      body: record.body ?? null,
+      link: record.link ?? null,
+    })
+  }
+
   async function getEmails(): Promise<any[]> {
     return list('email_outbox', { order: 'created_at DESC' })
   }
@@ -316,6 +326,7 @@ export function createStore() {
     // audit / email / notifications
     appendAudit,
     appendEmail,
+    appendNotification,
     getEmails,
     markNotificationRead,
     markNotificationsRead,

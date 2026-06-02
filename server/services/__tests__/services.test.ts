@@ -19,11 +19,8 @@ test('announcement.createAnnouncement — fans out only to the matching audience
   const notifications: any[] = []
   const emails: any[] = []
   const store = {
-    insert: mock.fn(async (table: string, data: any) => {
-      if (table === 'announcements') return { id: 'ann-1', title: data.title, body: data.body, audienceType: data.audience_type }
-      if (table === 'notifications') notifications.push(data)
-      return data
-    }),
+    insert: mock.fn(async (_table: string, data: any) => ({ id: 'ann-1', title: data.title, body: data.body, audienceType: data.audience_type })),
+    appendNotification: mock.fn(async (rec: any) => { notifications.push(rec) }),
     list: mock.fn(async () => users),
     appendAudit: mock.fn(async () => {}),
     appendEmail: mock.fn(async (rec: any) => {
@@ -34,7 +31,7 @@ test('announcement.createAnnouncement — fans out only to the matching audience
   const result = await createAnnouncement(store, superAdmin, { title: 'T', body: 'B', audienceType: 'customer' })
   assert.equal(result.recipients, 1) // only the one customer user
   assert.equal(notifications.length, 1)
-  assert.equal(notifications[0].user_id, 'u-cust')
+  assert.equal(notifications[0].userId, 'u-cust')
   assert.equal(emails.length, 1)
   assert.equal(emails[0].to, 'cust@x')
 })
@@ -45,7 +42,8 @@ test('announcement.createAnnouncement — audience "all" reaches everyone', asyn
     { id: 'u-cust', email: 'cust@x', userType: 'customer', role: 'customer_user' },
   ]
   const store = {
-    insert: mock.fn(async (table: string, data: any) => (table === 'announcements' ? { id: 'ann-2', audienceType: data.audience_type, title: data.title, body: data.body } : data)),
+    insert: mock.fn(async (_table: string, data: any) => ({ id: 'ann-2', audienceType: data.audience_type, title: data.title, body: data.body })),
+    appendNotification: mock.fn(async () => {}),
     list: mock.fn(async () => users),
     appendAudit: mock.fn(async () => {}),
     appendEmail: mock.fn(async () => {}),
@@ -121,13 +119,13 @@ test('serviceRequest.updateServiceRequest — notifies the requester on status c
   const store = {
     getOne: mock.fn(async () => before),
     update: mock.fn(async (_t: string, _id: string, patch: any) => ({ ...before, ...patch })),
-    insert: mock.fn(async (table: string, data: any) => { if (table === 'notifications') notifications.push(data); return data }),
+    appendNotification: mock.fn(async (rec: any) => { notifications.push(rec) }),
     appendAudit: mock.fn(async () => {}),
     appendEmail: mock.fn(async (rec: any) => { emails.push(rec) }),
   } as unknown as Store
   await updateServiceRequest(store, superAdmin, 'sr-9', { status: 'solved' })
   assert.equal(notifications.length, 1)
-  assert.equal(notifications[0].user_id, 'u-c')
+  assert.equal(notifications[0].userId, 'u-c')
   assert.equal(emails.length, 1)
   assert.equal(emails[0].to, 'c@x')
 })

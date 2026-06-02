@@ -32,24 +32,36 @@ async function createZendeskForRequest(payload: any): Promise<string | null> {
 
 /** Notify a request's owner of an update — email (MVP) + in-app, per PRD §7.7. */
 async function notifyRequester(store: Store, request: any, body: string, author: string): Promise<void> {
-  if (request.contactEmail) {
-    await sendEmail(store, {
-      to: request.contactEmail,
-      ...ticketUpdatedEmail({ id: request.id, subject: request.title, status: request.status }, { author, body }),
-    }).catch(() => {})
-  }
-  if (request.userId) {
-    await store
-      .insert('notifications', {
-        id: uid('ntf'),
-        user_id: request.userId,
-        company_id: request.companyId ?? null,
-        kind: 'request',
-        title: `Request update: ${request.title}`,
-        body,
-        link: `/app/requests/${request.id}`,
-      })
-      .catch(() => {})
+  // Email + in-app are independent — fan them out concurrently (mirrors announcement.service).
+  await Promise.all([
+    request.contactEmail
+      ? sendEmail(store, {
+          to: request.contactEmail,
+          ...ticketUpdatedEmail({ id: request.id, subject: request.title, status: request.status }, { author, body }),
+        }).catch(() => {})
+      : null,
+    request.userId
+      ? store
+          .appendNotification({
+            id: uid('ntf'),
+            userId: request.userId,
+            companyId: request.companyId ?? null,
+            kind: 'request',
+            title: `Request update: ${request.title}`,
+            body,
+            link: `/app/requests/${request.id}`,
+          })
+          .catch(() => {})
+      : null,
+  ])
+}
+
+/** Open a linked Zendesk ticket for a request payload and, on success, flip it to 'open'. */
+async function openZendeskTicket(payload: any): Promise<void> {
+  const zid = await createZendeskForRequest(payload)
+  if (zid) {
+    payload.zendesk_ticket_id = zid
+    payload.status = 'open'
   }
 }
 
@@ -80,11 +92,7 @@ export async function createServiceRequest(store: Store, auth: AuthPayload, requ
     messages,
   }
   // Every request type opens a linked Zendesk ticket so it reaches the team (PRD §5/§8).
-  const zid = await createZendeskForRequest(payload)
-  if (zid) {
-    payload.zendesk_ticket_id = zid
-    payload.status = 'open'
-  }
+  await openZendeskTicket(payload)
   const created = await store.insert('service_requests', payload)
   await audit(store, auth, 'service_request', created.id, 'create', null, { type: created.requestType, owner: created.ownerTeam })
   if (payload.contact_email) {
@@ -121,7 +129,7 @@ export async function updateServiceRequest(store: Store, auth: AuthPayload, id: 
   const updated = await store.update('service_requests', id, patch)
   await audit(store, auth, 'service_request', id, 'update', { status: before.status, ownerTeam: before.ownerTeam }, { status: updated.status, ownerTeam: updated.ownerTeam })
   // Notify the requester when status changes (PRD §7.7: email MVP + in-app).
-  if (patch.status && updated.status !== before.status) {
+  if (updated.status !== before.status) {
     await notifyRequester(store, updated, `Status changed to ${updated.status}.`, auth.name)
   }
   return updated
@@ -137,7 +145,7 @@ export async function runZendeskSync(store: Store): Promise<{ synced: number; mo
       const result = await syncZendeskTicket(row.zendeskTicketId)
       if (!result) continue
       const applied = await store.applyZendeskSync(row.zendeskTicketId, result)
-      if (!applied?.changed) continue
+      if (!applied || (!applied.newComments && !applied.statusChanged)) continue
       synced++
       // A new agent reply was pulled in → notify the requester (PRD §7.7).
       if (applied.newComments > 0) await notifyRequester(store, applied.request, 'Sigenic replied to your request.', 'Sigenic Support')
@@ -174,13 +182,9 @@ export async function createPublicLead(store: Store, request: any): Promise<{ id
     interest_type: request.interestType ?? null,
     messages: [{ id: uid('m'), author: request.contactName ?? 'Lead', authorRole: 'you', body: request.description ?? request.title, createdAt: nowIso() }],
   }
-  // Open a linked Zendesk ticket so the lead actually reaches the team. Previously a
+  // Open a linked Zendesk ticket so the lead actually reaches the team — previously a
   // public lead was only stored locally with no outbound notification whatsoever.
-  const zid = await createZendeskForRequest(payload)
-  if (zid) {
-    payload.zendesk_ticket_id = zid
-    payload.status = 'open'
-  }
+  await openZendeskTicket(payload)
   const created = await store.insert('service_requests', payload)
   await sendEmail(store, {
     to: request.contactEmail,

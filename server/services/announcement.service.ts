@@ -32,10 +32,10 @@ export async function createAnnouncement(store: Store, auth: AuthPayload, announ
   await Promise.all(
     targets.flatMap((u: any) => [
       store
-        .insert('notifications', {
+        .appendNotification({
           id: `ntf-${u.id}-${created.id}`.slice(0, 60),
-          user_id: u.id,
-          company_id: u.companyId,
+          userId: u.id,
+          companyId: u.companyId,
           kind: 'announcement',
           title: created.title,
           body: created.body,
