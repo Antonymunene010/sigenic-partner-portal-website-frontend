@@ -1,23 +1,23 @@
-export function Logo({ size = 24 }: { size?: number }) {
+import logoUrl from '../assets/Logo.avif'
+
+/**
+ * Sigenic brand logo — the official white wordmark lock-up (transparent bg).
+ * The artwork is pure white, so we invert it to near-black in light mode and
+ * leave it as-is in dark mode; every surface it sits on follows the theme.
+ * Pass `className` to size it (a height utility); width stays auto.
+ */
+export function Logo({ className = 'h-9' }: { className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-      <rect width="32" height="32" rx="6" className="fill-ink dark:fill-ink-dark" />
-      <path d="M8 22 L16 8 L24 22 L21 22 L16 14 L11 22 Z" fill="#C8A75B" />
-      <rect x="14.5" y="18" width="3" height="1.5" className="fill-ink dark:fill-ink-dark" />
-    </svg>
+    <img
+      src={logoUrl}
+      alt="Sigenic"
+      draggable={false}
+      className={`w-auto select-none invert dark:invert-0 ${className}`}
+    />
   )
 }
 
-export function WordMark() {
-  return (
-    <div className="flex items-center gap-2">
-      <Logo size={22} />
-      <div className="flex items-baseline gap-[6px] leading-none">
-        <span className="font-semibold tracking-tightest text-[15px]">Sigenic</span>
-        <span className="text-[10px] font-mono uppercase tracking-[0.16em] text-muted dark:text-muted-dark">
-          Partner
-        </span>
-      </div>
-    </div>
-  )
+// Existing call sites import WordMark; keep it as a thin alias over Logo.
+export function WordMark({ className }: { className?: string }) {
+  return <Logo className={className} />
 }

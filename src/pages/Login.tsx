@@ -42,7 +42,7 @@ export default function Login() {
       {/* Brand panel */}
       <div className="hidden lg:flex flex-col justify-between p-12 bg-raised dark:bg-raised-dark border-r border-line dark:border-line-dark">
         <Link to="/" aria-label="Back to home" className="self-start transition-opacity hover:opacity-80">
-          <WordMark />
+          <WordMark className="h-14" />
         </Link>
         <div className="max-w-md">
           <h1 className="text-4xl font-semibold tracking-tightest leading-[1.1] text-balance">
