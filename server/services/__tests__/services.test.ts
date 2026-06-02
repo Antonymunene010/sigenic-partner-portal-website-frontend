@@ -2,6 +2,7 @@ import { test, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import { createAnnouncement } from '../announcement.service'
 import { createUser } from '../user.service'
+import { createServiceRequest, updateServiceRequest } from '../serviceRequest.service'
 import { activateScoringModel } from '../admin.service'
 import type { Store } from '../../db/store'
 import type { AuthPayload } from '../../infra/auth'
@@ -82,4 +83,51 @@ test('admin.activateScoringModel — archives other active models, activates the
   await activateScoringModel(store, superAdmin, 'sm-target')
   assert.deepStrictEqual(updates.find((u) => u.id === 'sm-old').data, { status: 'archived' })
   assert.deepStrictEqual(updates.find((u) => u.id === 'sm-target').data, { status: 'active' })
+})
+
+test('user.createUser — sends an invite email to the new user', async () => {
+  const emails: any[] = []
+  const store = {
+    createUser: mock.fn(async () => ({ id: 'u-new', email: 'new@x', fullName: 'New User', role: 'customer_user' })),
+    appendAudit: mock.fn(async () => {}),
+    appendEmail: mock.fn(async (rec: any) => { emails.push(rec) }),
+  } as unknown as Store
+  await createUser(store, admin, { email: 'new@x', fullName: 'New User', role: 'customer_user', companyId: 'co-c' })
+  assert.equal(emails.length, 1)
+  assert.equal(emails[0].to, 'new@x')
+  assert.match(emails[0].subject, /invited/i)
+})
+
+test('serviceRequest.createServiceRequest — every type captures a first message (no Zendesk env ⇒ mock)', async () => {
+  const inserts: any[] = []
+  const store = {
+    insert: mock.fn(async (table: string, data: any) => { inserts.push({ table, data }); return { id: 'sr-1', ...data, requestType: data.request_type, ownerTeam: data.owner_team } }),
+    ownerTeamFor: mock.fn(() => 'sales'),
+    appendAudit: mock.fn(async () => {}),
+    appendEmail: mock.fn(async () => {}),
+  } as unknown as Store
+  const customer: AuthPayload = { sub: 'u-c', role: 'customer_user', userType: 'customer', companyId: 'co-c', companyType: 'customer', email: 'c@x', name: 'Cust' }
+  await createServiceRequest(store, customer, { requestType: 'consultation', title: 'Need help', description: 'details' })
+  const sr = inserts.find((i) => i.table === 'service_requests')
+  assert.ok(sr) // a non-support type used to get messages: [] — now always a first message
+  assert.equal(sr.data.messages.length, 1)
+  assert.equal(sr.data.messages[0].body, 'details')
+})
+
+test('serviceRequest.updateServiceRequest — notifies the requester on status change', async () => {
+  const notifications: any[] = []
+  const emails: any[] = []
+  const before = { id: 'sr-9', status: 'open', ownerTeam: 'support', companyId: 'co-c', userId: 'u-c', contactEmail: 'c@x', title: 'T' }
+  const store = {
+    getOne: mock.fn(async () => before),
+    update: mock.fn(async (_t: string, _id: string, patch: any) => ({ ...before, ...patch })),
+    insert: mock.fn(async (table: string, data: any) => { if (table === 'notifications') notifications.push(data); return data }),
+    appendAudit: mock.fn(async () => {}),
+    appendEmail: mock.fn(async (rec: any) => { emails.push(rec) }),
+  } as unknown as Store
+  await updateServiceRequest(store, superAdmin, 'sr-9', { status: 'solved' })
+  assert.equal(notifications.length, 1)
+  assert.equal(notifications[0].user_id, 'u-c')
+  assert.equal(emails.length, 1)
+  assert.equal(emails[0].to, 'c@x')
 })

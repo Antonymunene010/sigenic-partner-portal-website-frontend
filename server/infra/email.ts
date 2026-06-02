@@ -154,3 +154,37 @@ export function announcementEmail(announcement: { title: string; body: string; a
     text: [announcement.title, '', announcement.body, '', `— ${announcement.author}`].join('\n'),
   }
 }
+
+export function inviteEmail(invite: { fullName: string; role: string; companyName?: string }): {
+  subject: string
+  text: string
+} {
+  return {
+    subject: 'You have been invited to the Sigenic Partner Portal',
+    text: [
+      `Hi ${invite.fullName},`,
+      '',
+      `An account has been created for you on the Sigenic Partner Portal${invite.companyName ? ` (${invite.companyName})` : ''}.`,
+      `Role: ${invite.role}`,
+      '',
+      'Sign in with this email address. Your administrator will share your initial password — please change it after your first sign-in.',
+      '',
+      '— Sigenic Partner Portal',
+    ].join('\n'),
+  }
+}
+
+export function passwordResetEmail(user: { fullName: string }): { subject: string; text: string } {
+  return {
+    subject: 'Your Sigenic Partner Portal password was reset',
+    text: [
+      `Hi ${user.fullName},`,
+      '',
+      'An administrator has reset your Sigenic Partner Portal password. Your administrator will share the new password; please change it after signing in.',
+      '',
+      "If you didn't expect this, please contact your administrator.",
+      '',
+      '— Sigenic Partner Portal',
+    ].join('\n'),
+  }
+}

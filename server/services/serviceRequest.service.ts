@@ -30,15 +30,35 @@ async function createZendeskForRequest(payload: any): Promise<string | null> {
   }
 }
 
-/** Create a portal service request (support requests open a linked Zendesk ticket). */
+/** Notify a request's owner of an update — email (MVP) + in-app, per PRD §7.7. */
+async function notifyRequester(store: Store, request: any, body: string, author: string): Promise<void> {
+  if (request.contactEmail) {
+    await sendEmail(store, {
+      to: request.contactEmail,
+      ...ticketUpdatedEmail({ id: request.id, subject: request.title, status: request.status }, { author, body }),
+    }).catch(() => {})
+  }
+  if (request.userId) {
+    await store
+      .insert('notifications', {
+        id: uid('ntf'),
+        user_id: request.userId,
+        company_id: request.companyId ?? null,
+        kind: 'request',
+        title: `Request update: ${request.title}`,
+        body,
+        link: `/app/requests/${request.id}`,
+      })
+      .catch(() => {})
+  }
+}
+
+/** Create a portal service request (every type opens a linked Zendesk ticket, per PRD §5/§8). */
 export async function createServiceRequest(store: Store, auth: AuthPayload, request: any): Promise<any> {
   if (!request?.title || !request?.requestType) throw badRequest('Request type and title are required.')
   if (request.requestType === 'support' && !can(auth, 'submit_support_request')) throw forbidden()
   const companyId = isInternal(auth) ? request.companyId ?? auth.companyId : auth.companyId
-  const messages =
-    request.requestType === 'support'
-      ? [{ id: uid('m'), author: auth.name, authorRole: 'you', body: request.description ?? request.title, createdAt: nowIso() }]
-      : []
+  const messages = [{ id: uid('m'), author: auth.name, authorRole: 'you', body: request.description ?? request.title, createdAt: nowIso() }]
   const payload: any = {
     id: uid('sr'),
     company_id: companyId ?? null,
@@ -59,12 +79,11 @@ export async function createServiceRequest(store: Store, auth: AuthPayload, requ
     contact_email: request.contactEmail ?? auth.email,
     messages,
   }
-  if (request.requestType === 'support') {
-    const zid = await createZendeskForRequest(payload)
-    if (zid) {
-      payload.zendesk_ticket_id = zid
-      payload.status = 'open'
-    }
+  // Every request type opens a linked Zendesk ticket so it reaches the team (PRD §5/§8).
+  const zid = await createZendeskForRequest(payload)
+  if (zid) {
+    payload.zendesk_ticket_id = zid
+    payload.status = 'open'
   }
   const created = await store.insert('service_requests', payload)
   await audit(store, auth, 'service_request', created.id, 'create', null, { type: created.requestType, owner: created.ownerTeam })
@@ -101,6 +120,10 @@ export async function updateServiceRequest(store: Store, auth: AuthPayload, id: 
   if (!before) throw notFound('Request not found.')
   const updated = await store.update('service_requests', id, patch)
   await audit(store, auth, 'service_request', id, 'update', { status: before.status, ownerTeam: before.ownerTeam }, { status: updated.status, ownerTeam: updated.ownerTeam })
+  // Notify the requester when status changes (PRD §7.7: email MVP + in-app).
+  if (patch.status && updated.status !== before.status) {
+    await notifyRequester(store, updated, `Status changed to ${updated.status}.`, auth.name)
+  }
   return updated
 }
 
@@ -112,7 +135,12 @@ export async function runZendeskSync(store: Store): Promise<{ synced: number; mo
   for (const row of linked) {
     try {
       const result = await syncZendeskTicket(row.zendeskTicketId)
-      if (result && (await store.applyZendeskSync(row.zendeskTicketId, result))) synced++
+      if (!result) continue
+      const applied = await store.applyZendeskSync(row.zendeskTicketId, result)
+      if (!applied?.changed) continue
+      synced++
+      // A new agent reply was pulled in → notify the requester (PRD §7.7).
+      if (applied.newComments > 0) await notifyRequester(store, applied.request, 'Sigenic replied to your request.', 'Sigenic Support')
     } catch (error: any) {
       console.warn(`[zendesk:sync] ${row.id}: ${error.message}`)
     }
@@ -130,7 +158,7 @@ export async function triggerZendeskSync(store: Store, auth: AuthPayload): Promi
 export async function createPublicLead(store: Store, request: any): Promise<{ id: string; status: string }> {
   if (!request?.contactEmail || !request?.title) throw badRequest('Name, email and message are required.')
   const requestType = ['demo', 'consultation'].includes(request.requestType) ? request.requestType : 'demo'
-  const payload = {
+  const payload: any = {
     id: uid('sr'),
     company_id: null,
     user_id: null,
@@ -144,6 +172,14 @@ export async function createPublicLead(store: Store, request: any): Promise<{ id
     contact_name: request.contactName ?? null,
     contact_email: request.contactEmail,
     interest_type: request.interestType ?? null,
+    messages: [{ id: uid('m'), author: request.contactName ?? 'Lead', authorRole: 'you', body: request.description ?? request.title, createdAt: nowIso() }],
+  }
+  // Open a linked Zendesk ticket so the lead actually reaches the team. Previously a
+  // public lead was only stored locally with no outbound notification whatsoever.
+  const zid = await createZendeskForRequest(payload)
+  if (zid) {
+    payload.zendesk_ticket_id = zid
+    payload.status = 'open'
   }
   const created = await store.insert('service_requests', payload)
   await sendEmail(store, {

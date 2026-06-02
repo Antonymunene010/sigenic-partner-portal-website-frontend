@@ -1,6 +1,7 @@
 import { canManageUser, roleMeta } from '../../shared/permissions'
 import { badRequest, forbidden, notFound } from '../http/errors'
 import { audit } from './audit'
+import { sendEmail, inviteEmail, passwordResetEmail } from '../infra/email'
 import { uid } from '../util/ids'
 import type { Store } from '../db/store'
 import type { AuthPayload } from '../infra/auth'
@@ -30,6 +31,8 @@ export async function createUser(store: Store, auth: AuthPayload, user: any, pas
       password,
     )
     await audit(store, auth, 'user', created.id, 'create', null, { email: created.email, role: created.role })
+    // Invite email so the new user actually learns their account exists (PRD §7.7).
+    await sendEmail(store, { to: created.email, ...inviteEmail({ fullName: created.fullName, role: created.role }) }).catch(() => {})
     return created
   } catch (error: any) {
     throw badRequest(error.message)
@@ -55,4 +58,5 @@ export async function resetUserPassword(store: Store, auth: AuthPayload, id: str
   if (!password || String(password).length < 4) throw badRequest('Password must be at least 4 characters.')
   await store.setPassword(id, password)
   await audit(store, auth, 'user', id, 'reset_password', null, null)
+  await sendEmail(store, { to: target.email, ...passwordResetEmail({ fullName: target.fullName }) }).catch(() => {})
 }

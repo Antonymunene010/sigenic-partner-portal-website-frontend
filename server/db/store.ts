@@ -190,7 +190,7 @@ export function createStore() {
     const messages = sr.messages ?? []
     const known = new Set(messages.map((m: any) => m.zendeskCommentId).filter(Boolean))
     const firstBody = messages[0]?.body
-    let changed = false
+    let newComments = 0
     for (const comment of sync.comments ?? []) {
       if (known.has(comment.zendeskCommentId)) continue
       if (comment.body && firstBody && comment.body.trim() === firstBody.trim()) continue
@@ -202,16 +202,17 @@ export function createStore() {
         createdAt: comment.createdAt,
         zendeskCommentId: comment.zendeskCommentId,
       })
-      changed = true
+      newComments++
     }
     const patch: Record<string, unknown> = {}
-    if (changed) patch.messages = messages
+    let changed = newComments > 0
+    if (newComments > 0) patch.messages = messages
     if (sync.status && sync.status !== sr.status) {
       patch.status = sync.status
       changed = true
     }
-    if (changed) return update('service_requests', sr.id, patch)
-    return sr
+    const request = changed ? await update('service_requests', sr.id, patch) : sr
+    return { request, newComments, changed }
   }
 
   /**
