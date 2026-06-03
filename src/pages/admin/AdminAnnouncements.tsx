@@ -62,7 +62,9 @@ export default function AdminAnnouncements() {
 
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<StatusFilter>('all')
-  const [audience, setAudience] = useState<AudienceType | 'all'>('all')
+  // 'any' (not 'all') is the no-filter sentinel: 'all' is itself a real AudienceType ("Everyone"),
+  // so reusing it here would collide with the Everyone chip.
+  const [audience, setAudience] = useState<AudienceType | 'any'>('any')
 
   const [editing, setEditing] = useState<Announcement | null>(null)
   const [creating, setCreating] = useState(false)
@@ -90,7 +92,7 @@ export default function AdminAnnouncements() {
     return announcements
       .map((a) => ({ ...a, status: announcementStatus(a, now) }))
       .filter((a) => {
-        if (audience !== 'all' && a.audienceType !== audience) return false
+        if (audience !== 'any' && a.audienceType !== audience) return false
         if (status === 'pinned') {
           if (!a.pinned) return false
         } else if (status !== 'all' && a.status !== status) {
@@ -329,7 +331,7 @@ export default function AdminAnnouncements() {
           ))}
         </div>
         <div className="flex items-center gap-1 flex-wrap">
-          <button onClick={() => setAudience('all')} className={chipClass(audience === 'all')}>
+          <button onClick={() => setAudience('any')} className={chipClass(audience === 'any')}>
             Any audience
           </button>
           {AUDIENCE_TYPES.map((a) => (
