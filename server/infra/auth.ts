@@ -54,30 +54,40 @@ export function verifyPassword(password: string, stored: string | null | undefin
   return a.length === b.length && crypto.timingSafeEqual(a, b)
 }
 
+// Token wire format, shared by login and password-reset tokens: `<base64url(json)>.<base64url(hmac)>`.
+// Login and reset tokens differ only in their signing key (disjoint signature spaces) and payload
+// shape — the encode/verify mechanics live here once so the two can't drift.
+function encodeSigned(body: object, key: string): string {
+  const data = Buffer.from(JSON.stringify(body)).toString('base64url')
+  const sig = crypto.createHmac('sha256', key).update(data).digest('base64url')
+  return `${data}.${sig}`
+}
+
+/** Verify an `encodeSigned` token's signature and return its decoded body, or null. Does NOT check expiry. */
+function decodeSigned(token: string | null | undefined, key: string): any | null {
+  if (!token || typeof token !== 'string' || !token.includes('.')) return null
+  const [data, sig] = token.split('.')
+  if (!data || !sig) return null
+  const expected = crypto.createHmac('sha256', key).update(data).digest('base64url')
+  const sigBuf = Buffer.from(sig)
+  const expBuf = Buffer.from(expected)
+  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return null
+  try {
+    return JSON.parse(Buffer.from(data, 'base64url').toString('utf8'))
+  } catch {
+    return null
+  }
+}
+
 /** Sign a stateless HMAC token. Payload is public (do not put secrets in it). */
 export function signToken(payload: Omit<AuthPayload, 'exp'>, ttl = tokenTtlSeconds()): string {
-  const body = { ...payload, exp: Math.floor(Date.now() / 1000) + ttl }
-  const data = Buffer.from(JSON.stringify(body)).toString('base64url')
-  const sig = crypto.createHmac('sha256', secret()).update(data).digest('base64url')
-  return `${data}.${sig}`
+  return encodeSigned({ ...payload, exp: Math.floor(Date.now() / 1000) + ttl }, secret())
 }
 
 /** Verify a token's signature + expiry. Returns the decoded payload or null. */
 export function verifyToken(token: string | null | undefined): AuthPayload | null {
-  if (!token || typeof token !== 'string' || !token.includes('.')) return null
-  const [data, sig] = token.split('.')
-  if (!data || !sig) return null
-  const expected = crypto.createHmac('sha256', secret()).update(data).digest('base64url')
-  const sigBuf = Buffer.from(sig)
-  const expBuf = Buffer.from(expected)
-  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return null
-  let body: AuthPayload
-  try {
-    body = JSON.parse(Buffer.from(data, 'base64url').toString('utf8'))
-  } catch {
-    return null
-  }
-  if (!body.exp || body.exp < Math.floor(Date.now() / 1000)) return null
+  const body = decodeSigned(token, secret()) as AuthPayload | null
+  if (!body || !body.exp || body.exp < Math.floor(Date.now() / 1000)) return null
   return body
 }
 
@@ -116,29 +126,14 @@ export interface ResetPayload {
 
 /** Sign a time-boxed, single-use password-reset token bound to the user's current password. */
 export function signResetToken(userId: string, passwordHash: string, ttl = resetTtlSeconds()): string {
-  const body = { k: 'pwreset', sub: userId, fp: passwordFingerprint(passwordHash), exp: Math.floor(Date.now() / 1000) + ttl }
-  const data = Buffer.from(JSON.stringify(body)).toString('base64url')
-  const sig = crypto.createHmac('sha256', resetSecret()).update(data).digest('base64url')
-  return `${data}.${sig}`
+  return encodeSigned({ k: 'pwreset', sub: userId, fp: passwordFingerprint(passwordHash), exp: Math.floor(Date.now() / 1000) + ttl }, resetSecret())
 }
 
 /** Verify a reset token's signature, purpose and expiry. Returns the payload or null.
  *  The caller MUST still confirm `fp` matches the user's *current* password hash. */
 export function verifyResetToken(token: string | null | undefined): ResetPayload | null {
-  if (!token || typeof token !== 'string' || !token.includes('.')) return null
-  const [data, sig] = token.split('.')
-  if (!data || !sig) return null
-  const expected = crypto.createHmac('sha256', resetSecret()).update(data).digest('base64url')
-  const sigBuf = Buffer.from(sig)
-  const expBuf = Buffer.from(expected)
-  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return null
-  let body: any
-  try {
-    body = JSON.parse(Buffer.from(data, 'base64url').toString('utf8'))
-  } catch {
-    return null
-  }
-  if (body.k !== 'pwreset' || typeof body.sub !== 'string' || typeof body.fp !== 'string') return null
+  const body = decodeSigned(token, resetSecret())
+  if (!body || body.k !== 'pwreset' || typeof body.sub !== 'string' || typeof body.fp !== 'string') return null
   if (!body.exp || body.exp < Math.floor(Date.now() / 1000)) return null
   return { sub: body.sub, fp: body.fp, exp: body.exp }
 }

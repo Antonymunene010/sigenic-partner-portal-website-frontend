@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react'
+import { ArrowRight, CheckCircle2 } from 'lucide-react'
 import { resetPassword } from '../lib/api'
-import { WordMark } from '../components/Logo'
-import { ThemeToggle } from '../components/ThemeToggle'
+import { AuthShell } from '../components/AuthShell'
 import { Field } from '../components/ui'
 
 export default function ResetPassword() {
@@ -15,6 +14,21 @@ export default function ResetPassword() {
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Missing token is fixed by the URL, not user action — handle it up front, not in the render branch.
+  if (!token) {
+    return (
+      <AuthShell>
+        <h2 className="text-2xl font-semibold tracking-tight">Invalid reset link</h2>
+        <p className="mt-2 text-sm text-muted dark:text-muted-dark text-pretty">
+          This link is missing its reset token. Request a fresh link and try again.
+        </p>
+        <Link to="/forgot-password" className="btn-accent w-full mt-6">
+          Request a new link <ArrowRight size={15} />
+        </Link>
+      </AuthShell>
+    )
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,82 +53,54 @@ export default function ResetPassword() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-canvas dark:bg-canvas-dark">
-      <div className="flex items-center justify-between p-4">
-        <Link
-          to="/login"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-muted dark:text-muted-dark hover:text-ink dark:hover:text-ink-dark transition-colors"
-        >
-          <ArrowLeft size={16} /> Back to sign in
-        </Link>
-        <ThemeToggle />
-      </div>
-
-      <div className="flex-1 flex items-center justify-center px-6 pb-16">
-        <div className="w-full max-w-sm">
-          <Link to="/" aria-label="Sigenic home" className="inline-block mb-8 transition-opacity hover:opacity-80">
-            <WordMark className="h-10" />
-          </Link>
-
-          {done ? (
-            <div>
-              <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-accent/10 text-emphasis">
-                <CheckCircle2 size={22} />
-              </span>
-              <h2 className="mt-4 text-2xl font-semibold tracking-tight">Password updated</h2>
-              <p className="mt-2 text-sm text-muted dark:text-muted-dark text-pretty">
-                Your password has been changed. You can now sign in with your new password.
-              </p>
-              <button type="button" onClick={() => navigate('/login')} className="btn-accent w-full mt-6">
-                Go to sign in <ArrowRight size={15} />
-              </button>
-            </div>
-          ) : !token ? (
-            <div>
-              <h2 className="text-2xl font-semibold tracking-tight">Invalid reset link</h2>
-              <p className="mt-2 text-sm text-muted dark:text-muted-dark text-pretty">
-                This link is missing its reset token. Request a fresh link and try again.
-              </p>
-              <Link to="/forgot-password" className="btn-accent w-full mt-6">
-                Request a new link <ArrowRight size={15} />
-              </Link>
-            </div>
-          ) : (
-            <>
-              <h2 className="text-2xl font-semibold tracking-tight">Choose a new password</h2>
-              <p className="mt-1 text-sm text-muted dark:text-muted-dark">Set a new password for your Sigenic account.</p>
-              <form onSubmit={submit} className="mt-6 space-y-4">
-                <Field label="New password">
-                  <input
-                    className="input"
-                    type="password"
-                    autoComplete="new-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••"
-                    required
-                  />
-                </Field>
-                <Field label="Confirm new password">
-                  <input
-                    className="input"
-                    type="password"
-                    autoComplete="new-password"
-                    value={confirm}
-                    onChange={(e) => setConfirm(e.target.value)}
-                    placeholder="••••••"
-                    required
-                  />
-                </Field>
-                {error && <p className="text-sm text-danger">{error}</p>}
-                <button className="btn-accent w-full" disabled={busy}>
-                  {busy ? 'Updating…' : 'Update password'} <ArrowRight size={15} />
-                </button>
-              </form>
-            </>
-          )}
+    <AuthShell>
+      {done ? (
+        <div>
+          <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-accent/10 text-emphasis">
+            <CheckCircle2 size={22} />
+          </span>
+          <h2 className="mt-4 text-2xl font-semibold tracking-tight">Password updated</h2>
+          <p className="mt-2 text-sm text-muted dark:text-muted-dark text-pretty">
+            Your password has been changed. You can now sign in with your new password.
+          </p>
+          <button type="button" onClick={() => navigate('/login')} className="btn-accent w-full mt-6">
+            Go to sign in <ArrowRight size={15} />
+          </button>
         </div>
-      </div>
-    </div>
+      ) : (
+        <>
+          <h2 className="text-2xl font-semibold tracking-tight">Choose a new password</h2>
+          <p className="mt-1 text-sm text-muted dark:text-muted-dark">Set a new password for your Sigenic account.</p>
+          <form onSubmit={submit} className="mt-6 space-y-4">
+            <Field label="New password">
+              <input
+                className="input"
+                type="password"
+                autoComplete="new-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••"
+                required
+              />
+            </Field>
+            <Field label="Confirm new password">
+              <input
+                className="input"
+                type="password"
+                autoComplete="new-password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                placeholder="••••••"
+                required
+              />
+            </Field>
+            {error && <p className="text-sm text-danger">{error}</p>}
+            <button className="btn-accent w-full" disabled={busy}>
+              {busy ? 'Updating…' : 'Update password'} <ArrowRight size={15} />
+            </button>
+          </form>
+        </>
+      )}
+    </AuthShell>
   )
 }

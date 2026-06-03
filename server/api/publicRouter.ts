@@ -55,9 +55,9 @@ export function publicRouter(store: Store): Router {
   })
   r.post('/auth/forgot-password', async (req, res) => {
     const { email } = req.body ?? {}
-    // Prefer a configured canonical URL; fall back to the request's own origin (dev-friendly).
-    const appUrl = process.env.APP_BASE_URL || (req.headers.origin as string) || ''
-    await authService.requestPasswordReset(store, email, appUrl)
+    // The link's base URL is resolved in the service (APP_BASE_URL → origin → dev default);
+    // we just hand it the request origin as the fallback.
+    await authService.requestPasswordReset(store, email, req.headers.origin as string | undefined)
     res.json({ ok: true }) // always ok — never reveal whether the email exists
   })
   r.post('/auth/reset-password', async (req, res) => {

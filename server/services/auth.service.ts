@@ -27,7 +27,7 @@ export async function login(store: Store, email: string, password: string): Prom
 }
 
 export async function changePassword(store: Store, auth: AuthPayload, currentPassword: string, newPassword: string): Promise<void> {
-  if (!newPassword || String(newPassword).length < 4) throw badRequest('New password must be at least 4 characters.')
+  if (!newPassword || String(newPassword).length < MIN_PASSWORD_LENGTH) throw badRequest(`New password must be at least ${MIN_PASSWORD_LENGTH} characters.`)
   const account = await store.getUserAuthByEmail(auth.email)
   if (!account || !verifyPassword(currentPassword, account.passwordHash)) throw badRequest('Current password is incorrect.')
   await store.setPassword(account.id, newPassword)
@@ -42,16 +42,15 @@ export async function getMe(store: Store, auth: AuthPayload): Promise<any> {
  * email maps to an account, so the endpoint can't be used to enumerate users:
  * only an active account actually receives a time-boxed, single-use reset link.
  */
-export async function requestPasswordReset(store: Store, email: string, appUrl: string): Promise<void> {
+export async function requestPasswordReset(store: Store, email: string, origin?: string): Promise<void> {
   if (!email) throw badRequest('Email is required.')
   const account = await store.getUserAuthByEmail(String(email))
-  if (account && account.status !== 'inactive') {
-    const token = signResetToken(account.id, account.passwordHash)
-    const base = (appUrl || 'http://localhost:5173').replace(/\/$/, '')
-    const link = `${base}/reset-password?token=${encodeURIComponent(token)}`
-    const msg = passwordResetLinkEmail({ fullName: account.fullName, link })
-    await sendEmail(store, { to: account.email, subject: msg.subject, text: msg.text })
-  }
+  if (!account || account.status === 'inactive') return // silent no-op — never reveal whether the email exists
+  const token = signResetToken(account.id, account.passwordHash)
+  const base = (process.env.APP_BASE_URL || origin || 'http://localhost:5173').replace(/\/$/, '')
+  const link = `${base}/reset-password?token=${encodeURIComponent(token)}`
+  const msg = passwordResetLinkEmail({ fullName: account.fullName, link })
+  await sendEmail(store, { to: account.email, subject: msg.subject, text: msg.text }).catch(() => {})
 }
 
 /** Complete a self-service reset using the token from the email link. */
@@ -68,5 +67,5 @@ export async function resetPasswordWithToken(store: Store, token: string, newPas
   }
   await store.setPassword(account.id, newPassword)
   const msg = passwordChangedEmail({ fullName: account.fullName })
-  await sendEmail(store, { to: account.email, subject: msg.subject, text: msg.text })
+  await sendEmail(store, { to: account.email, subject: msg.subject, text: msg.text }).catch(() => {})
 }
