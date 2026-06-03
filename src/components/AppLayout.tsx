@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Calculator, BookOpen, Inbox, Building2, Users, CreditCard,
   Boxes, SlidersHorizontal, Megaphone, ScrollText, BarChart3,
-  Sparkles, ChevronDown, LogOut, UserCircle, Menu, X, ExternalLink,
+  Sparkles, ChevronDown, LogOut, UserCircle, Menu, X, ExternalLink, CalendarClock,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { WordMark } from './Logo'
@@ -109,6 +109,12 @@ export function AppLayout() {
           {isInternal(user) && <span className="badge border-accent-dim text-accent-ink bg-accent">internal</span>}
         </div>
         <div className="ml-auto flex items-center gap-2">
+          {!isInternal(user) && (
+            <Link to="/app/requests/new?type=demo" className="btn-accent">
+              <CalendarClock size={15} aria-hidden />
+              <span className="sr-only sm:not-sr-only">Request a demo</span>
+            </Link>
+          )}
           <NotificationsMenu />
           <ThemeToggle />
           <UserMenu user={user} />
