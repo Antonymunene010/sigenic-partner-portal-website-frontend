@@ -220,6 +220,18 @@ CREATE TABLE IF NOT EXISTS knowledge_articles (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Binary uploads (images + files) embedded into knowledge/success-story bodies by
+-- the rich-text editor. Served back via a stable /api/attachments/:id URL.
+CREATE TABLE IF NOT EXISTS article_assets (
+  id text PRIMARY KEY,
+  filename text NOT NULL,
+  mime_type text NOT NULL,
+  size_bytes integer NOT NULL DEFAULT 0,
+  data bytea NOT NULL,
+  created_by text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS success_stories (
   id text PRIMARY KEY,
   slug text UNIQUE NOT NULL,

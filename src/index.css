@@ -163,6 +163,61 @@
     content: '';
     @apply inline-block w-4 h-px bg-muted dark:bg-muted-dark;
   }
+
+  /* Rich-text editor (TipTap) — WYSIWYG content area for article bodies */
+  .rich-editor {
+    @apply border border-line dark:border-line-dark rounded-md bg-surface dark:bg-surface-dark overflow-hidden;
+  }
+  .rich-editor-toolbar {
+    @apply flex flex-wrap items-center gap-0.5 px-1.5 py-1.5 border-b border-line dark:border-line-dark bg-raised/40 dark:bg-raised-dark/40;
+  }
+  .rich-editor-btn {
+    @apply h-8 w-8 inline-flex items-center justify-center rounded-md text-muted dark:text-muted-dark hover:bg-raised dark:hover:bg-raised-dark hover:text-ink dark:hover:text-ink-dark transition-colors;
+  }
+  .rich-editor-btn.is-active {
+    @apply bg-raised dark:bg-raised-dark text-ink dark:text-ink-dark;
+  }
+  .tiptap {
+    @apply px-3.5 py-3 text-sm leading-relaxed text-ink dark:text-ink-dark overflow-y-auto;
+    min-height: 220px;
+    max-height: 460px;
+  }
+  .tiptap:focus {
+    outline: none;
+  }
+  .tiptap > * + * {
+    margin-top: 0.7em;
+  }
+  .tiptap h1 {
+    @apply text-xl font-semibold mt-5 mb-1;
+  }
+  .tiptap h2 {
+    @apply text-lg font-semibold mt-4 mb-1;
+  }
+  .tiptap h3 {
+    @apply text-base font-semibold mt-3 mb-1;
+  }
+  .tiptap ul {
+    @apply list-disc pl-6 space-y-1;
+  }
+  .tiptap ol {
+    @apply list-decimal pl-6 space-y-1;
+  }
+  .tiptap blockquote {
+    @apply border-l-2 border-line-strong dark:border-line-strong-dark pl-4 italic text-muted dark:text-muted-dark;
+  }
+  .tiptap pre {
+    @apply bg-raised dark:bg-raised-dark rounded-md p-3 text-xs font-mono overflow-x-auto;
+  }
+  .tiptap :not(pre) > code {
+    @apply bg-raised dark:bg-raised-dark px-1.5 py-0.5 rounded font-mono text-[0.88em];
+  }
+  .tiptap img {
+    @apply max-w-full rounded-lg my-2 border border-line dark:border-line-dark;
+  }
+  .tiptap a {
+    @apply text-emphasis underline underline-offset-2;
+  }
 }
 
 @layer utilities {

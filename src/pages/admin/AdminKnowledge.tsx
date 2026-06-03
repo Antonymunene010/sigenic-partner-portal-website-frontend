@@ -76,7 +76,7 @@ export default function AdminKnowledge() {
           { key: 'slug', label: 'Slug', placeholder: 'auto-generated if blank' },
           { key: 'summary', label: 'Summary', type: 'textarea' },
           { key: 'category', label: 'Category', type: 'select', options: categoryOptions },
-          { key: 'body', label: 'Body', type: 'textarea', full: true },
+          { key: 'body', label: 'Body', type: 'richtext', help: 'Drag, paste, or use the toolbar to add images and files.' },
           { key: 'audienceType', label: 'Audience', type: 'select', options: AUDIENCE_TYPES, defaultValue: 'all' },
           { key: 'featured', label: 'Featured', type: 'checkbox', placeholder: 'Feature this article' },
           { key: 'active', label: 'Active', type: 'checkbox', defaultValue: true },

@@ -297,6 +297,29 @@ export function createStore() {
     await query('UPDATE notifications SET read = true WHERE user_id = $1 AND read = false', [userId])
   }
 
+  /* ----- article assets (binary uploads for knowledge/story bodies) ----- */
+
+  async function insertAttachment(record: {
+    id: string
+    filename: string
+    mimeType: string
+    sizeBytes: number
+    data: Buffer
+    createdBy?: string | null
+  }): Promise<void> {
+    await query(
+      `INSERT INTO article_assets (id, filename, mime_type, size_bytes, data, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [record.id, record.filename, record.mimeType, record.sizeBytes, record.data, record.createdBy ?? null],
+    )
+  }
+
+  async function getAttachment(id: string): Promise<{ filename: string; mimeType: string; data: Buffer } | null> {
+    const res = await query('SELECT filename, mime_type, data FROM article_assets WHERE id = $1 LIMIT 1', [id])
+    const row = res.rows[0]
+    return row ? { filename: row.filename, mimeType: row.mime_type, data: row.data } : null
+  }
+
   return {
     // lifecycle
     init,
@@ -330,6 +353,9 @@ export function createStore() {
     getEmails,
     markNotificationRead,
     markNotificationsRead,
+    // article assets
+    insertAttachment,
+    getAttachment,
   }
 }
 

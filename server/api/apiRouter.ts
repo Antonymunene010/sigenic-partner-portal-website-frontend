@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import express, { Router } from 'express'
 import { isInternal } from '../../shared/permissions'
 import { forbidden } from '../http/errors'
 import { emailMode } from '../infra/email'
@@ -10,6 +10,7 @@ import * as announcementService from '../services/announcement.service'
 import * as userService from '../services/user.service'
 import * as adminService from '../services/admin.service'
 import * as knowledgeService from '../services/knowledge.service'
+import * as attachmentService from '../services/attachment.service'
 import * as notificationService from '../services/notification.service'
 import * as pdfService from '../services/pdf.service'
 import * as resourceService from '../services/resource.service'
@@ -58,6 +59,14 @@ export function apiRouter(store: Store): Router {
   /* knowledge base */
   r.post('/knowledge/sync', async (req, res) => {
     res.json(await knowledgeService.triggerNotionSync(store, req.auth!))
+  })
+
+  /* article assets: raw binary upload (images/files embedded into article bodies) */
+  r.post('/attachments', express.raw({ type: () => true, limit: '25mb' }), async (req, res) => {
+    const filename = typeof req.query.filename === 'string' ? req.query.filename : 'upload'
+    const mimeType = req.get('content-type') || 'application/octet-stream'
+    const asset = await attachmentService.createAttachment(store, req.auth!, req.body as Buffer, { filename, mimeType })
+    res.status(201).json(asset)
   })
 
   /* users */

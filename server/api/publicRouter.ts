@@ -6,6 +6,7 @@ import * as authService from '../services/auth.service'
 import * as calculatorService from '../services/calculator.service'
 import * as requestService from '../services/serviceRequest.service'
 import * as publicService from '../services/public.service'
+import * as attachmentService from '../services/attachment.service'
 import type { Store } from '../db/store'
 
 /** Unauthenticated routes (mounted at /api, before the authenticate middleware). */
@@ -33,6 +34,20 @@ export function publicRouter(store: Store): Router {
         'Cache-Control': 'public, max-age=3600',
       })
       .send(buf)
+  })
+  // Article body attachments: images shown inline, other files downloaded. Public
+  // like the Notion image proxy — <img>/download requests can't carry an auth token,
+  // and asset ids are unguessable. Content is immutable per id, so cache hard.
+  r.get('/attachments/:id', async (req, res) => {
+    const asset = await attachmentService.getAttachment(store, req.params.id)
+    const inline = asset.mimeType.startsWith('image/')
+    res
+      .set({
+        'Content-Type': asset.mimeType,
+        'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename="${asset.filename.replace(/"/g, '')}"`,
+        'Cache-Control': 'public, max-age=31536000, immutable',
+      })
+      .send(asset.data)
   })
   r.post('/auth/login', async (req, res) => {
     const { email, password } = req.body ?? {}

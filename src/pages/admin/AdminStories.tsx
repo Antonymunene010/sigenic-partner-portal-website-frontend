@@ -58,7 +58,7 @@ export default function AdminStories() {
           { key: 'industry', label: 'Industry' },
           { key: 'region', label: 'Region' },
           { key: 'theme', label: 'Theme' },
-          { key: 'body', label: 'Body', type: 'textarea', full: true },
+          { key: 'body', label: 'Body', type: 'richtext', help: 'Drag, paste, or use the toolbar to add images and files.' },
           {
             key: 'status',
             label: 'Status',

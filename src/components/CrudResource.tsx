@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Plus, Pencil } from 'lucide-react'
 import { Modal } from './Modal'
 import { DataTable, type Column } from './DataTable'
@@ -6,10 +6,14 @@ import { Field, useToast } from './ui'
 import { uid } from '../lib/storage'
 import { createResource, updateResource, deleteResource, type ResourceName } from '../lib/api'
 
+// TipTap is heavy (~500kB); load it only when an editor actually opens so it stays
+// out of the main bundle for everyone who never edits article bodies.
+const RichTextEditor = lazy(() => import('./RichTextEditor').then((m) => ({ default: m.RichTextEditor })))
+
 export interface FieldSpec {
   key: string
   label: string
-  type?: 'text' | 'number' | 'textarea' | 'select' | 'checkbox' | 'date'
+  type?: 'text' | 'number' | 'textarea' | 'richtext' | 'select' | 'checkbox' | 'date'
   options?: { value: string; label: string }[]
   required?: boolean
   placeholder?: string
@@ -232,9 +236,16 @@ export function CrudResource<T extends Row>({
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {fields.map((f) => (
-            <div key={f.key} className={f.full || f.type === 'textarea' ? 'sm:col-span-2' : undefined}>
+            <div key={f.key} className={f.full || f.type === 'textarea' || f.type === 'richtext' ? 'sm:col-span-2' : undefined}>
               <Field label={f.label} hint={f.help}>
-                {f.type === 'textarea' ? (
+                {f.type === 'richtext' ? (
+                  <Suspense fallback={<div className="py-3 text-sm text-muted dark:text-muted-dark">Loading editor…</div>}>
+                    <RichTextEditor
+                      value={(form[f.key] as string) ?? ''}
+                      onChange={(md) => setForm((s) => ({ ...s, [f.key]: md }))}
+                    />
+                  </Suspense>
+                ) : f.type === 'textarea' ? (
                   <textarea
                     className="textarea min-h-[90px]"
                     placeholder={f.placeholder}

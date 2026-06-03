@@ -102,6 +102,26 @@ export function syncKnowledge(): Promise<{ synced: number; mode?: string }> {
   return request('/api/knowledge/sync', { method: 'POST' })
 }
 
+/* ---------- attachments (rich-text article images/files) ---------- */
+export interface UploadedAsset {
+  id: string
+  url: string
+  filename: string
+  mimeType: string
+  sizeBytes: number
+}
+/** Upload one file as a raw body; returns a stable /api/attachments/:id URL to embed. */
+export async function uploadAttachment(file: File): Promise<UploadedAsset> {
+  const res = await fetch(`${apiBase()}/api/attachments?filename=${encodeURIComponent(file.name)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': file.type || 'application/octet-stream', ...authHeaders() },
+    body: file,
+  })
+  const body = await res.json().catch(() => null)
+  if (!res.ok) throw new Error(body?.error ?? `Upload failed (${res.status})`)
+  return body as UploadedAsset
+}
+
 /* ---------- users ---------- */
 export function createUserApi(user: Partial<User>, password?: string): Promise<{ user: User }> {
   return request('/api/users', { method: 'POST', body: JSON.stringify({ user, password }) })
