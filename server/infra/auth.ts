@@ -86,3 +86,66 @@ export function bearerToken(req: { headers: IncomingHttpHeaders }): string | nul
   const header = req.headers['authorization'] || ''
   return header.startsWith('Bearer ') ? header.slice(7).trim() : null
 }
+
+/* ----- password reset (stateless, single-use) ----- */
+
+// Reset tokens are signed with a key namespaced off the auth secret, so a reset
+// token can never be replayed as a login token (verifyToken) or vice-versa —
+// their signatures live in disjoint spaces.
+function resetSecret(): string {
+  return `${secret()}:pwreset-v1`
+}
+function resetTtlSeconds(): number {
+  return Number(process.env.RESET_TTL_SECONDS || 60 * 60) // 1h default
+}
+
+/**
+ * A short fingerprint of the user's current password hash. Embedding it in the
+ * reset token makes the link single-use: completing a reset changes the hash, so
+ * the fingerprint no longer matches and the link (plus any copies) stops working.
+ */
+function passwordFingerprint(passwordHash: string): string {
+  return crypto.createHmac('sha256', resetSecret()).update(String(passwordHash)).digest('hex').slice(0, 16)
+}
+
+export interface ResetPayload {
+  sub: string
+  fp: string
+  exp: number
+}
+
+/** Sign a time-boxed, single-use password-reset token bound to the user's current password. */
+export function signResetToken(userId: string, passwordHash: string, ttl = resetTtlSeconds()): string {
+  const body = { k: 'pwreset', sub: userId, fp: passwordFingerprint(passwordHash), exp: Math.floor(Date.now() / 1000) + ttl }
+  const data = Buffer.from(JSON.stringify(body)).toString('base64url')
+  const sig = crypto.createHmac('sha256', resetSecret()).update(data).digest('base64url')
+  return `${data}.${sig}`
+}
+
+/** Verify a reset token's signature, purpose and expiry. Returns the payload or null.
+ *  The caller MUST still confirm `fp` matches the user's *current* password hash. */
+export function verifyResetToken(token: string | null | undefined): ResetPayload | null {
+  if (!token || typeof token !== 'string' || !token.includes('.')) return null
+  const [data, sig] = token.split('.')
+  if (!data || !sig) return null
+  const expected = crypto.createHmac('sha256', resetSecret()).update(data).digest('base64url')
+  const sigBuf = Buffer.from(sig)
+  const expBuf = Buffer.from(expected)
+  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return null
+  let body: any
+  try {
+    body = JSON.parse(Buffer.from(data, 'base64url').toString('utf8'))
+  } catch {
+    return null
+  }
+  if (body.k !== 'pwreset' || typeof body.sub !== 'string' || typeof body.fp !== 'string') return null
+  if (!body.exp || body.exp < Math.floor(Date.now() / 1000)) return null
+  return { sub: body.sub, fp: body.fp, exp: body.exp }
+}
+
+/** Constant-time check that a reset token's fingerprint still matches the stored hash (i.e. unused). */
+export function passwordFingerprintMatches(passwordHash: string, fp: string): boolean {
+  const a = Buffer.from(passwordFingerprint(passwordHash))
+  const b = Buffer.from(String(fp))
+  return a.length === b.length && crypto.timingSafeEqual(a, b)
+}

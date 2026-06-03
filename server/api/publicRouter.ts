@@ -53,6 +53,18 @@ export function publicRouter(store: Store): Router {
     const { email, password } = req.body ?? {}
     res.json(await authService.login(store, email, password))
   })
+  r.post('/auth/forgot-password', async (req, res) => {
+    const { email } = req.body ?? {}
+    // Prefer a configured canonical URL; fall back to the request's own origin (dev-friendly).
+    const appUrl = process.env.APP_BASE_URL || (req.headers.origin as string) || ''
+    await authService.requestPasswordReset(store, email, appUrl)
+    res.json({ ok: true }) // always ok — never reveal whether the email exists
+  })
+  r.post('/auth/reset-password', async (req, res) => {
+    const { token, password } = req.body ?? {}
+    await authService.resetPasswordWithToken(store, token, password)
+    res.json({ ok: true })
+  })
   r.post('/public/requests', async (req, res) => {
     res.status(201).json({ item: await requestService.createPublicLead(store, req.body?.request) })
   })

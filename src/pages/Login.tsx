@@ -104,6 +104,11 @@ export default function Login() {
               <Field label="Password">
                 <input className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••" required />
               </Field>
+              <div className="-mt-1 flex justify-end">
+                <Link to="/forgot-password" className="text-xs font-medium text-muted dark:text-muted-dark hover:text-ink dark:hover:text-ink-dark transition-colors">
+                  Forgot password?
+                </Link>
+              </div>
               {error && <p className="text-sm text-danger">{error}</p>}
               <button className="btn-accent w-full" disabled={busy}>
                 {busy ? 'Signing in…' : 'Sign in'} <ArrowRight size={15} />

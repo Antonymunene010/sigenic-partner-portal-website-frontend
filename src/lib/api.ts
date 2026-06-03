@@ -71,6 +71,12 @@ export function getMe(): Promise<{ user: User }> {
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
   await request('/api/auth/change-password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) })
 }
+export async function requestPasswordReset(email: string): Promise<void> {
+  await request('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) })
+}
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  await request('/api/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password: newPassword }) })
+}
 export function hydrate(): Promise<HydrateBundle> {
   return request<HydrateBundle>('/api/hydrate')
 }

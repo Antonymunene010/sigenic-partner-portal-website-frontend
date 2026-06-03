@@ -110,6 +110,17 @@ export function createStore() {
     return rowToObj(res.rows[0]) // includes passwordHash, companyType, companyName
   }
 
+  /** Same shape as getUserAuthByEmail (includes passwordHash) but keyed by id — used by password reset. */
+  async function getUserAuthById(id: string): Promise<any> {
+    const res = await query(
+      `SELECT u.*, c.company_name, c.company_type
+       FROM users u LEFT JOIN companies c ON c.id = u.company_id
+       WHERE u.id = $1 LIMIT 1`,
+      [id],
+    )
+    return res.rows[0] ? rowToObj(res.rows[0]) : null
+  }
+
   async function getUserById(id: string): Promise<any> {
     const res = await query(
       `SELECT u.id, u.company_id, u.site_id, u.full_name, u.email, u.user_type, u.role,
@@ -332,6 +343,7 @@ export function createStore() {
     remove,
     // auth
     getUserAuthByEmail,
+    getUserAuthById,
     getUserById,
     setLastLogin,
     setPassword,

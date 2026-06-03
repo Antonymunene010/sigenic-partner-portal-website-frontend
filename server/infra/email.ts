@@ -188,3 +188,39 @@ export function passwordResetEmail(user: { fullName: string }): { subject: strin
     ].join('\n'),
   }
 }
+
+/** Self-service reset: the time-boxed, single-use link a user requests from the sign-in page. */
+export function passwordResetLinkEmail(params: { fullName: string; link: string }): { subject: string; text: string } {
+  return {
+    subject: 'Reset your Sigenic Partner Portal password',
+    text: [
+      `Hi ${params.fullName},`,
+      '',
+      'We received a request to reset the password for your Sigenic Partner Portal account.',
+      'Choose a new password using the link below:',
+      '',
+      params.link,
+      '',
+      'This link expires in 1 hour and can only be used once.',
+      "If you didn't request this, you can safely ignore this email — your password won't change.",
+      '',
+      '— Sigenic Partner Portal',
+    ].join('\n'),
+  }
+}
+
+/** Confirmation sent after a password is changed via the self-service reset flow. */
+export function passwordChangedEmail(user: { fullName: string }): { subject: string; text: string } {
+  return {
+    subject: 'Your Sigenic Partner Portal password was changed',
+    text: [
+      `Hi ${user.fullName},`,
+      '',
+      'Your Sigenic Partner Portal password was just changed. If this was you, no further action is needed.',
+      '',
+      "If you didn't make this change, please contact your administrator right away.",
+      '',
+      '— Sigenic Partner Portal',
+    ].join('\n'),
+  }
+}

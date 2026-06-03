@@ -9,6 +9,8 @@ import { AppLayout } from './components/AppLayout'
 import { ErrorBoundary } from './components/ErrorBoundary'
 
 import Login from './pages/Login'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import Landing from './pages/Landing'
 import PublicStories from './pages/PublicStories'
 import StoryDetail from './pages/StoryDetail'
@@ -58,6 +60,8 @@ export default function App() {
                 </Route>
 
                 <Route path="/login" element={<Login />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
 
                 {/* Authenticated portal + internal admin */}
                 <Route
