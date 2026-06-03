@@ -187,7 +187,7 @@ export default function Calculator() {
               <div className="grid grid-cols-3 gap-3 mb-5">
                 <StatCard label="Sigenic score" value={`${result.score}`} accent />
                 <StatCard label="Annual savings" value={fmtUSD(result.annualSavings.min)} sub={`up to ${fmtUSD(result.annualSavings.max)}`} accent />
-                <StatCard label="Monthly" value={fmtUSD(result.monthlySavings.min)} sub={`up to ${fmtUSD(result.monthlySavings.max)}`} />
+                <StatCard label="Monthly savings" value={fmtUSD(result.monthlySavings.min)} sub={`up to ${fmtUSD(result.monthlySavings.max)}`} />
               </div>
 
               <div className="space-y-3">
