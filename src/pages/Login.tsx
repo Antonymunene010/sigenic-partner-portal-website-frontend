@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { ArrowLeft, ArrowRight, MapPin, Mail, Phone } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { WordMark } from '../components/Logo'
 import { ThemeToggle } from '../components/ThemeToggle'
@@ -64,7 +64,21 @@ export default function Login() {
             ))}
           </div>
         </div>
-        <span className="text-[11px] font-mono uppercase tracking-[0.12em] text-faint dark:text-faint-dark">© 2026 Sigenic · Singapore</span>
+        <div className="space-y-3">
+          <address className="not-italic space-y-1.5 text-xs text-muted dark:text-muted-dark">
+            <div className="flex items-start gap-2">
+              <MapPin size={14} className="mt-0.5 shrink-0 text-faint dark:text-faint-dark" />
+              <span>1 Fusionopolis Way, #21-01 Connexis South Tower, Singapore 138632</span>
+            </div>
+            <a href="mailto:hello@sigenic.com" className="flex items-center gap-2 hover:text-ink dark:hover:text-ink-dark transition-colors">
+              <Mail size={14} className="shrink-0 text-faint dark:text-faint-dark" /> hello@sigenic.com
+            </a>
+            <a href="tel:+6569081200" className="flex items-center gap-2 hover:text-ink dark:hover:text-ink-dark transition-colors">
+              <Phone size={14} className="shrink-0 text-faint dark:text-faint-dark" /> +65 6908 1200
+            </a>
+          </address>
+          <span className="block text-[11px] font-mono uppercase tracking-[0.12em] text-faint dark:text-faint-dark">© 2026 Sigenic · Singapore</span>
+        </div>
       </div>
 
       {/* Form */}
