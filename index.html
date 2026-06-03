@@ -11,12 +11,16 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
     <script>
-      // Flash-free theme init
+      // Flash-free theme init. Stored value is JSON (e.g. "dark"); default is "system".
+      // Mirrors src/lib/theme.tsx (MEDIA query + default) — keep the two in sync.
       (function () {
         try {
-          var t = localStorage.getItem('pp.theme');
-          if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-          if (t === 'dark') document.documentElement.classList.add('dark');
+          var raw = localStorage.getItem('pp.theme');
+          var pref = raw ? JSON.parse(raw) : 'system';
+          var dark =
+            pref === 'dark' ||
+            (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (dark) document.documentElement.classList.add('dark');
         } catch (e) {}
       })();
     </script>
