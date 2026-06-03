@@ -29,6 +29,7 @@ const PORTAL_NAV: NavItem[] = [
   { to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/app/calculator', label: 'ROI calculator', icon: Calculator, cap: 'use_full_calculator' },
   { to: '/app/knowledge', label: 'Knowledge base', icon: BookOpen, cap: 'access_knowledge_base' },
+  { to: '/app/stories', label: 'Success stories', icon: Sparkles, cap: 'view_success_stories' },
   { to: '/app/requests', label: 'Requests', icon: Inbox, cap: 'view_request_list' },
   { to: '/app/company', label: 'Company profile', icon: Building2, cap: 'view_company_profile' },
   { to: '/app/users', label: 'Team', icon: Users, cap: 'manage_company_users' },
@@ -44,6 +45,9 @@ const ADMIN_NAV: NavItem[] = [
   { to: '/app/admin/requests', label: 'Request oversight', icon: Inbox, cap: 'view_ticket_oversight' },
   { to: '/app/admin/knowledge', label: 'Knowledge', icon: BookOpen, cap: 'manage_knowledge' },
   { to: '/app/admin/stories', label: 'Success stories', icon: Sparkles, cap: 'manage_success_stories' },
+  // Internal oversight roles (e.g. support engineers) can't manage stories but still
+  // browse them via the read-only page; managers reach the same content above.
+  { to: '/app/stories', label: 'Success stories', icon: Sparkles, cap: 'view_success_stories', show: (u) => !can(u, 'manage_success_stories') },
   { to: '/app/admin/announcements', label: 'Announcements', icon: Megaphone, cap: 'manage_announcements' },
   { to: '/app/admin/audit', label: 'Audit log', icon: ScrollText, cap: 'view_audit_logs' },
   { to: '/app/admin/analytics', label: 'Analytics', icon: BarChart3, cap: 'view_analytics' },

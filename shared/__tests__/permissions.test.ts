@@ -54,6 +54,11 @@ test('can — support_engineer has oversight but cannot manage config', () => {
   assert.equal(can({ role: 'support_engineer' }, 'manage_companies'), false)
 })
 
+test('can — every authenticated role may view success stories', () => {
+  for (const role of ROLES) assert.equal(can({ role }, 'view_success_stories'), true, role)
+  assert.equal(can(null, 'view_success_stories'), false)
+})
+
 test('can — save_calculator_result covers customers + internal oversight, NOT distributors', () => {
   assert.equal(can({ role: 'customer_user' }, 'save_calculator_result'), true)
   assert.equal(can({ role: 'customer_admin' }, 'save_calculator_result'), true)

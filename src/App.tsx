@@ -19,6 +19,8 @@ import Dashboard from './pages/Dashboard'
 import Calculator from './pages/Calculator'
 import KnowledgeBase from './pages/KnowledgeBase'
 import ArticleDetail from './pages/ArticleDetail'
+import Stories from './pages/Stories'
+import StoryView from './pages/StoryView'
 import RequestList from './pages/RequestList'
 import NewRequest from './pages/NewRequest'
 import RequestDetail from './pages/RequestDetail'
@@ -70,6 +72,8 @@ export default function App() {
                   <Route path="calculator" element={<ProtectedRoute cap="use_full_calculator"><Calculator /></ProtectedRoute>} />
                   <Route path="knowledge" element={<ProtectedRoute cap="access_knowledge_base"><KnowledgeBase /></ProtectedRoute>} />
                   <Route path="knowledge/:slug" element={<ProtectedRoute cap="access_knowledge_base"><ArticleDetail /></ProtectedRoute>} />
+                  <Route path="stories" element={<ProtectedRoute cap="view_success_stories"><Stories /></ProtectedRoute>} />
+                  <Route path="stories/:slug" element={<ProtectedRoute cap="view_success_stories"><StoryView /></ProtectedRoute>} />
                   <Route path="requests" element={<ProtectedRoute cap="view_request_list"><RequestList /></ProtectedRoute>} />
                   <Route path="requests/new" element={<ProtectedRoute cap="submit_consultation_request"><NewRequest /></ProtectedRoute>} />
                   <Route path="requests/:id" element={<ProtectedRoute cap="view_request_list"><RequestDetail /></ProtectedRoute>} />

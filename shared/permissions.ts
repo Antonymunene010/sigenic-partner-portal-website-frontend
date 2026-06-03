@@ -21,6 +21,7 @@ export type Capability =
   | 'submit_support_request'
   | 'submit_consultation_request'
   | 'access_knowledge_base'
+  | 'view_success_stories'
   | 'manage_company_users'
   | 'manage_internal_users'
   | 'view_all_companies'
@@ -75,6 +76,9 @@ const CAPABILITIES: Record<Capability, Role[]> = {
   submit_support_request: ALL_AUTH,
   submit_consultation_request: ALL_AUTH,
   access_knowledge_base: ALL_AUTH,
+  // Success stories are partner-facing case studies — every authenticated role may
+  // browse them (data-scope by visibility is applied in hydrate, not here).
+  view_success_stories: ALL_AUTH,
   manage_company_users: ['distributor_admin', 'customer_admin', 'super_admin'],
   // PRD §5.1 "Manage own company users": for the internal Sigenic company, only
   // super_admin qualifies. A plain admin runs partners/scoring/master data, not staff.
