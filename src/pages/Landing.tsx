@@ -86,11 +86,8 @@ export default function Landing() {
               and learn from the case studies of fabs already running with us.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Link to="/contact" className="btn-accent">
-                Request a demo <ArrowRight size={15} />
-              </Link>
-              <Link to="/calculator" className="btn-outline">
-                Try the ROI calculator
+              <Link to="/calculator" className="btn-accent">
+                Try the ROI calculator <ArrowRight size={15} />
               </Link>
             </div>
           </div>
@@ -243,17 +240,14 @@ export default function Landing() {
         <div className="max-w-[1180px] mx-auto rounded-2xl bg-gold-gradient p-px">
           <div className="rounded-2xl bg-canvas dark:bg-canvas-dark px-6 md:px-12 py-12 md:py-16 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div className="max-w-xl">
-              <h2 className="text-2xl md:text-3xl font-semibold tracking-tight">See your numbers in a 30-minute demo</h2>
+              <h2 className="text-2xl md:text-3xl font-semibold tracking-tight">See your numbers in minutes</h2>
               <p className="mt-3 text-muted dark:text-muted-dark">
-                Bring a line and a process — we’ll model the ROI with you and map the fastest path to a measurable win.
+                Bring a line and a process — get an ROI estimate in minutes and map the fastest path to a measurable win.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3 shrink-0">
-              <Link to="/contact" className="btn-accent">
-                Request a demo <ArrowRight size={15} />
-              </Link>
-              <Link to="/calculator" className="btn-outline">
-                Try the calculator
+              <Link to="/calculator" className="btn-accent">
+                Try the calculator <ArrowRight size={15} />
               </Link>
             </div>
           </div>

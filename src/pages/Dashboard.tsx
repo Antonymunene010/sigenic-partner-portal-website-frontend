@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Calculator, Inbox, BookOpen, Building2, Users, ArrowUpRight, Megaphone, TrendingUp } from 'lucide-react'
+import { Calculator, Inbox, BookOpen, Building2, Users, ArrowUpRight, Megaphone, TrendingUp, CalendarClock } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { useData } from '../lib/data'
 import { isInternal } from '../lib/permissions'
@@ -49,9 +49,14 @@ function PortalDashboard() {
         title={`Welcome, ${user?.fullName.split(' ')[0]}`}
         description="Run an ROI estimate, browse the knowledge base, or raise a request — all in one place."
         actions={
-          <Link to="/app/calculator" className="btn-accent">
-            <Calculator size={15} /> Run calculator
-          </Link>
+          <>
+            <Link to="/app/requests/new?type=demo" className="btn-outline">
+              <CalendarClock size={15} /> Request a demo
+            </Link>
+            <Link to="/app/calculator" className="btn-accent">
+              <Calculator size={15} /> Run calculator
+            </Link>
+          </>
         }
       />
 
