@@ -160,6 +160,16 @@ function blocksToText(blocks: any[] | null | undefined): string {
       case 'code':
         lines.push('```\n' + text + '\n```')
         break
+      case 'image': {
+        // Image blocks carry no rich_text. "external" images have a stable URL;
+        // Notion-hosted "file" images expose a short-lived signed S3 URL (~1h), so
+        // we store a stable proxy path and resolve the live URL on demand (see
+        // getNotionImageUrl + the /api/notion/image/:blockId route).
+        const src = data?.type === 'external' ? data.external?.url : `/api/notion/image/${b.id}`
+        const caption = data?.caption ? plainText(data.caption) : ''
+        if (src) lines.push(`![${caption}](${src})`)
+        break
+      }
       default:
         if (text) lines.push(text)
     }
@@ -173,6 +183,49 @@ async function fetchPageBody(creds: NotionCreds, pageId: string): Promise<string
     { label: 'notion:blocks' },
   ).catch(() => null)
   return res ? blocksToText(res.results) : ''
+}
+
+/* ----- image proxy: resolve a Notion-hosted image to a live URL ----- */
+
+interface CachedImageUrl {
+  url: string
+  expiresAt: number
+}
+
+// Signed Notion file URLs are short-lived (~1h). Cache the resolved URL until just
+// before it expires so a page full of images doesn't hammer the Notion API.
+const imageUrlCache = new Map<string, CachedImageUrl>()
+
+/**
+ * Resolve a single Notion image block to a currently-valid image URL. Article
+ * bodies store a stable proxy path (/api/notion/image/:blockId) for Notion-hosted
+ * images; the proxy calls this to fetch a fresh signed URL on demand. Returns null
+ * when Notion is unconfigured, the block is missing, or it is not an image block.
+ */
+export async function getNotionImageUrl(blockId: string): Promise<string | null> {
+  const cached = imageUrlCache.get(blockId)
+  if (cached && Date.now() < cached.expiresAt) return cached.url
+
+  const creds = credentials()
+  if (!creds) return null
+
+  const block = await withRetry(
+    () => notionFetch(creds, `/blocks/${blockId}`, { method: 'GET' }),
+    { label: 'notion:block' },
+  ).catch(() => null)
+  if (!block || block.type !== 'image') return null
+
+  const img = block.image
+  const url: string | null =
+    img?.type === 'external' ? (img.external?.url ?? null) : (img?.file?.url ?? null)
+  if (!url) return null
+
+  // file.expiry_time is an ISO timestamp; external images don't expire. Refresh a
+  // minute early so we never hand out a URL that dies mid-request.
+  const raw = img?.file?.expiry_time ? Date.parse(img.file.expiry_time) : NaN
+  const expiresAt = Number.isFinite(raw) ? raw - 60_000 : Date.now() + 3_600_000
+  imageUrlCache.set(blockId, { url, expiresAt })
+  return url
 }
 
 /** The resolved title of a page row, or '' for an empty (draft) row. */

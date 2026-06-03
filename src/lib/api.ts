@@ -25,7 +25,7 @@ export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY)
 }
 
-function apiBase(): string {
+export function apiBase(): string {
   return (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 }
 function authHeaders(): Record<string, string> {

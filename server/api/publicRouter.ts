@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { zendeskEnabled } from '../integration/zendesk'
-import { notionEnabled } from '../integration/notion'
+import { notionEnabled, getNotionImageUrl } from '../integration/notion'
 import { emailMode } from '../infra/email'
 import * as authService from '../services/auth.service'
 import * as calculatorService from '../services/calculator.service'
@@ -17,6 +17,22 @@ export function publicRouter(store: Store): Router {
   })
   r.get('/public', async (_req, res) => {
     res.json(await publicService.publicBundle(store))
+  })
+  // Notion-hosted article images: their upstream URLs are short-lived signed links,
+  // so article bodies reference this stable proxy. We resolve a fresh URL per
+  // request (cached server-side) and relay the bytes with a browser-cache hint.
+  r.get('/notion/image/:blockId', async (req, res) => {
+    const url = await getNotionImageUrl(req.params.blockId)
+    if (!url) return res.status(404).end()
+    const upstream = await fetch(url)
+    if (!upstream.ok) return res.status(502).end()
+    const buf = Buffer.from(await upstream.arrayBuffer())
+    res
+      .set({
+        'Content-Type': upstream.headers.get('content-type') ?? 'image/jpeg',
+        'Cache-Control': 'public, max-age=3600',
+      })
+      .send(buf)
   })
   r.post('/auth/login', async (req, res) => {
     const { email, password } = req.body ?? {}

@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from 'react'
+import { apiBase } from '../lib/api'
 
 const INLINE_RE = /\*\*([^*]+)\*\*|`([^`]+)`|\*([^*\n]+)\*/g
 
@@ -38,6 +39,7 @@ function renderInline(text: string): ReactNode[] {
 }
 
 const HEADING_RE = /^(#{1,6})\s+(.+)$/
+const IMAGE_RE = /^!\[([^\]]*)\]\(([^)\s]+)\)$/
 const OL_ITEM_RE = /^\d+\.\s+(.*)$/
 const UL_ITEM_RE = /^[-*]\s+(.*)$/
 
@@ -65,6 +67,29 @@ export function Markdown({ source, className }: { source: string; className?: st
         <Tag key={bi} className={cls}>
           {renderInline(headingMatch[2])}
         </Tag>
+      )
+    }
+
+    const imageMatch = IMAGE_RE.exec(trimmed)
+    if (imageMatch) {
+      const [, alt, rawSrc] = imageMatch
+      // Bodies store Notion images as a relative /api/... proxy path; prefix the API
+      // base so it still resolves when the frontend is served from another origin.
+      const src = rawSrc.startsWith('/api/') ? `${apiBase()}${rawSrc}` : rawSrc
+      return (
+        <figure key={bi} className="my-6">
+          <img
+            src={src}
+            alt={alt}
+            loading="lazy"
+            className="mx-auto max-w-full rounded-lg border border-line dark:border-line-dark"
+          />
+          {alt && (
+            <figcaption className="mt-2 text-center text-xs text-muted dark:text-muted-dark">
+              {alt}
+            </figcaption>
+          )}
+        </figure>
       )
     }
 
