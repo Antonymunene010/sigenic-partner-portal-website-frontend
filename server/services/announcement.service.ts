@@ -1,6 +1,6 @@
 import { sendEmail, announcementEmail } from '../infra/email'
 import { can, audienceMatches } from '../../shared/permissions'
-import { badRequest, forbidden } from '../http/errors'
+import { badRequest, forbidden, notFound } from '../http/errors'
 import { audit } from './audit'
 import { uid, nowIso } from '../util/ids'
 import type { Store } from '../db/store'
@@ -50,11 +50,16 @@ export async function createAnnouncement(store: Store, auth: AuthPayload, announ
 
 export async function updateAnnouncement(store: Store, auth: AuthPayload, id: string, item: any): Promise<any> {
   if (!can(auth, 'manage_announcements')) throw forbidden()
-  return store.update('announcements', id, item ?? {})
+  const before = await store.getOne('announcements', id)
+  if (!before) throw notFound('Not found.')
+  const updated = await store.update('announcements', id, item ?? {})
+  await audit(store, auth, 'announcement', id, 'update', before, updated)
+  return updated
 }
 
 export async function deleteAnnouncement(store: Store, auth: AuthPayload, id: string): Promise<void> {
   if (!can(auth, 'manage_announcements')) throw forbidden()
+  const before = await store.getOne('announcements', id)
   await store.remove('announcements', id)
-  await audit(store, auth, 'announcement', id, 'delete', null, null)
+  await audit(store, auth, 'announcement', id, 'delete', before, null)
 }

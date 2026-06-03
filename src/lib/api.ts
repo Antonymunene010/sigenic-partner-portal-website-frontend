@@ -175,8 +175,15 @@ export function publishAnnouncement(announcement: {
   body: string
   audienceType?: string
   pinned?: boolean
+  expireAt?: string | null
 }): Promise<{ item: Announcement; recipients: number }> {
   return request('/api/announcements', { method: 'POST', body: JSON.stringify({ announcement }) })
+}
+export function updateAnnouncement(
+  id: string,
+  item: Partial<Pick<Announcement, 'title' | 'body' | 'audienceType' | 'pinned' | 'expireAt' | 'active'>>,
+): Promise<{ item: Announcement }> {
+  return request(`/api/announcements/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ item }) })
 }
 export function deleteAnnouncement(id: string): Promise<{ ok: boolean }> {
   return request(`/api/announcements/${encodeURIComponent(id)}`, { method: 'DELETE' })
