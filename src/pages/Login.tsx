@@ -41,7 +41,7 @@ export default function Login() {
     <div className="min-h-screen grid lg:grid-cols-2 bg-canvas dark:bg-canvas-dark">
       {/* Brand panel */}
       <div className="hidden lg:flex flex-col justify-between p-12 bg-raised dark:bg-raised-dark border-r border-line dark:border-line-dark">
-        <Link to="/" aria-label="Back to home" className="self-start transition-opacity hover:opacity-80">
+        <Link to="/app" aria-label="Back to portal" className="self-start transition-opacity hover:opacity-80">
           <WordMark className="h-14" />
         </Link>
         <div className="max-w-md">
@@ -85,10 +85,10 @@ export default function Login() {
       <div className="flex flex-col">
         <div className="flex items-center justify-between p-4">
           <Link
-            to="/"
+            to="/app"
             className="inline-flex items-center gap-1.5 text-sm font-medium text-muted dark:text-muted-dark hover:text-ink dark:hover:text-ink-dark transition-colors"
           >
-            <ArrowLeft size={16} /> Back to home
+            <ArrowLeft size={16} /> Back to portal
           </Link>
           <ThemeToggle />
         </div>

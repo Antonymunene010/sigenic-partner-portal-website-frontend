@@ -11,7 +11,6 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import Login from './pages/Login'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
-import Landing from './pages/Landing'
 import PublicStories from './pages/PublicStories'
 import StoryDetail from './pages/StoryDetail'
 import Contact from './pages/Contact'
@@ -50,9 +49,12 @@ export default function App() {
           <DataProvider>
             <ToastProvider>
               <Routes>
-                {/* Public marketing site */}
+                {/* Root redirects into the portal; the public landing page now
+                    lives on the client's own marketing site. */}
+                <Route path="/" element={<Navigate to="/app" replace />} />
+
+                {/* Public pages (no login required) */}
                 <Route element={<PublicLayout />}>
-                  <Route path="/" element={<Landing />} />
                   <Route path="/stories" element={<PublicStories />} />
                   <Route path="/stories/:slug" element={<StoryDetail />} />
                   <Route path="/contact" element={<Contact />} />
@@ -99,7 +101,7 @@ export default function App() {
                   <Route path="admin/analytics" element={<ProtectedRoute internal cap="view_analytics"><AdminAnalytics /></ProtectedRoute>} />
                 </Route>
 
-                <Route path="*" element={<Navigate to="/" replace />} />
+                <Route path="*" element={<Navigate to="/app" replace />} />
               </Routes>
             </ToastProvider>
           </DataProvider>

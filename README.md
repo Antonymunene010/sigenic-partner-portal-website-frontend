@@ -4,7 +4,7 @@ A full-stack partner portal built to the **Sigenic Partner Website 2026 PRD** (s
 It is a multi-actor platform serving four audiences — **Public**, **Distributor**, **Customer** and
 **Internal Sigenic** — with company-level data isolation and a role-based permission matrix.
 
-- **Public site** (no login): landing page, success stories, demo/contact requests, a limited ROI calculator.
+- **Public site** (no login): success stories, demo/contact requests, a limited ROI calculator.
 - **Partner portal** (distributor & customer): dashboard, knowledge base, full ROI calculator, service
   requests, request tracking, company profile, team management, billing.
 - **Internal admin** (built into the SPA): partner/company management, internal users, machine/process

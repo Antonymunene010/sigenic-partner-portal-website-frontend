@@ -14,7 +14,7 @@ export function PublicLayout() {
   return (
     <div className="min-h-screen flex flex-col bg-canvas dark:bg-canvas-dark">
       <header className="sticky top-0 z-30 h-16 flex items-center gap-6 px-4 md:px-8 border-b border-line dark:border-line-dark bg-canvas/85 dark:bg-canvas-dark/85 backdrop-blur">
-        <Link to="/">
+        <Link to="/app">
           <WordMark />
         </Link>
         <nav className="hidden md:flex items-center gap-1 ml-2">

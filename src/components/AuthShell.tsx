@@ -20,7 +20,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
       </div>
       <div className="flex-1 flex items-center justify-center px-6 pb-16">
         <div className="w-full max-w-sm">
-          <Link to="/" aria-label="Sigenic home" className="inline-block mb-8 transition-opacity hover:opacity-80">
+          <Link to="/app" aria-label="Sigenic portal" className="inline-block mb-8 transition-opacity hover:opacity-80">
             <WordMark className="h-10" />
           </Link>
           {children}
