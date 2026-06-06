@@ -32,8 +32,7 @@ import Account from './pages/Account'
 
 import AdminCompanies from './pages/admin/AdminCompanies'
 import AdminInternalUsers from './pages/admin/AdminInternalUsers'
-import AdminMasterData from './pages/admin/AdminMasterData'
-import AdminScoring from './pages/admin/AdminScoring'
+import AdminCalculatorConfig from './pages/admin/AdminCalculatorConfig'
 import AdminRequests from './pages/admin/AdminRequests'
 import AdminKnowledge from './pages/admin/AdminKnowledge'
 import AdminStories from './pages/admin/AdminStories'
@@ -91,8 +90,7 @@ export default function App() {
                   {/* Internal admin */}
                   <Route path="admin/companies" element={<ProtectedRoute internal cap="view_all_companies"><AdminCompanies /></ProtectedRoute>} />
                   <Route path="admin/users" element={<ProtectedRoute internal cap="manage_internal_users"><AdminInternalUsers /></ProtectedRoute>} />
-                  <Route path="admin/master-data" element={<ProtectedRoute internal cap="view_master_data"><AdminMasterData /></ProtectedRoute>} />
-                  <Route path="admin/scoring" element={<ProtectedRoute internal cap="manage_scoring"><AdminScoring /></ProtectedRoute>} />
+                  <Route path="admin/calculator-config" element={<ProtectedRoute internal cap="manage_scoring"><AdminCalculatorConfig /></ProtectedRoute>} />
                   <Route path="admin/requests" element={<ProtectedRoute internal cap="view_ticket_oversight"><AdminRequests /></ProtectedRoute>} />
                   <Route path="admin/knowledge" element={<ProtectedRoute internal cap="manage_knowledge"><AdminKnowledge /></ProtectedRoute>} />
                   <Route path="admin/stories" element={<ProtectedRoute internal cap="manage_success_stories"><AdminStories /></ProtectedRoute>} />

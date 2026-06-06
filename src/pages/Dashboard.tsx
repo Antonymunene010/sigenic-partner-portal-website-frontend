@@ -153,10 +153,9 @@ function InternalDashboard() {
         </Card>
       </div>
 
-      <div className="grid sm:grid-cols-4 gap-3 mt-5">
+      <div className="grid sm:grid-cols-3 gap-3 mt-5">
         <QuickLink to="/app/admin/companies" icon={<Building2 size={16} />} label="Partners" hint="Companies & sites" />
-        <QuickLink to="/app/admin/scoring" icon={<Calculator size={16} />} label="Scoring" hint="Issues & config" />
-        <QuickLink to="/app/admin/master-data" icon={<BookOpen size={16} />} label="Master data" hint="Machines & processes" />
+        <QuickLink to="/app/admin/calculator-config" icon={<Calculator size={16} />} label="Calculator config" hint="Master data & scoring" />
         <QuickLink to="/app/admin/analytics" icon={<TrendingUp size={16} />} label="Analytics" hint="Usage & GTM" />
       </div>
     </div>

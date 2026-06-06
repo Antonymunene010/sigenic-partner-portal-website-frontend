@@ -18,9 +18,13 @@ interface ResourceCfg {
 export const RESOURCES: Record<string, ResourceCfg> = {
   companies: { table: 'companies', manage: 'manage_companies', read: 'view_all_companies', entity: 'company', prefix: 'co' },
   sites: { table: 'sites', manage: 'manage_companies', read: 'view_all_companies', entity: 'site', prefix: 'site', companyScoped: true },
-  departments: { table: 'departments', manage: 'manage_master_data', read: 'view_master_data', entity: 'department', prefix: 'dep' },
-  processes: { table: 'processes', manage: 'manage_master_data', read: 'view_master_data', entity: 'process', prefix: 'proc' },
-  machines: { table: 'machines', manage: 'manage_master_data', read: 'view_master_data', entity: 'machine', prefix: 'mac' },
+  // Master-data taxonomy is managed on the same super-admin-only screen as the
+  // scoring engine, so writes require manage_scoring. Reads are public (read: null,
+  // like knowledge/stories): the taxonomy ships to every client via hydrate, so
+  // gating the REST list endpoint would be a no-op fiction.
+  departments: { table: 'departments', manage: 'manage_scoring', read: null, entity: 'department', prefix: 'dep' },
+  processes: { table: 'processes', manage: 'manage_scoring', read: null, entity: 'process', prefix: 'proc' },
+  machines: { table: 'machines', manage: 'manage_scoring', read: null, entity: 'machine', prefix: 'mac' },
   'scoring-models': { table: 'scoring_models', manage: 'manage_scoring', read: 'manage_scoring', entity: 'scoring_model', prefix: 'sm' },
   'calculator-issues': { table: 'calculator_issues', manage: 'manage_scoring', read: 'manage_scoring', entity: 'calculator_issue', prefix: 'iss' },
   'occurrence-options': { table: 'occurrence_options', manage: 'manage_scoring', read: 'manage_scoring', entity: 'occurrence_option', prefix: 'occ' },

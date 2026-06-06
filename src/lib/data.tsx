@@ -77,11 +77,12 @@ export function useData(): DataCtx {
 
 /* convenience lookups */
 export function useLookups() {
-  const { departments, processes, machines, companies, sites, users } = useData()
+  const { departments, processes, machines, scoringModels, companies, sites, users } = useData()
   return {
     departmentName: (id?: string | null) => departments.find((d) => d.id === id)?.name ?? '—',
     processName: (id?: string | null) => processes.find((p) => p.id === id)?.processName ?? '—',
     machineName: (id?: string | null) => machines.find((m) => m.id === id)?.machineName ?? '—',
+    scoringModelName: (id?: string | null) => scoringModels.find((m) => m.id === id)?.versionName ?? '—',
     companyName: (id?: string | null) => companies.find((c) => c.id === id)?.companyName ?? '—',
     siteName: (id?: string | null) => sites.find((s) => s.id === id)?.siteName ?? '—',
     userName: (id?: string | null) => users.find((u) => u.id === id)?.fullName ?? '—',

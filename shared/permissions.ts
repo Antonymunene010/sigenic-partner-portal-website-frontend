@@ -26,8 +26,6 @@ export type Capability =
   | 'manage_internal_users'
   | 'view_all_companies'
   | 'manage_companies'
-  | 'view_master_data'
-  | 'manage_master_data'
   | 'manage_scoring'
   | 'manage_knowledge'
   | 'manage_success_stories'
@@ -85,10 +83,9 @@ const CAPABILITIES: Record<Capability, Role[]> = {
   manage_internal_users: ['super_admin'],
   view_all_companies: INTERNAL_OVERSIGHT,
   manage_companies: INTERNAL_MANAGE,
-  view_master_data: INTERNAL_OVERSIGHT,
-  manage_master_data: INTERNAL_MANAGE,
-  // Risk-calculator calculation mechanism (scoring models, issue catalog and the
-  // occurrence/detection/price Configuration tables) — super_admin only.
+  // Risk-calculator config — the scoring engine (models, issue catalog, the
+  // occurrence/detection/price Configuration tables) AND the master-data taxonomy
+  // (departments, processes, machines) it builds on. Super_admin only.
   manage_scoring: ['super_admin'],
   manage_knowledge: INTERNAL_MANAGE,
   manage_success_stories: INTERNAL_MANAGE,
