@@ -3,20 +3,20 @@ import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Send, ExternalLink } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { useData, useLookups } from '../lib/data'
-import { isInternal } from '../lib/permissions'
+import { isInternal, can } from '../lib/permissions'
 import { addServiceRequestMessage, updateServiceRequest } from '../lib/api'
 import { Card, Field, EmptyState, useToast } from '../components/ui'
 import { Badge } from '../components/Badge'
 import { Avatar } from '../components/Avatar'
 import { DescRow } from '../components/DescRow'
 import { fmtDateTime } from '../lib/format'
-import { REQUEST_STATUSES, REQUEST_STATUS_TONE, REQUEST_STATUS_LABEL, REQUEST_TYPE_LABEL, URGENCY_TONE, OWNER_TEAMS, REQUEST_SOURCE_LABEL } from '../lib/constants'
-import type { OwnerTeam, RequestStatus } from '../lib/types'
+import { REQUEST_STATUSES, REQUEST_STATUS_TONE, REQUEST_STATUS_LABEL, REQUEST_TYPE_LABEL, REQUEST_TYPES, URGENCY_TONE, OWNER_TEAMS, REQUEST_SOURCE_LABEL } from '../lib/constants'
+import type { OwnerTeam, RequestStatus, RequestType, ServiceRequest } from '../lib/types'
 
 export default function RequestDetail() {
   const { id } = useParams()
   const { user } = useAuth()
-  const { serviceRequests, refresh } = useData()
+  const { serviceRequests, departments, processes, machines, sites, refresh } = useData()
   const lookups = useLookups()
   const toast = useToast()
   const [reply, setReply] = useState('')
@@ -32,6 +32,9 @@ export default function RequestDetail() {
   }
 
   const internal = isInternal(user)
+  const canReclassify = can(user, 'reclassify_request')
+  const procOptions = processes.filter((p) => !sr.departmentId || p.departmentId === sr.departmentId)
+  const macOptions = machines.filter((m) => !sr.departmentId || m.departmentId === sr.departmentId)
 
   const sendReply = async () => {
     if (!reply.trim()) return
@@ -47,7 +50,7 @@ export default function RequestDetail() {
     }
   }
 
-  const setField = async (fields: { status?: RequestStatus; ownerTeam?: OwnerTeam }) => {
+  const setField = async (fields: Partial<Pick<ServiceRequest, 'status' | 'ownerTeam' | 'requestType' | 'siteId' | 'departmentId' | 'processId' | 'machineId'>>) => {
     try {
       await updateServiceRequest(sr.id, fields)
       await refresh()
@@ -127,6 +130,7 @@ export default function RequestDetail() {
               {sr.companyId && <DescRow k="Company" v={lookups.companyName(sr.companyId)} />}
               {sr.siteId && <DescRow k="Site" v={lookups.siteName(sr.siteId)} />}
               {sr.departmentId && <DescRow k="Department" v={lookups.departmentName(sr.departmentId)} />}
+              {sr.processId && <DescRow k="Process" v={lookups.processName(sr.processId)} />}
               {sr.machineId && <DescRow k="Machine" v={lookups.machineName(sr.machineId)} />}
               {sr.contactEmail && <DescRow k="Contact" v={sr.contactEmail} />}
               <DescRow k="Created" v={fmtDateTime(sr.createdAt)} />
@@ -146,6 +150,42 @@ export default function RequestDetail() {
                     {OWNER_TEAMS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </Field>
+
+                {canReclassify && (
+                  <div className="pt-3 mt-1 border-t border-line dark:border-line-dark space-y-3">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-faint">Classification · Super admin</p>
+                    <Field label="Request type">
+                      <select className="select" value={sr.requestType} onChange={(e) => setField({ requestType: e.target.value as RequestType })}>
+                        {REQUEST_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Site / fab">
+                      <select className="select" value={sr.siteId ?? ''} onChange={(e) => setField({ siteId: e.target.value || null })}>
+                        <option value="">—</option>
+                        {sites.map((s) => <option key={s.id} value={s.id}>{s.siteName}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Department">
+                      <select className="select" value={sr.departmentId ?? ''} onChange={(e) => setField({ departmentId: e.target.value || null, processId: null, machineId: null })}>
+                        <option value="">—</option>
+                        {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Process">
+                      <select className="select" value={sr.processId ?? ''} onChange={(e) => setField({ processId: e.target.value || null })}>
+                        <option value="">—</option>
+                        {procOptions.map((p) => <option key={p.id} value={p.id}>{p.processName}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Machine">
+                      <select className="select" value={sr.machineId ?? ''} onChange={(e) => setField({ machineId: e.target.value || null })}>
+                        <option value="">—</option>
+                        {macOptions.map((m) => <option key={m.id} value={m.id}>{m.machineName}</option>)}
+                      </select>
+                    </Field>
+                  </div>
+                )}
+
                 {sr.zendeskTicketId && <p className="text-xs text-muted dark:text-muted-dark">Ticket execution stays in Zendesk (#{sr.zendeskTicketId}).</p>}
               </div>
             </Card>

@@ -131,3 +131,31 @@ test('serviceRequest.updateServiceRequest — notifies the requester on status c
   assert.equal(emails.length, 1)
   assert.equal(emails[0].to, 'c@x')
 })
+
+test('serviceRequest.updateServiceRequest — super_admin re-classifies type + site/department/process/machine', async () => {
+  const before = { id: 'sr-10', status: 'open', ownerTeam: 'support', requestType: 'support', companyId: 'co-c' }
+  let patched: any = null
+  const store = {
+    getOne: mock.fn(async () => before),
+    update: mock.fn(async (_t: string, _id: string, patch: any) => { patched = patch; return { ...before, ...patch } }),
+    appendNotification: mock.fn(async () => {}),
+    appendAudit: mock.fn(async () => {}),
+    appendEmail: mock.fn(async () => {}),
+  } as unknown as Store
+  await updateServiceRequest(store, superAdmin, 'sr-10', { requestType: 'demo', siteId: 'site-1', departmentId: 'dep-1', processId: null, machineId: null })
+  // Blank selections normalise to null; request_type is taken verbatim.
+  assert.deepEqual(patched, { requestType: 'demo', siteId: 'site-1', departmentId: 'dep-1', processId: null, machineId: null })
+})
+
+test('serviceRequest.updateServiceRequest — non-super_admin oversight cannot re-classify', async () => {
+  const supportEngineer: AuthPayload = { ...superAdmin, role: 'support_engineer' }
+  const before = { id: 'sr-11', status: 'open', ownerTeam: 'support', requestType: 'support', companyId: 'co-c' }
+  const store = {
+    getOne: mock.fn(async () => before),
+    update: mock.fn(async () => before),
+    appendAudit: mock.fn(async () => {}),
+  } as unknown as Store
+  // Support engineers keep status/owner triage, but type/taxonomy is super_admin-only.
+  await assert.rejects(() => updateServiceRequest(store, supportEngineer, 'sr-11', { requestType: 'demo' }), /super admin/i)
+  assert.equal((store.update as any).mock.callCount(), 0)
+})

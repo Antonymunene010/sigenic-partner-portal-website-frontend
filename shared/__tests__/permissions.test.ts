@@ -54,6 +54,14 @@ test('can — manage_scoring (calculator config) is super_admin-only among inter
   assert.equal(can({ role: 'support_engineer' }, 'manage_scoring'), false)
 })
 
+test('can — reclassify_request (request type + site/dept/process/machine) is super_admin-only', () => {
+  assert.equal(can({ role: 'super_admin' }, 'reclassify_request'), true)
+  // Plain oversight roles can still triage status/owner, but not re-classify.
+  assert.equal(can({ role: 'admin' }, 'reclassify_request'), false)
+  assert.equal(can({ role: 'support_engineer' }, 'reclassify_request'), false)
+  assert.equal(can({ role: 'customer_admin' }, 'reclassify_request'), false)
+})
+
 test('can — support_engineer has oversight but cannot manage config', () => {
   assert.equal(can({ role: 'support_engineer' }, 'view_ticket_oversight'), true)
   assert.equal(can({ role: 'support_engineer' }, 'view_all_companies'), true)

@@ -121,13 +121,37 @@ export async function addServiceRequestMessage(store: Store, auth: AuthPayload, 
   return updated
 }
 
-/** Internal-only status/owner update for a request. */
+// Triage fields any internal oversight role may set; vs. re-classification fields
+// (type + site/department/process/machine taxonomy) reserved for super_admin.
+const OVERSIGHT_FIELDS = ['status', 'ownerTeam'] as const
+const CLASSIFY_FIELDS = ['requestType', 'siteId', 'departmentId', 'processId', 'machineId'] as const
+
+/** Internal status/owner triage, plus super_admin re-classification, of a request. */
 export async function updateServiceRequest(store: Store, auth: AuthPayload, id: string, patch: any): Promise<any> {
-  if (!can(auth, 'view_ticket_oversight')) throw forbidden('Only internal staff can update request status.')
+  if (!can(auth, 'view_ticket_oversight')) throw forbidden('Only internal staff can update requests.')
   const before = await store.getOne('service_requests', id)
   if (!before) throw notFound('Request not found.')
-  const updated = await store.update('service_requests', id, patch)
-  await audit(store, auth, 'service_request', id, 'update', { status: before.status, ownerTeam: before.ownerTeam }, { status: updated.status, ownerTeam: updated.ownerTeam })
+
+  // Whitelist updatable fields — never trust the caller's patch wholesale.
+  const clean: Record<string, unknown> = {}
+  for (const f of OVERSIGHT_FIELDS) if (patch?.[f] !== undefined) clean[f] = patch[f]
+  if (CLASSIFY_FIELDS.some((f) => patch?.[f] !== undefined)) {
+    if (!can(auth, 'reclassify_request')) throw forbidden('Only super admins can re-classify a request.')
+    // Empty selection ("—") clears the field; request_type itself is never blank.
+    for (const f of CLASSIFY_FIELDS) if (patch?.[f] !== undefined) clean[f] = f === 'requestType' ? patch[f] : patch[f] || null
+  }
+  if (Object.keys(clean).length === 0) throw badRequest('No updatable fields supplied.')
+
+  const updated = await store.update('service_requests', id, clean)
+  await audit(
+    store,
+    auth,
+    'service_request',
+    id,
+    'update',
+    { status: before.status, ownerTeam: before.ownerTeam, requestType: before.requestType },
+    { status: updated.status, ownerTeam: updated.ownerTeam, requestType: updated.requestType },
+  )
   // Notify the requester when status changes (PRD §7.7: email MVP + in-app).
   if (updated.status !== before.status) {
     await notifyRequester(store, updated, `Status changed to ${updated.status}.`, auth.name)
