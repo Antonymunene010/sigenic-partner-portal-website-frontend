@@ -215,3 +215,44 @@ export function passwordChangedEmail(user: { fullName: string }): { subject: str
     ].join('\n'),
   }
 }
+
+/** Notify internal admins when a portal user is created or deleted (per client request). */
+export function userMutationAdminEmail(params: {
+  action: 'created' | 'deleted'
+  fullName: string
+  email: string
+  role: string
+  companyName?: string | null
+  actor: string
+}): { subject: string; text: string } {
+  return {
+    subject: `Portal user ${params.action}: ${params.fullName}`,
+    text: [
+      `A user account was ${params.action} ${params.action === 'created' ? 'on' : 'from'} the Sigenic Partner Portal.`,
+      '',
+      `Name:  ${params.fullName}`,
+      `Email: ${params.email}`,
+      `Role:  ${params.role}`,
+      ...(params.companyName ? [`Company: ${params.companyName}`] : []),
+      `${params.action === 'created' ? 'Created' : 'Deleted'} by: ${params.actor}`,
+      '',
+      '— Sigenic Partner Portal',
+    ].join('\n'),
+  }
+}
+
+/** Sent to a user whose account has just been deleted. */
+export function accountRemovedEmail(params: { fullName: string; companyName?: string | null }): { subject: string; text: string } {
+  return {
+    subject: 'Your Sigenic Partner Portal access has been removed',
+    text: [
+      `Hi ${params.fullName},`,
+      '',
+      `Your account on the Sigenic Partner Portal${params.companyName ? ` (${params.companyName})` : ''} has been removed, and you no longer have access.`,
+      '',
+      'If you believe this was a mistake, please contact your administrator.',
+      '',
+      '— Sigenic Partner Portal',
+    ].join('\n'),
+  }
+}

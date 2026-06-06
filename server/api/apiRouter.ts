@@ -81,6 +81,9 @@ export function apiRouter(store: Store): Router {
   r.patch('/users/:id', async (req, res) => {
     res.json({ user: await userService.updateUser(store, req.auth!, req.params.id, req.body ?? {}) })
   })
+  r.delete('/users/:id', async (req, res) => {
+    res.json(await userService.deleteUser(store, req.auth!, req.params.id))
+  })
 
   /* scoring model activation (before the generic /:resource route) */
   r.post('/scoring-models/:id/activate', async (req, res) => {

@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { KeyRound, Plus, Power } from 'lucide-react'
-import { createUserApi, resetPasswordApi, updateUserApi } from '../lib/api'
+import { KeyRound, Plus, Power, Trash2 } from 'lucide-react'
+import { useAuth } from '../lib/auth'
+import { createUserApi, deleteUserApi, resetPasswordApi, updateUserApi } from '../lib/api'
 import { roleLabel } from '../lib/permissions'
 import { PageHeader } from './PageHeader'
 import { DataTable, type Column } from './DataTable'
@@ -46,6 +47,7 @@ export function UsersPanel({
   readonlyNote?: string
   emptyHint?: string
 }) {
+  const { user: currentUser } = useAuth()
   const toast = useToast()
   const [open, setOpen] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -107,6 +109,20 @@ export function UsersPanel({
     }
   }
 
+  const removeUser = async (u: User) => {
+    if (!window.confirm(`Permanently delete ${u.fullName}? This removes their account and portal access. Past records are kept but no longer attributed to them. This cannot be undone.`)) return
+    setBusyId(u.id)
+    try {
+      await deleteUserApi(u.id)
+      await refresh()
+      toast.push(`${u.fullName} deleted.`)
+    } catch (e) {
+      toast.push(e instanceof Error ? e.message : 'Could not delete user.', 'error')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   const columns: Column<User>[] = [
     {
       key: 'name',
@@ -137,6 +153,11 @@ export function UsersPanel({
           <button className="btn-ghost text-xs" disabled={busyId === u.id} onClick={() => resetPassword(u)}>
             <KeyRound size={13} /> Reset password
           </button>
+          {u.id !== currentUser?.id && (
+            <button className="btn-ghost text-xs text-danger hover:text-danger" disabled={busyId === u.id} onClick={() => removeUser(u)}>
+              <Trash2 size={13} /> Delete
+            </button>
+          )}
         </div>
       ),
     })

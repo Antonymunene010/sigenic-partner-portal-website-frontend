@@ -1,7 +1,7 @@
 import { test, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import { createAnnouncement } from '../announcement.service'
-import { createUser } from '../user.service'
+import { createUser, deleteUser } from '../user.service'
 import { createServiceRequest, updateServiceRequest } from '../serviceRequest.service'
 import { activateScoringModel } from '../admin.service'
 import type { Store } from '../../db/store'
@@ -88,6 +88,7 @@ test('user.createUser — emails a single-use invite link to the new user', asyn
   const store = {
     createUser: mock.fn(async () => ({ id: 'u-new', email: 'new@x', fullName: 'New User', role: 'customer_user' })),
     getUserAuthById: mock.fn(async () => ({ id: 'u-new', email: 'new@x', fullName: 'New User', role: 'customer_user', companyId: 'co-c', companyName: 'Acme', passwordHash: 'pw-hash', status: 'invited' })),
+    list: mock.fn(async () => []), // no internal admins → only the invite goes out
     appendAudit: mock.fn(async () => {}),
     appendEmail: mock.fn(async (rec: any) => { emails.push(rec) }),
   } as unknown as Store
@@ -158,4 +159,55 @@ test('serviceRequest.updateServiceRequest — non-super_admin oversight cannot r
   // Support engineers keep status/owner triage, but type/taxonomy is super_admin-only.
   await assert.rejects(() => updateServiceRequest(store, supportEngineer, 'sr-11', { requestType: 'demo' }), /super admin/i)
   assert.equal((store.update as any).mock.callCount(), 0)
+})
+
+test('user.createUser — emails the active internal admins that a new user joined', async () => {
+  const emails: any[] = []
+  const store = {
+    createUser: mock.fn(async () => ({ id: 'u-new', email: 'new@x', fullName: 'New User', role: 'customer_user' })),
+    getUserAuthById: mock.fn(async () => ({ id: 'u-new', email: 'new@x', fullName: 'New User', role: 'customer_user', companyId: 'co-c', companyName: 'Acme', passwordHash: 'pw', status: 'invited' })),
+    list: mock.fn(async () => [
+      { id: 'a1', email: 'boss@sigenic.com', role: 'super_admin', status: 'active' },
+      { id: 'a2', email: 'mgr@sigenic.com', role: 'admin', status: 'active' },
+      { id: 'x', email: 'cust@x', role: 'customer_user', status: 'active' }, // not an admin
+      { id: 'y', email: 'old@sigenic.com', role: 'admin', status: 'inactive' }, // deactivated
+    ]),
+    appendAudit: mock.fn(async () => {}),
+    appendEmail: mock.fn(async (rec: any) => { emails.push(rec) }),
+  } as unknown as Store
+  await createUser(store, admin, { email: 'new@x', fullName: 'New User', role: 'customer_user', companyId: 'co-c' })
+  const adminMails = emails.filter((e) => /^Portal user created/.test(e.subject))
+  assert.deepEqual(adminMails.map((e) => e.to).sort(), ['boss@sigenic.com', 'mgr@sigenic.com'])
+})
+
+test('user.deleteUser — removes the row and emails the user + internal admins', async () => {
+  const emails: any[] = []
+  const store = {
+    getUserById: mock.fn(async () => ({ id: 'u-del', email: 'gone@x', fullName: 'Gone User', role: 'customer_user', companyId: 'co-c', companyName: 'Acme', status: 'active' })),
+    remove: mock.fn(async () => true),
+    list: mock.fn(async () => [{ id: 'a1', email: 'boss@sigenic.com', role: 'super_admin', status: 'active' }]),
+    appendAudit: mock.fn(async () => {}),
+    appendEmail: mock.fn(async (rec: any) => { emails.push(rec) }),
+  } as unknown as Store
+  const res = await deleteUser(store, superAdmin, 'u-del')
+  assert.equal(res.ok, true)
+  assert.equal((store.remove as any).mock.callCount(), 1)
+  assert.ok(emails.some((e) => e.to === 'gone@x' && /access has been removed/i.test(e.subject))) // removed user
+  assert.ok(emails.some((e) => e.to === 'boss@sigenic.com' && /^Portal user deleted/.test(e.subject))) // internal admin
+})
+
+test('user.deleteUser — refuses to delete your own account', async () => {
+  const store = { remove: mock.fn(async () => true), getUserById: mock.fn(), appendAudit: mock.fn() } as unknown as Store
+  await assert.rejects(() => deleteUser(store, superAdmin, superAdmin.sub), /your own account/i)
+  assert.equal((store.remove as any).mock.callCount(), 0)
+})
+
+test('user.deleteUser — admin cannot delete an internal Sigenic user (PRD §5.1)', async () => {
+  const store = {
+    getUserById: mock.fn(async () => ({ id: 'u-staff', email: 's@sigenic.com', fullName: 'Staff', role: 'support_engineer', companyId: 'co-sigenic', companyName: 'Sigenic', status: 'active' })),
+    remove: mock.fn(async () => true),
+    appendAudit: mock.fn(async () => {}),
+  } as unknown as Store
+  await assert.rejects(() => deleteUser(store, admin, 'u-staff'), /cannot delete/i)
+  assert.equal((store.remove as any).mock.callCount(), 0)
 })

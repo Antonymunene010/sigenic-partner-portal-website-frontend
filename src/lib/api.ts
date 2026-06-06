@@ -144,6 +144,9 @@ export function updateUserApi(id: string, fields: Partial<User>, opts?: { touch?
 export async function resetPasswordApi(id: string): Promise<void> {
   await request(`/api/users/${encodeURIComponent(id)}/reset-password`, { method: 'POST' })
 }
+export function deleteUserApi(id: string): Promise<{ ok: boolean }> {
+  return request(`/api/users/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
 
 /* ---------- generic admin resources ---------- */
 export type ResourceName =

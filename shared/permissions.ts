@@ -59,7 +59,7 @@ export const ROLE_META: Record<Role, { userType: UserType; internal: boolean; co
 
 const ALL_AUTH = ROLES
 const INTERNAL_OVERSIGHT: Role[] = ['support_engineer', 'admin', 'super_admin']
-const INTERNAL_MANAGE: Role[] = ['admin', 'super_admin']
+export const INTERNAL_MANAGE: Role[] = ['admin', 'super_admin']
 
 /**
  * Capability → roles allowed. Data-scope (own company vs all) is enforced
