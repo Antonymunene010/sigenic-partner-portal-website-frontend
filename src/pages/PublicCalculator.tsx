@@ -1,33 +1,51 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Calculator as CalcIcon, Lock, Sparkles } from 'lucide-react'
-import { publicCalculate } from '../lib/api'
-import { Card, RangeBar, StatCard, EmptyState, NumberField } from '../components/ui'
+import { getPublicCalculatorConfig, publicCalculate } from '../lib/api'
+import { Card, Field, StatCard, EmptyState, Spinner } from '../components/ui'
+import { Badge } from '../components/Badge'
+import { IssueQuestionnaire } from '../components/IssueQuestionnaire'
+import { RISK_TIER_LABEL, RISK_TIER_TONE } from '../lib/constants'
+import { defaultIssueInputs, type IssueValues } from '../lib/calculator'
 import { fmtUSD } from '../lib/format'
-import type { CalcSelection, RoiResult } from '../lib/types'
-
-const DEFAULTS: Required<Pick<CalcSelection, 'currentYieldPct' | 'scrapRate' | 'downtime' | 'costPerWafer' | 'monthlyVolume' | 'excursionCost'>> = {
-  currentYieldPct: 82,
-  scrapRate: 3.2,
-  downtime: 8,
-  costPerWafer: 550,
-  monthlyVolume: 8000,
-  excursionCost: 450000,
-}
+import type { CalcSelection, IssueInput, LimitedRiskResult, PublicCalcConfig } from '../lib/types'
 
 export default function PublicCalculator() {
-  const [sel, setSel] = useState(DEFAULTS)
-  const [result, setResult] = useState<RoiResult | null>(null)
+  const [config, setConfig] = useState<PublicCalcConfig | null>(null)
+  const [deptId, setDeptId] = useState<string>('')
+  const [inputs, setInputs] = useState<Record<string, IssueValues>>({})
+  const [result, setResult] = useState<LimitedRiskResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  const patch = (p: Partial<typeof DEFAULTS>) => setSel((s) => ({ ...s, ...p }))
+  useEffect(() => {
+    getPublicCalculatorConfig()
+      .then(setConfig)
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load calculator.'))
+  }, [])
+
+  const catalog = useMemo(() => (config?.issues ?? []).filter((i) => i.departmentId === deptId).sort((a, b) => a.sortOrder - b.sortOrder), [config, deptId])
+
+  const selectDepartment = (id: string) => {
+    setDeptId(id)
+    setInputs(defaultIssueInputs((config?.issues ?? []).filter((x) => x.departmentId === id)))
+    setResult(null)
+  }
+  const patchIssue = (id: string, patch: IssueValues) => setInputs((s) => ({ ...s, [id]: { ...s[id], ...patch } }))
 
   const estimate = async () => {
+    if (!deptId) {
+      setError('Select a department first.')
+      return
+    }
     setBusy(true)
     setError(null)
     try {
-      const res = await publicCalculate(sel)
+      const selection: CalcSelection = {
+        departmentId: deptId,
+        issues: catalog.map<IssueInput>((i) => ({ issueId: i.id, label: i.label, severity: inputs[i.id]?.severity, occurrence: inputs[i.id]?.occurrence, detection: inputs[i.id]?.detection })),
+      }
+      const res = await publicCalculate(selection)
       setResult(res.result)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Estimate failed.')
@@ -39,74 +57,82 @@ export default function PublicCalculator() {
   return (
     <div className="max-w-[1100px] mx-auto px-4 py-10">
       <div className="mb-6">
-        <p className="eyebrow">ROI Score Calculator</p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight">Estimate your savings</h1>
+        <p className="eyebrow">Risk Score & Yield Loss</p>
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight">Estimate your risk & yield loss</h1>
         <p className="mt-2 text-muted dark:text-muted-dark max-w-2xl text-pretty">
-          A quick public preview of the Sigenic ROI model. Enter your line's operating conditions to size yield uplift and annual savings.
+          A quick public preview of the Sigenic Risk Score & Yield Loss Simulator. Pick a tool, score the known issues, and size the annual yield loss at stake.
         </p>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-5">
-        {/* Inputs */}
-        <Card title="Your line">
-          <div className="grid sm:grid-cols-2 gap-4">
-            <NumberField label="Current yield" unit="%" value={sel.currentYieldPct} onChange={(n) => patch({ currentYieldPct: n })} />
-            <NumberField label="Scrap rate" unit="%" value={sel.scrapRate} onChange={(n) => patch({ scrapRate: n })} />
-            <NumberField label="Downtime" unit="%" value={sel.downtime} onChange={(n) => patch({ downtime: n })} />
-            <NumberField label="Cost / wafer" unit="$" value={sel.costPerWafer} onChange={(n) => patch({ costPerWafer: n })} />
-            <NumberField label="Monthly volume" unit="wafers" value={sel.monthlyVolume} onChange={(n) => patch({ monthlyVolume: n })} />
-            <NumberField label="Excursion cost" unit="$" value={sel.excursionCost} onChange={(n) => patch({ excursionCost: n })} />
-          </div>
+      {!config ? (
+        error ? <Card><p className="text-sm text-danger">{error}</p></Card> : <Spinner />
+      ) : (
+        <div className="grid lg:grid-cols-2 gap-5">
+          {/* Inputs */}
+          <Card title="Your line">
+            <Field label="Department / template">
+              <select className="select" value={deptId} onChange={(e) => selectDepartment(e.target.value)}>
+                <option value="">— select —</option>
+                {config.departments.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}{d.technology ? ` · ${d.technology}` : ''}</option>
+                ))}
+              </select>
+            </Field>
 
-          {error && <p className="mt-4 text-sm text-danger">{error}</p>}
+            {deptId && catalog.length > 0 && (
+              <IssueQuestionnaire catalog={catalog} inputs={inputs} occurrenceOptions={config.occurrenceOptions} detectionOptions={config.detectionOptions} onPatch={patchIssue} />
+            )}
 
-          <div className="mt-5">
-            <button className="btn-accent" onClick={estimate} disabled={busy}>
-              <CalcIcon size={15} /> {busy ? 'Estimating…' : 'Estimate'}
-            </button>
-          </div>
-        </Card>
+            {error && <p className="mt-4 text-sm text-danger">{error}</p>}
 
-        {/* Result */}
-        <div className="flex flex-col gap-5">
-          {!result ? (
-            <Card>
-              <EmptyState icon={<Sparkles size={28} />} title="Your estimate appears here" hint="Enter your operating conditions on the left and run the estimate to see your Sigenic score, yield improvement and annual savings range." />
-            </Card>
-          ) : (
-            <Card title="Estimated impact" eyebrow={result.limited ? 'Limited preview' : undefined}>
-              <div className="grid grid-cols-2 gap-3 mb-5">
-                <StatCard label="Sigenic score" value={`${result.score}`} accent />
-                <StatCard label="Annual savings" value={fmtUSD(result.annualSavings.min)} sub={`up to ${fmtUSD(result.annualSavings.max)}`} accent />
-              </div>
-
-              <div className="space-y-3">
-                <RangeBar label="Yield improvement" min={result.yieldImprovement.min} max={result.yieldImprovement.max} format={(n) => `${n}%`} />
-                <RangeBar label="Annual savings" min={result.annualSavings.min} max={result.annualSavings.max} format={(n) => fmtUSD(n)} />
-              </div>
-            </Card>
-          )}
-
-          {/* Upsell note */}
-          <Card>
-            <div className="flex items-start gap-3">
-              <span className="mt-0.5 text-emphasis">
-                <Lock size={18} />
-              </span>
-              <div>
-                <p className="text-[15px] font-medium">This is a limited public preview</p>
-                <p className="mt-1 text-sm text-muted dark:text-muted-dark text-pretty">
-                  Sign in or request a demo for the full breakdown — scrap, downtime and detection-speed ranges, monthly savings and a downloadable report under the active scoring model.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Link to="/contact" className="btn-accent">Request full analysis</Link>
-                  <Link to="/login" className="btn-outline">Partner sign in</Link>
-                </div>
-              </div>
+            <div className="mt-5">
+              <button className="btn-accent" onClick={estimate} disabled={busy || !deptId}>
+                <CalcIcon size={15} /> {busy ? 'Estimating…' : 'Estimate'}
+              </button>
             </div>
           </Card>
+
+          {/* Result */}
+          <div className="flex flex-col gap-5">
+            {!result ? (
+              <Card>
+                <EmptyState icon={<Sparkles size={28} />} title="Your estimate appears here" hint="Pick a tool and score its issues to see your overall risk band and the annual yield loss at stake." />
+              </Card>
+            ) : (
+              <Card title="Estimated impact" eyebrow="Limited preview">
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <StatCard label="Overall risk" value={`${result.overallRiskScore} / 15`} sub={<Badge tone={RISK_TIER_TONE[result.overallTier]}>{RISK_TIER_LABEL[result.overallTier]}</Badge>} accent />
+                  <StatCard label="Annual savings opportunity" value={fmtUSD(result.totalAnnualValueLoss)} sub="yield loss at stake" accent />
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted dark:text-muted-dark">
+                  <span>{result.tierCounts.high} high</span>
+                  <span>{result.tierCounts.medium} medium</span>
+                  <span>{result.tierCounts.low} low</span>
+                </div>
+              </Card>
+            )}
+
+            {/* Upsell note */}
+            <Card>
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 text-emphasis">
+                  <Lock size={18} />
+                </span>
+                <div>
+                  <p className="text-[15px] font-medium">This is a limited public preview</p>
+                  <p className="mt-1 text-sm text-muted dark:text-muted-dark text-pretty">
+                    Sign in or request a demo for the full breakdown — per-issue risk scores, the yield-loss table and a downloadable report under the active scoring model.
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Link to="/contact" className="btn-accent">Request full analysis</Link>
+                    <Link to="/login" className="btn-outline">Partner sign in</Link>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

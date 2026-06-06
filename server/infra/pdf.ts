@@ -101,44 +101,63 @@ export async function invoicePdf(
   return done
 }
 
-const range = (r: { min: number; max: number } | null | undefined, fmt: (x: number) => string = (x) => String(x)): string =>
-  r ? `${fmt(r.min)} — ${fmt(r.max)}` : '—'
-const usdRange = (r: { min: number; max: number } | null | undefined) => range(r, usd)
-const pctRange = (r: { min: number; max: number } | null | undefined) => range(r, (x) => `${num(x)}%`)
+const DET_LABEL: Record<string, string> = { unable: 'Unable', partial: 'Partial', system: 'System' }
+const TIER_LABEL: Record<string, string> = { high: 'High', medium: 'Medium', low: 'Low', none: '—' }
 
-/** Build a Score Calculator ROI report PDF buffer (range-based, PRD calculator_runs). */
+/** Build a Risk Score & Yield Loss report PDF buffer (per-issue, PRD calculator_runs). */
 export async function reportPdf(report: any): Promise<Buffer> {
   const doc = await newDoc()
   const done = collect(doc)
-  header(doc, 'ROI Score Calculator — estimate')
+  header(doc, 'Risk Score & Yield Loss — estimate')
 
   const ctx = report.context || {}
   row(doc, 'Estimate ID', report.estimateId || '—')
   row(doc, 'Generated', fmtDate(report.generatedAt || new Date().toISOString()))
   row(doc, 'Site / fab', ctx.site || '—')
   row(doc, 'Department', ctx.department || '—')
-  row(doc, 'Process', ctx.process || '—')
   row(doc, 'Machine', ctx.machine || '—')
+  row(doc, 'Technology', ctx.technology || '—')
   doc.moveDown(0.4)
 
   const o = report.output || {}
-  doc.fillColor(BRAND).fontSize(12).font('Helvetica-Bold').text('Estimated impact (range)')
+  doc.fillColor(BRAND).fontSize(12).font('Helvetica-Bold').text('Overall')
   doc.moveDown(0.4)
-  row(doc, 'Annual savings', usdRange(o.annualSavings))
-  row(doc, 'Monthly savings', usdRange(o.monthlySavings))
-  row(doc, 'Sigenic score', `${o.score} / 100`)
-  row(doc, 'Yield improvement', pctRange(o.yieldImprovement))
-  row(doc, 'Scrap reduction', pctRange(o.scrapReduction))
-  row(doc, 'Downtime reduction', pctRange(o.downtimeReduction))
-  row(doc, 'Faster detection', pctRange(o.detectionSpeedImprovement))
+  row(doc, 'Overall risk score', `${num(o.overallRiskScore, 1)} / 15  (${TIER_LABEL[o.overallTier] ?? '—'})`)
+  row(doc, 'Annual savings opportunity', usd(o.totalAnnualValueLoss))
+  row(doc, 'Wafers at risk / yr', num(o.totalAnnualWaferLoss, 0))
+  row(doc, 'Price / wafer', `${usd(o.pricePerWafer)}${o.priceSource === 'technology_average' ? ' (tech avg)' : ''}`)
   if (o.modelVersion) row(doc, 'Scoring model', o.modelVersion)
 
-  if (Array.isArray(o.breakdown) && o.breakdown.length) {
-    doc.moveDown(0.4)
-    doc.fillColor(BRAND).fontSize(12).font('Helvetica-Bold').text('Monthly financial breakdown (upper bound)')
-    doc.moveDown(0.4)
-    for (const b of o.breakdown) {
-      row(doc, b.label, usd(b.value))
+  const issues = Array.isArray(o.issues) ? o.issues : []
+  if (issues.length) {
+    doc.moveDown(0.5)
+    doc.fillColor(BRAND).fontSize(12).font('Helvetica-Bold').text('Issues')
+    doc.moveDown(0.3)
+    const cols = { issue: 54, sev: 276, occ: 326, det: 372, risk: 452, band: 498 }
+    let y = doc.y + 2
+    doc.fillColor(MUTED).fontSize(8).font('Helvetica-Bold')
+    doc.text('ISSUE', cols.issue, y)
+    doc.text('SEV', cols.sev, y)
+    doc.text('OCC', cols.occ, y)
+    doc.text('DET', cols.det, y)
+    doc.text('RISK', cols.risk, y)
+    doc.text('BAND', cols.band, y)
+    doc.moveTo(54, y + 12).lineTo(541, y + 12).strokeColor('#e5e7eb').stroke()
+    y += 18
+    for (const it of issues) {
+      if (y > 760) {
+        doc.addPage()
+        y = 54
+      }
+      doc.font('Helvetica').fontSize(9).fillColor(BRAND).text(String(it.label ?? 'Issue'), cols.issue, y, { width: 210 })
+      const labelBottom = doc.y
+      doc.fillColor(MUTED)
+      doc.text(it.severity ? num(it.severity, 0) : '—', cols.sev, y, { width: 44 })
+      doc.text(it.occurrence ? num(it.occurrence, 2) : '—', cols.occ, y, { width: 40 })
+      doc.text(it.detection ? DET_LABEL[it.detection] ?? it.detection : '—', cols.det, y, { width: 76 })
+      doc.fillColor(BRAND).font('Helvetica-Bold').text(num(it.riskScore, 2), cols.risk, y, { width: 40 })
+      doc.font('Helvetica').fillColor(MUTED).text(TIER_LABEL[it.tier] ?? '—', cols.band, y, { width: 43 })
+      y = Math.max(labelBottom, y + 12) + 4
     }
   }
 
@@ -147,7 +166,12 @@ export async function reportPdf(report: any): Promise<Buffer> {
     .fillColor(MUTED)
     .fontSize(8)
     .font('Helvetica')
-    .text('Rule-based estimate driven by the active Sigenic scoring model. Validate with a pilot run before capacity planning.', 54, doc.y, { width: 487 })
+    .text(
+      'Risk bands: 9–15 High · 4–8 Medium · 1–3 Low. Annual yield loss = Σ(severity × occurrence) × wafer price. Validate with a pilot before capacity planning.',
+      54,
+      doc.y,
+      { width: 487 },
+    )
 
   doc.end()
   return done

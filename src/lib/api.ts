@@ -2,8 +2,10 @@ import type {
   Announcement,
   CalcSelection,
   HydrateBundle,
+  LimitedRiskResult,
   PublicBundle,
-  RoiResult,
+  PublicCalcConfig,
+  RiskResult,
   ServiceRequest,
   User,
 } from './types'
@@ -57,8 +59,11 @@ export function submitPublicRequest(req: {
 }): Promise<{ item: { id: string; status: string } }> {
   return request('/api/public/requests', { method: 'POST', body: JSON.stringify({ request: req }) })
 }
-export function publicCalculate(selection: CalcSelection): Promise<{ result: RoiResult }> {
+export function publicCalculate(selection: CalcSelection): Promise<{ result: LimitedRiskResult }> {
   return request('/api/public/calculate', { method: 'POST', body: JSON.stringify({ selection }) })
+}
+export function getPublicCalculatorConfig(): Promise<PublicCalcConfig> {
+  return request<PublicCalcConfig>('/api/public/calculator-config')
 }
 
 /* ---------- auth ---------- */
@@ -85,7 +90,7 @@ export function hydrate(): Promise<HydrateBundle> {
 export function calculate(
   selection: CalcSelection,
   opts: { modelId?: string; save?: boolean } = {},
-): Promise<{ result: RoiResult; run: import('./types').CalculatorRun | null }> {
+): Promise<{ result: RiskResult; run: import('./types').CalculatorRun | null }> {
   return request('/api/calculate', { method: 'POST', body: JSON.stringify({ selection, ...opts }) })
 }
 
@@ -148,8 +153,10 @@ export type ResourceName =
   | 'processes'
   | 'machines'
   | 'scoring-models'
-  | 'scoring-rules'
-  | 'financial-assumptions'
+  | 'calculator-issues'
+  | 'occurrence-options'
+  | 'detection-options'
+  | 'technology-prices'
   | 'knowledge-articles'
   | 'success-stories'
   | 'invoices'

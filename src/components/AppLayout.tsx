@@ -27,7 +27,7 @@ interface NavItem {
 
 const PORTAL_NAV: NavItem[] = [
   { to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/app/calculator', label: 'ROI calculator', icon: Calculator, cap: 'use_full_calculator' },
+  { to: '/app/calculator', label: 'Risk calculator', icon: Calculator, cap: 'use_full_calculator' },
   { to: '/app/knowledge', label: 'Knowledge base', icon: BookOpen, cap: 'access_knowledge_base' },
   { to: '/app/stories', label: 'Success stories', icon: Sparkles, cap: 'view_success_stories' },
   { to: '/app/requests', label: 'Requests', icon: Inbox, cap: 'view_request_list' },
@@ -51,7 +51,7 @@ const ADMIN_NAV: NavItem[] = [
   { to: '/app/admin/announcements', label: 'Announcements', icon: Megaphone, cap: 'manage_announcements' },
   { to: '/app/admin/audit', label: 'Audit log', icon: ScrollText, cap: 'view_audit_logs' },
   { to: '/app/admin/analytics', label: 'Analytics', icon: BarChart3, cap: 'view_analytics' },
-  { to: '/app/calculator', label: 'ROI calculator', icon: Calculator, cap: 'use_full_calculator' },
+  { to: '/app/calculator', label: 'Risk calculator', icon: Calculator, cap: 'use_full_calculator' },
 ]
 
 function navFor(user: User): NavItem[] {

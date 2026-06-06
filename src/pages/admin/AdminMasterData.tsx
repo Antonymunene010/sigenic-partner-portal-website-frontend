@@ -47,11 +47,13 @@ export default function AdminMasterData() {
           columns={[
             { key: 'name', header: 'Name', render: (d) => <span className="font-medium">{d.name}</span> },
             { key: 'code', header: 'Code', render: (d) => <span className="font-mono text-xs text-muted dark:text-muted-dark">{d.code}</span> },
+            { key: 'technology', header: 'Technology', render: (d) => <span className="text-muted dark:text-muted-dark">{d.technology ?? '—'}</span> },
             { key: 'active', header: 'Status', render: (d) => activeBadge(d.active) },
           ]}
           fields={[
             { key: 'name', label: 'Name', required: true },
             { key: 'code', label: 'Code' },
+            { key: 'technology', label: 'Technology (e.g. 200mm)', help: 'Drives the default per-wafer price in the calculator.' },
             { key: 'description', label: 'Description', type: 'textarea' },
             { key: 'active', label: 'Active', type: 'checkbox', defaultValue: true },
           ]}

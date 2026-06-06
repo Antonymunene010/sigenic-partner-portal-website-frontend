@@ -1,111 +1,142 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { computeRoi, toLimited, type CalcRule } from '../calc'
+import { computeRisk, toLimited, severityScore, riskTier } from '../calc'
 
-// Characterization tests: lock the EXACT ROI output. Self-contained fixtures
-// (mirroring the sm-v1 seed) keep this test independent of the server layer.
-const MODEL = { id: 'sm-v1', version_name: 'ROI Model v1.0' }
-const RULES: CalcRule[] = [
-  { id: 'sr-g-yield', metric_type: 'yield_improvement', min_value: 1.5, max_value: 4.0, weight: 1.0 },
-  { id: 'sr-g-scrap', metric_type: 'scrap_reduction', min_value: 8, max_value: 22, weight: 1.0 },
-  { id: 'sr-g-down', metric_type: 'downtime_reduction', min_value: 5, max_value: 18, weight: 1.0 },
-  { id: 'sr-g-detect', metric_type: 'detection_speed_improvement', min_value: 20, max_value: 60, weight: 1.0 },
-  { id: 'sr-litho-yield', department_id: 'dep-litho', metric_type: 'yield_improvement', min_value: 3.0, max_value: 6.5, weight: 1.2 },
-  { id: 'sr-euv-detect', department_id: 'dep-litho', machine_id: 'mac-euv-3600', metric_type: 'detection_speed_improvement', min_value: 40, max_value: 75, weight: 1.3 },
-  { id: 'sr-etch-scrap', department_id: 'dep-etch', metric_type: 'scrap_reduction', min_value: 12, max_value: 28, weight: 1.15 },
-  { id: 'sr-metro-down', department_id: 'dep-metro', metric_type: 'downtime_reduction', min_value: 8, max_value: 24, weight: 1.1 },
+// Characterization tests: lock the risk-score & yield-loss output against the
+// client's "Risk Score & Yield Loss Simulator" spreadsheet. Self-contained
+// fixtures mirror the sm-v1 seed so this stays independent of the server layer.
+const MODEL = { id: 'sm-v1', versionName: 'Risk & Yield Loss v1.0' }
+const OCC = [
+  { value: 0.25, score: 0.25 }, { value: 0.5, score: 0.5 }, { value: 1, score: 1 },
+  { value: 2, score: 2 }, { value: 3, score: 3 }, { value: 4, score: 4 }, { value: 5, score: 5 },
 ]
-const FA_GLOBAL = { cost_per_wafer_default: 550, excursion_cost_default: 450000, monthly_volume_default: 8000 }
-const FA_NOVA = { cost_per_wafer_default: 610, excursion_cost_default: 520000, monthly_volume_default: 12000 }
+const DET = [
+  { key: 'unable', score: 5 }, { key: 'partial', score: 3 }, { key: 'system', score: 1 },
+]
+const TECH = [
+  { technology: '200mm', avgPrice: 750 }, { technology: '300mm', avgPrice: 2817 },
+]
 
-test('computeRoi — global baseline (no dept/process/machine), fa-global', () => {
-  const result = computeRoi({ model: MODEL, rules: RULES, assumption: FA_GLOBAL, selection: { currentYieldPct: 88, scrapRate: 3, defectRate: 0.5, downtime: 6 } })
-  assert.deepStrictEqual(result, {
-    modelId: 'sm-v1',
-    modelVersion: 'ROI Model v1.0',
-    yieldImprovement: { min: 1.5, max: 4 },
-    scrapReduction: { min: 8, max: 23.1 },
-    downtimeReduction: { min: 5, max: 18 },
-    detectionSpeedImprovement: { min: 20, max: 63.75 },
-    monthlySavings: { min: 51960, max: 154865 },
-    annualSavings: { min: 623520, max: 1858374 },
-    score: 58,
-    assumptionsUsed: { costPerWafer: 550, monthlyVolume: 8000, excursionCost: 450000 },
-    breakdown: [
-      { label: 'Incremental yield revenue', value: 52800 },
-      { label: 'Scrap avoidance', value: 30492 },
-      { label: 'Downtime recovery', value: 23760 },
-      { label: 'Excursion avoidance', value: 47813 },
+test('severityScore — min(log10(severity)·1.5, 5), 0 for non-positive', () => {
+  assert.equal(severityScore(10000), 5) // capped
+  assert.equal(severityScore(1), 0) // log10(1) = 0
+  assert.equal(severityScore(0), 0)
+  assert.equal(Math.round(severityScore(2000) * 100) / 100, 4.95)
+})
+
+test('riskTier — 9–15 high, 4–8 medium, 1–3 low, 0 none', () => {
+  assert.equal(riskTier(15), 'high')
+  assert.equal(riskTier(9), 'high')
+  assert.equal(riskTier(8.99), 'medium')
+  assert.equal(riskTier(4), 'medium')
+  assert.equal(riskTier(1), 'low')
+  assert.equal(riskTier(0.5), 'none')
+  assert.equal(riskTier(0), 'none')
+})
+
+test('computeRisk — WET/Post-CMP (200mm), explicit wafer value 1 (matches the spreadsheet)', () => {
+  const result = computeRisk({
+    model: MODEL,
+    department: { id: 'dep-wet-cmp', technology: '200mm' },
+    occurrenceOptions: OCC,
+    detectionOptions: DET,
+    technologyPrices: TECH,
+    selection: {
+      departmentId: 'dep-wet-cmp',
+      waferValue: 1,
+      issues: [
+        { label: 'Brush Torque unstable (DBC/TBC)', severity: 2000, occurrence: 0.25, detection: 'system' },
+        { label: 'DIW flow pressure (LD/DBC/TBC/DTC)', severity: 5888, occurrence: 1, detection: 'unable' },
+        { label: 'Chem flow rate', severity: 10000, occurrence: 0.5, detection: 'unable' },
+        { label: 'Exhaust pressure (DBC/TBC/DTC)', severity: 1500, occurrence: 2, detection: 'system' },
+        { label: 'Vacuum level: MT1/2/3', severity: 1500, occurrence: 2, detection: 'partial' },
+        { label: 'N2 Flow rate', severity: 1000, occurrence: 4, detection: 'unable' },
+        { label: 'N2 Temp', severity: 1000, occurrence: 2, detection: 'system' },
+        { label: 'Other issue', severity: 2000, occurrence: 0.5, detection: 'system' },
+      ],
+    },
+  })
+
+  // [label, severityScore, occurrenceScore, detectionScore, riskScore, tier]
+  assert.deepStrictEqual(
+    result.issues.map((i) => [i.label, i.severityScore, i.occurrenceScore, i.detectionScore, i.riskScore, i.tier]),
+    [
+      ['Brush Torque unstable (DBC/TBC)', 4.95, 0.25, 1, 6.2, 'medium'],
+      ['DIW flow pressure (LD/DBC/TBC/DTC)', 5, 1, 5, 11, 'high'],
+      ['Chem flow rate', 5, 0.5, 5, 10.5, 'high'],
+      ['Exhaust pressure (DBC/TBC/DTC)', 4.76, 2, 1, 7.76, 'medium'],
+      ['Vacuum level: MT1/2/3', 4.76, 2, 3, 9.76, 'high'],
+      ['N2 Flow rate', 4.5, 4, 5, 13.5, 'high'],
+      ['N2 Temp', 4.5, 2, 1, 7.5, 'medium'],
+      ['Other issue', 4.95, 0.5, 1, 6.45, 'medium'],
     ],
-  })
+  )
+  assert.equal(result.totalAnnualWaferLoss, 24388) // Σ severity·occurrence (spreadsheet C33)
+  assert.equal(result.totalAnnualValueLoss, 24388) // × wafer value 1
+  assert.equal(result.pricePerWafer, 1)
+  assert.equal(result.priceSource, 'input')
+  assert.equal(result.overallRiskScore, 13.5)
+  assert.equal(result.overallTier, 'high')
+  assert.deepStrictEqual(result.tierCounts, { high: 4, medium: 4, low: 0 })
+  assert.equal(result.modelVersion, 'Risk & Yield Loss v1.0')
 })
 
-test('computeRoi — litho/EUV overrides + fa-novacell (most specific rules win)', () => {
-  const result = computeRoi({
-    model: MODEL, rules: RULES, assumption: FA_NOVA,
-    selection: { departmentId: 'dep-litho', processId: 'proc-euv', machineId: 'mac-euv-3600', currentYieldPct: 82, scrapRate: 3.2, defectRate: 0.6, downtime: 8 },
+test('computeRisk — WET/Chem (300mm), technology-average price when no wafer value', () => {
+  const result = computeRisk({
+    model: MODEL,
+    department: { id: 'dep-wet-chem', technology: '300mm' },
+    occurrenceOptions: OCC,
+    detectionOptions: DET,
+    technologyPrices: TECH,
+    selection: {
+      departmentId: 'dep-wet-chem',
+      issues: [
+        { label: 'Chemical concentration monitoring', severity: 1000, occurrence: 3, detection: 'partial' },
+        { label: 'Other issue', severity: 1000, occurrence: 5, detection: 'unable' },
+      ],
+    },
   })
-  assert.deepStrictEqual(result, {
-    modelId: 'sm-v1',
-    modelVersion: 'ROI Model v1.0',
-    yieldImprovement: { min: 3.6, max: 8.19 },
-    scrapReduction: { min: 8, max: 23.61 },
-    downtimeReduction: { min: 5, max: 19.8 },
-    detectionSpeedImprovement: { min: 52, max: 90 },
-    monthlySavings: { min: 157502, max: 371139 },
-    annualSavings: { min: 1890022, max: 4453664 },
-    score: 99,
-    assumptionsUsed: { costPerWafer: 610, monthlyVolume: 12000, excursionCost: 520000 },
-    breakdown: [
-      { label: 'Incremental yield revenue', value: 179852 },
-      { label: 'Scrap avoidance', value: 55312 },
-      { label: 'Downtime recovery', value: 57974 },
-      { label: 'Excursion avoidance', value: 78000 },
-    ],
-  })
+  assert.deepStrictEqual(result.issues.map((i) => [i.riskScore, i.tier]), [[10.5, 'high'], [14.5, 'high']])
+  assert.equal(result.totalAnnualWaferLoss, 8000) // 1000·3 + 1000·5
+  assert.equal(result.pricePerWafer, 2817)
+  assert.equal(result.priceSource, 'technology_average')
+  assert.equal(result.totalAnnualValueLoss, 8000 * 2817)
 })
 
-test('computeRoi — etch dept override (scrap reduction), fa-global', () => {
-  const result = computeRoi({
-    model: MODEL, rules: RULES, assumption: FA_GLOBAL,
-    selection: { departmentId: 'dep-etch', currentYieldPct: 85, scrapRate: 5, defectRate: 1.2, downtime: 10 },
+test('computeRisk — no department/technology ⇒ price unavailable, zero value loss', () => {
+  const result = computeRisk({
+    model: MODEL,
+    department: null,
+    occurrenceOptions: OCC,
+    detectionOptions: DET,
+    technologyPrices: TECH,
+    selection: { issues: [{ label: 'X', severity: 1000, occurrence: 2, detection: 'unable' }] },
   })
-  assert.deepStrictEqual(result, {
-    modelId: 'sm-v1',
-    modelVersion: 'ROI Model v1.0',
-    yieldImprovement: { min: 1.5, max: 4.1 },
-    scrapReduction: { min: 13.8, max: 40.36 },
-    downtimeReduction: { min: 5, max: 21.6 },
-    detectionSpeedImprovement: { min: 20, max: 69 },
-    monthlySavings: { min: 76160, max: 242176 },
-    annualSavings: { min: 913920, max: 2906114 },
-    score: 82,
-    assumptionsUsed: { costPerWafer: 550, monthlyVolume: 8000, excursionCost: 450000 },
-    breakdown: [
-      { label: 'Incremental yield revenue', value: 54120 },
-      { label: 'Scrap avoidance', value: 88786 },
-      { label: 'Downtime recovery', value: 47520 },
-      { label: 'Excursion avoidance', value: 51750 },
-    ],
-  })
+  assert.equal(result.priceSource, 'unavailable')
+  assert.equal(result.pricePerWafer, 0)
+  assert.equal(result.totalAnnualWaferLoss, 2000)
+  assert.equal(result.totalAnnualValueLoss, 0)
+  assert.equal(result.issues[0].riskScore, 11.5) // 4.5 + 2 + 5 — issues still scored without a price
 })
 
-test('computeRoi — no applicable rules ⇒ all-zero ranges and savings', () => {
-  const result = computeRoi({ model: MODEL, rules: [], assumption: FA_GLOBAL, selection: { currentYieldPct: 88, scrapRate: 3, defectRate: 0.5, downtime: 6 } })
-  assert.deepStrictEqual(result.yieldImprovement, { min: 0, max: 0 })
-  assert.deepStrictEqual(result.scrapReduction, { min: 0, max: 0 })
-  assert.deepStrictEqual(result.monthlySavings, { min: 0, max: 0 })
-  assert.deepStrictEqual(result.annualSavings, { min: 0, max: 0 })
-  assert.equal(result.score, 0)
-})
-
-test('toLimited — exposes only teaser fields, hides breakdown/monthly/assumptions', () => {
-  const full = computeRoi({ model: MODEL, rules: RULES, assumption: FA_GLOBAL, selection: { currentYieldPct: 88, scrapRate: 3, defectRate: 0.5, downtime: 6 } })
+test('toLimited — exposes only teaser fields, hides per-issue detail', () => {
+  const full = computeRisk({
+    model: MODEL,
+    department: { id: 'dep-wet-chem', technology: '300mm' },
+    occurrenceOptions: OCC,
+    detectionOptions: DET,
+    technologyPrices: TECH,
+    selection: { departmentId: 'dep-wet-chem', issues: [{ label: 'Other issue', severity: 1000, occurrence: 5, detection: 'unable' }] },
+  })
   assert.deepStrictEqual(toLimited(full), {
-    modelVersion: 'ROI Model v1.0',
-    yieldImprovement: { min: 1.5, max: 4 },
-    annualSavings: { min: 623520, max: 1858374 },
-    score: 58,
+    modelVersion: 'Risk & Yield Loss v1.0',
+    departmentId: 'dep-wet-chem',
+    technology: '300mm',
+    overallRiskScore: 14.5,
+    overallTier: 'high',
+    tierCounts: { high: 1, medium: 0, low: 0 },
+    totalAnnualValueLoss: 1000 * 5 * 2817,
+    currency: 'USD',
     limited: true,
   })
 })

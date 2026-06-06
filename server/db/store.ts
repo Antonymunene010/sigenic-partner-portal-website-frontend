@@ -77,7 +77,8 @@ export function createStore() {
     await transaction(async (client) => {
       const order = [
         'companies', 'sites', 'users', 'departments', 'processes', 'machines',
-        'scoring_models', 'scoring_rules', 'financial_assumptions', 'success_stories',
+        'scoring_models', 'calculator_issues', 'occurrence_options', 'detection_options',
+        'technology_prices', 'success_stories',
         'knowledge_articles', 'announcements', 'invoices', 'calculator_runs',
         'service_requests', 'audit_logs',
       ]
@@ -156,16 +157,11 @@ export function createStore() {
     return res.rows[0] ? rowToObj(res.rows[0]) : null
   }
 
-  async function getRulesForModel(modelId: string): Promise<any[]> {
-    return list('scoring_rules', { where: 'scoring_model_id = $1', params: [modelId] })
-  }
-
-  /** Resolve the most specific financial assumption: site → company → global. */
-  async function resolveAssumption(modelId: string, companyId: string | null | undefined, siteId: string | null | undefined): Promise<any> {
-    const rows = await list('financial_assumptions', { where: 'scoring_model_id = $1', params: [modelId] })
-    // Most specific wins: site (3) > company (2) > global (1).
-    const score = (a: any) => (a.siteId === siteId && siteId ? 3 : 0) + (a.companyId === companyId && companyId ? 2 : 0) + (!a.companyId && !a.siteId ? 1 : 0)
-    return rows.reduce<any>((best, a) => (best === null || score(a) > score(best) ? a : best), null)
+  /** Issue catalog for a model, optionally scoped to a department, ordered for display. */
+  async function getIssuesForModel(modelId: string, departmentId?: string | null): Promise<any[]> {
+    const where = departmentId ? 'scoring_model_id = $1 AND department_id = $2' : 'scoring_model_id = $1'
+    const params = departmentId ? [modelId, departmentId] : [modelId]
+    return list('calculator_issues', { where, params, order: 'sort_order ASC' })
   }
 
   /* ----- service requests ----- */
@@ -350,8 +346,7 @@ export function createStore() {
     createUser,
     // scoring
     getActiveScoringModel,
-    getRulesForModel,
-    resolveAssumption,
+    getIssuesForModel,
     // service requests
     ownerTeamFor,
     addServiceRequestMessage,

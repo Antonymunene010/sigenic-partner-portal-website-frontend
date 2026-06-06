@@ -1,7 +1,7 @@
 import type {
   AudienceType,
   CompanyType,
-  MetricType,
+  DetectionKey,
   ModelStatus,
   OnboardingStatus,
   OrgStatus,
@@ -9,6 +9,7 @@ import type {
   RequestSource,
   RequestStatus,
   RequestType,
+  RiskTier,
   Urgency,
   Visibility,
 } from './types'
@@ -69,16 +70,28 @@ export const REQUEST_SOURCE_LABEL: Record<RequestSource, string> = {
   dashboard: 'Dashboard',
 }
 
-export const METRIC_TYPES: { value: MetricType; label: string; unit: string }[] = [
-  { value: 'yield_improvement', label: 'Yield improvement', unit: '%' },
-  { value: 'scrap_reduction', label: 'Scrap reduction', unit: '%' },
-  { value: 'downtime_reduction', label: 'Downtime reduction', unit: '%' },
-  { value: 'detection_speed_improvement', label: 'Detection speed-up', unit: '%' },
+// Risk bands for the calculator (PRD: 9–15 High, 4–8 Medium, 1–3 Low).
+export const RISK_TIERS: { value: RiskTier; label: string; tone: Tone; range: string }[] = [
+  { value: 'high', label: 'High Risk', tone: 'danger', range: '9–15' },
+  { value: 'medium', label: 'Medium Risk', tone: 'warn', range: '4–8' },
+  { value: 'low', label: 'Low Risk', tone: 'success', range: '1–3' },
+  { value: 'none', label: '—', tone: 'neutral', range: '0' },
 ]
 
-export const METRIC_LABEL: Record<MetricType, string> = Object.fromEntries(
-  METRIC_TYPES.map((m) => [m.value, m.label]),
-) as Record<MetricType, string>
+export const RISK_TIER_TONE: Record<RiskTier, Tone> = Object.fromEntries(
+  RISK_TIERS.map((t) => [t.value, t.tone]),
+) as Record<RiskTier, Tone>
+
+export const RISK_TIER_LABEL: Record<RiskTier, string> = Object.fromEntries(
+  RISK_TIERS.map((t) => [t.value, t.label]),
+) as Record<RiskTier, string>
+
+// Fallback detection labels (the authoritative list comes from detection_options).
+export const DETECTION_LABEL: Record<DetectionKey, string> = {
+  unable: 'Unable to Detect',
+  partial: 'Able to detect but not integrated to system',
+  system: 'Able to detect by system',
+}
 
 export const COMPANY_TYPE_LABEL: Record<CompanyType, string> = {
   sigenic: 'Sigenic (internal)',

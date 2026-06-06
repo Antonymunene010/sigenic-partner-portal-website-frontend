@@ -20,11 +20,10 @@ export type Role =
 export type UserType = 'internal' | 'distributor' | 'customer'
 export type UserStatus = 'active' | 'inactive' | 'invited'
 
-export type MetricType =
-  | 'yield_improvement'
-  | 'scrap_reduction'
-  | 'downtime_reduction'
-  | 'detection_speed_improvement'
+/** Detection capability for a risk issue → fixed score (see detection_options). */
+export type DetectionKey = 'unable' | 'partial' | 'system'
+/** Risk band for an issue / overall (PRD calculator: 9–15 high, 4–8 medium, 1–3 low). */
+export type RiskTier = 'high' | 'medium' | 'low' | 'none'
 export type ModelStatus = 'draft' | 'active' | 'archived'
 
 export type RequestType = 'support' | 'demo' | 'onboarding' | 'consultation' | 'feature_request'
@@ -114,6 +113,8 @@ export interface Department {
   name: string
   code?: string
   description?: string
+  /** Wafer technology (e.g. '200mm' / '300mm') — drives the default wafer price. */
+  technology?: string | null
   active: boolean
   createdAt: string
   updatedAt: string
@@ -156,70 +157,144 @@ export interface ScoringModel {
   updatedAt: string
 }
 
-export interface ScoringRule {
+/**
+ * A configurable risk issue in the calculator questionnaire (one row per issue,
+ * scoped to a department/template within a scoring model). Mirrors the Excel
+ * "Risk Score & Yield Loss Simulator" issue rows. Defaults pre-fill the form.
+ */
+export interface CalcIssue {
   id: string
   scoringModelId: string
-  departmentId?: string | null
-  processId?: string | null
-  machineId?: string | null
-  metricType: MetricType
-  minValue: number
-  maxValue: number
-  weight: number
-  defaultValue?: number | null
-  notes?: string
+  departmentId: string
+  label: string
+  description?: string | null
+  /** Section 1 (severity): pcs of affected wafers per occurrence. */
+  defaultSeverity?: number | null
+  /** Section 2 (occurrence): events per year. */
+  defaultOccurrence?: number | null
+  /** Section 3 (detection): default detection capability. */
+  defaultDetection?: DetectionKey | null
+  sortOrder: number
+  active: boolean
   createdAt: string
   updatedAt: string
 }
 
-export interface FinancialAssumption {
+/** Configuration: occurrence option (per year) → risk-score contribution. */
+export interface OccurrenceOption {
   id: string
-  scoringModelId: string
-  companyId?: string | null
-  siteId?: string | null
-  costPerWaferDefault: number
-  excursionCostDefault: number
-  monthlyVolumeDefault: number
-  laborCostDefault?: number | null
+  value: number
+  score: number
+  label?: string | null
+  sortOrder: number
+  active: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+/** Configuration: detection level → risk-score contribution. */
+export interface DetectionOption {
+  id: string
+  key: DetectionKey
+  label: string
+  score: number
+  sortOrder: number
+  active: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+/** Configuration: wafer technology → price band (avg is the default per-wafer value). */
+export interface TechnologyPrice {
+  id: string
+  technology: string
+  label?: string | null
+  minPrice: number
+  avgPrice: number
+  maxPrice: number
   currency: string
+  active: boolean
   createdAt: string
   updatedAt: string
 }
 
-export interface Range {
-  min: number
-  max: number
+/** One issue's inputs in a calculation request. */
+export interface IssueInput {
+  issueId?: string
+  label?: string
+  severity?: number
+  occurrence?: number
+  detection?: DetectionKey
 }
 
-export interface RoiResult {
+/** One issue's computed risk breakdown + annual yield loss. */
+export interface IssueResult {
+  issueId: string | null
+  label: string
+  severity: number
+  occurrence: number
+  detection: DetectionKey | null
+  severityScore: number
+  occurrenceScore: number
+  detectionScore: number
+  riskScore: number
+  tier: RiskTier
+  annualWaferLoss: number
+  annualValueLoss: number
+}
+
+/**
+ * Full calculator output: per-issue risk scores + tiers and the aggregate annual
+ * yield loss (the "savings opportunity" headline). Replaces the old ROI model.
+ */
+export interface RiskResult {
   modelId: string | null
   modelVersion: string | null
-  yieldImprovement: Range
-  scrapReduction: Range
-  downtimeReduction: Range
-  detectionSpeedImprovement: Range
-  monthlySavings: Range
-  annualSavings: Range
-  score: number
-  assumptionsUsed: { costPerWafer: number; monthlyVolume: number; excursionCost: number }
-  breakdown: { label: string; value: number }[]
+  departmentId: string | null
+  technology: string | null
+  pricePerWafer: number
+  priceSource: 'input' | 'technology_average' | 'unavailable'
+  currency: string
+  issues: IssueResult[]
+  totalAnnualWaferLoss: number
+  totalAnnualValueLoss: number
+  overallRiskScore: number
+  overallTier: RiskTier
+  tierCounts: { high: number; medium: number; low: number }
   limited?: boolean
+}
+
+/** Trimmed result for the unauthenticated teaser — risk band + headline loss only. */
+export type LimitedRiskResult = Pick<
+  RiskResult,
+  'modelVersion' | 'departmentId' | 'technology' | 'overallRiskScore' | 'overallTier' | 'tierCounts' | 'totalAnnualValueLoss' | 'currency'
+> & { limited: true }
+
+/** Metadata served to the public calculator (no wafer prices — loss is computed server-side). */
+export interface PublicCalcConfig {
+  model: { id: string; versionName: string } | null
+  departments: { id: string; name: string; technology?: string | null }[]
+  issues: {
+    id: string
+    departmentId: string
+    label: string
+    defaultSeverity?: number | null
+    defaultOccurrence?: number | null
+    defaultDetection?: DetectionKey | null
+    sortOrder: number
+  }[]
+  occurrenceOptions: OccurrenceOption[]
+  detectionOptions: DetectionOption[]
 }
 
 export interface CalcSelection {
   companyId?: string
   siteId?: string
   departmentId?: string
-  processId?: string
   machineId?: string
-  currentYieldPct?: number
-  defectRate?: number
-  throughput?: number
-  scrapRate?: number
-  downtime?: number
-  costPerWafer?: number
-  monthlyVolume?: number
-  excursionCost?: number
+  /** Optional override for price per wafer; when omitted the technology average is used. */
+  waferValue?: number
+  issues?: IssueInput[]
 }
 
 export interface CalculatorRun {
@@ -230,23 +305,16 @@ export interface CalculatorRun {
   runType: 'public' | 'partner' | 'distributor' | 'internal'
   scoringModelId?: string | null
   departmentId?: string | null
-  processId?: string | null
   machineId?: string | null
-  currentYieldPct?: number | null
-  defectRate?: number | null
-  throughput?: number | null
-  scrapRate?: number | null
-  downtime?: number | null
-  costPerWafer?: number | null
-  monthlyVolume?: number | null
-  excursionCost?: number | null
-  estimatedYieldImprovementMin?: number | null
-  estimatedYieldImprovementMax?: number | null
-  estimatedMonthlySavingsMin?: number | null
-  estimatedMonthlySavingsMax?: number | null
-  estimatedAnnualSavingsMin?: number | null
-  estimatedAnnualSavingsMax?: number | null
-  outputSummaryJson?: RoiResult | null
+  technology?: string | null
+  waferValue?: number | null
+  priceSource?: string | null
+  overallRiskScore?: number | null
+  overallTier?: RiskTier | null
+  totalAnnualWaferLoss?: number | null
+  totalAnnualValueLoss?: number | null
+  inputsJson?: IssueInput[] | null
+  outputSummaryJson?: RiskResult | null
   createdAt: string
 }
 
@@ -387,8 +455,10 @@ export interface HydrateBundle {
   processes: Process[]
   machines: Machine[]
   scoringModels: ScoringModel[]
-  scoringRules: ScoringRule[]
-  financialAssumptions: FinancialAssumption[]
+  calculatorIssues: CalcIssue[]
+  occurrenceOptions: OccurrenceOption[]
+  detectionOptions: DetectionOption[]
+  technologyPrices: TechnologyPrice[]
   activeScoringModelId: string | null
   calculatorRuns: CalculatorRun[]
   serviceRequests: ServiceRequest[]

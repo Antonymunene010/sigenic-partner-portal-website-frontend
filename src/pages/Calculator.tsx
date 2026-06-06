@@ -5,42 +5,68 @@ import { useAuth } from '../lib/auth'
 import { useData, useLookups } from '../lib/data'
 import { can } from '../lib/permissions'
 import { calculate, createServiceRequest, downloadReportPdf } from '../lib/api'
-import { defaultSelection } from '../lib/calculator'
 import { PageHeader } from '../components/PageHeader'
-import { Card, Field, RangeBar, StatCard, EmptyState, NumberField, Spinner, useToast } from '../components/ui'
+import { Card, Field, StatCard, EmptyState, Spinner, useToast } from '../components/ui'
+import { Badge } from '../components/Badge'
+import { IssueQuestionnaire } from '../components/IssueQuestionnaire'
+import { RISK_TIERS, RISK_TIER_LABEL, RISK_TIER_TONE, DETECTION_LABEL } from '../lib/constants'
+import { defaultIssueInputs, type IssueValues } from '../lib/calculator'
 import { fmtUSD } from '../lib/format'
-import type { CalcSelection, RoiResult } from '../lib/types'
+import type { CalcSelection, DetectionKey, IssueInput, RiskResult } from '../lib/types'
 
 export default function Calculator() {
   const { user } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
-  const { departments, processes, machines, sites, refresh, ready } = useData()
+  const { departments, machines, sites, calculatorIssues, occurrenceOptions, detectionOptions, technologyPrices, activeScoringModelId, refresh, ready } = useData()
   const lookups = useLookups()
 
-  const [sel, setSel] = useState<CalcSelection>(() => ({ ...defaultSelection() }))
-  const [result, setResult] = useState<RoiResult | null>(null)
+  const [deptId, setDeptId] = useState<string>('')
+  const [machineId, setMachineId] = useState<string>('')
+  const [siteId, setSiteId] = useState<string>('')
+  const [waferValue, setWaferValue] = useState<number | undefined>(undefined)
+  const [inputs, setInputs] = useState<Record<string, IssueValues>>({})
+  const [result, setResult] = useState<RiskResult | null>(null)
   const [savedRunId, setSavedRunId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [requesting, setRequesting] = useState(false)
 
-  const procOptions = useMemo(() => processes.filter((p) => !sel.departmentId || p.departmentId === sel.departmentId), [processes, sel.departmentId])
-  const macOptions = useMemo(
-    () => machines.filter((m) => (!sel.departmentId || m.departmentId === sel.departmentId) && (!sel.processId || m.processId === sel.processId || !m.processId)),
-    [machines, sel.departmentId, sel.processId],
-  )
+  const issuesFor = (id: string) =>
+    calculatorIssues
+      .filter((i) => i.active && i.scoringModelId === activeScoringModelId && i.departmentId === id)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
 
-  const patch = (p: Partial<CalcSelection>) => setSel((s) => ({ ...s, ...p }))
+  const catalog = useMemo(() => issuesFor(deptId), [calculatorIssues, activeScoringModelId, deptId])
+  const machineOptions = useMemo(() => machines.filter((m) => m.departmentId === deptId), [machines, deptId])
+  const dept = departments.find((d) => d.id === deptId)
+  const techPrice = technologyPrices.find((t) => t.technology === dept?.technology)
+  const detName = (k: DetectionKey | null) => (k ? detectionOptions.find((d) => d.key === k)?.label ?? DETECTION_LABEL[k] : '—')
+
+  const selectDepartment = (id: string) => {
+    setDeptId(id)
+    setMachineId('')
+    setInputs(defaultIssueInputs(issuesFor(id)))
+    setResult(null)
+  }
+  const patchIssue = (id: string, patch: IssueValues) => setInputs((s) => ({ ...s, [id]: { ...s[id], ...patch } }))
+
+  const buildSelection = (): CalcSelection => ({
+    siteId: siteId || undefined,
+    departmentId: deptId || undefined,
+    machineId: machineId || undefined,
+    waferValue,
+    issues: catalog.map<IssueInput>((i) => ({ issueId: i.id, label: i.label, severity: inputs[i.id]?.severity, occurrence: inputs[i.id]?.occurrence, detection: inputs[i.id]?.detection })),
+  })
 
   const run = async (save: boolean) => {
-    if (!sel.departmentId) {
+    if (!deptId) {
       toast.push('Select a department first.', 'error')
       return
     }
     setBusy(true)
     try {
-      const res = await calculate(sel, { save })
+      const res = await calculate(buildSelection(), { save })
       setResult(res.result)
       if (res.run) {
         setSavedRunId(res.run.id)
@@ -62,15 +88,10 @@ export default function Calculator() {
         {
           estimateId: savedRunId ?? 'estimate',
           generatedAt: new Date().toISOString(),
-          context: {
-            site: lookups.siteName(sel.siteId),
-            department: lookups.departmentName(sel.departmentId),
-            process: lookups.processName(sel.processId),
-            machine: lookups.machineName(sel.machineId),
-          },
+          context: { site: lookups.siteName(siteId), department: lookups.departmentName(deptId), machine: machineId ? lookups.machineName(machineId) : '—', technology: dept?.technology ?? '—' },
           output: result,
         },
-        savedRunId ?? 'sigenic-estimate',
+        savedRunId ?? 'sigenic-risk-estimate',
       )
     } catch (e) {
       toast.push(e instanceof Error ? e.message : 'Download failed.', 'error')
@@ -80,17 +101,16 @@ export default function Calculator() {
   }
 
   const requestConsultation = async () => {
-    if (requesting) return
+    if (requesting || !result) return
     setRequesting(true)
     try {
       const r = await createServiceRequest({
         requestType: 'consultation',
-        title: `Consultation — ${lookups.departmentName(sel.departmentId)} / ${lookups.machineName(sel.machineId)}`,
-        description: `Calculator-driven consultation request. Estimated annual savings ${result ? `${fmtUSD(result.annualSavings.min)}–${fmtUSD(result.annualSavings.max)}` : ''}.`,
+        title: `Consultation — ${lookups.departmentName(deptId)}${machineId ? ` / ${lookups.machineName(machineId)}` : ''}`,
+        description: `Calculator-driven consultation. Overall risk ${result.overallRiskScore}/15 (${RISK_TIER_LABEL[result.overallTier]}); estimated annual yield loss ${fmtUSD(result.totalAnnualValueLoss)}.`,
         source: 'calculator_cta',
-        departmentId: sel.departmentId,
-        processId: sel.processId,
-        machineId: sel.machineId,
+        departmentId: deptId,
+        machineId: machineId || undefined,
         linkedCalculatorRunId: savedRunId ?? undefined,
       })
       toast.push('Consultation request sent to Sigenic.')
@@ -103,73 +123,59 @@ export default function Calculator() {
   }
 
   const canSave = can(user, 'save_calculator_result')
-
   if (!ready) return <Spinner />
 
   return (
     <div>
-      <PageHeader eyebrow="ROI Score Calculator" title="Estimate your savings" description="Configure your line and operating conditions to estimate yield, scrap, downtime and excursion impact under the active Sigenic scoring model." />
+      <PageHeader eyebrow="Risk Score & Yield Loss" title="Estimate your risk & yield loss" description="Pick a tool, score each known issue by severity, occurrence and detection, and see your risk bands and the annual yield loss at stake." />
 
       <div className="grid lg:grid-cols-2 gap-5">
         {/* Inputs */}
-        <Card title="Configuration">
+        <Card title="Questionnaire">
           <div className="grid sm:grid-cols-2 gap-4">
+            <Field label="Department / template">
+              <select className="select" value={deptId} onChange={(e) => selectDepartment(e.target.value)}>
+                <option value="">— select —</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}{d.technology ? ` · ${d.technology}` : ''}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Machine">
+              <select className="select" value={machineId} onChange={(e) => setMachineId(e.target.value)} disabled={!deptId}>
+                <option value="">— optional —</option>
+                {machineOptions.map((m) => (
+                  <option key={m.id} value={m.id}>{m.machineName}</option>
+                ))}
+              </select>
+            </Field>
             <Field label="Site / fab">
-              <select className="select" value={sel.siteId ?? ''} onChange={(e) => patch({ siteId: e.target.value || undefined })}>
+              <select className="select" value={siteId} onChange={(e) => setSiteId(e.target.value)}>
                 <option value="">— optional —</option>
                 {sites.map((s) => (
                   <option key={s.id} value={s.id}>{s.siteName}</option>
                 ))}
               </select>
             </Field>
-            <Field label="Department">
-              <select className="select" value={sel.departmentId ?? ''} onChange={(e) => patch({ departmentId: e.target.value || undefined, processId: undefined, machineId: undefined })}>
-                <option value="">— select —</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Process">
-              <select className="select" value={sel.processId ?? ''} onChange={(e) => patch({ processId: e.target.value || undefined, machineId: undefined })}>
-                <option value="">— optional —</option>
-                {procOptions.map((p) => (
-                  <option key={p.id} value={p.id}>{p.processName}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Machine">
-              <select className="select" value={sel.machineId ?? ''} onChange={(e) => patch({ machineId: e.target.value || undefined })}>
-                <option value="">— optional —</option>
-                {macOptions.map((m) => (
-                  <option key={m.id} value={m.id}>{m.machineName}</option>
-                ))}
-              </select>
+            <Field label="Wafer value ($)" hint={techPrice ? `Blank uses ${dept?.technology} average ${fmtUSD(techPrice.avgPrice)}` : dept?.technology ? `No price configured for ${dept.technology}` : 'Optional override'}>
+              <input className="input num" type="number" step="any" placeholder={techPrice ? String(techPrice.avgPrice) : ''} value={waferValue ?? ''} onChange={(e) => setWaferValue(e.target.value === '' ? undefined : Number(e.target.value))} />
             </Field>
           </div>
 
-          <div className="mt-5 stat-label">Operational inputs</div>
-          <div className="mt-2 grid sm:grid-cols-2 gap-4">
-            <NumberField label="Current yield" unit="%" value={sel.currentYieldPct} onChange={(n) => patch({ currentYieldPct: n })} />
-            <NumberField label="Defect rate" unit="%" value={sel.defectRate} onChange={(n) => patch({ defectRate: n })} />
-            <NumberField label="Throughput" unit="wph" value={sel.throughput} onChange={(n) => patch({ throughput: n })} />
-            <NumberField label="Scrap rate" unit="%" value={sel.scrapRate} onChange={(n) => patch({ scrapRate: n })} />
-            <NumberField label="Downtime" unit="%" value={sel.downtime} onChange={(n) => patch({ downtime: n })} />
-          </div>
-
-          <div className="mt-5 stat-label">Financial inputs</div>
-          <div className="mt-2 grid sm:grid-cols-2 gap-4">
-            <NumberField label="Cost / wafer" unit="$" value={sel.costPerWafer} onChange={(n) => patch({ costPerWafer: n })} />
-            <NumberField label="Monthly volume" unit="wafers" value={sel.monthlyVolume} onChange={(n) => patch({ monthlyVolume: n })} />
-            <NumberField label="Excursion cost" unit="$" value={sel.excursionCost} onChange={(n) => patch({ excursionCost: n })} />
-          </div>
+          {!deptId ? (
+            <p className="mt-5 text-sm text-muted dark:text-muted-dark">Select a department to load its issue checklist.</p>
+          ) : catalog.length === 0 ? (
+            <p className="mt-5 text-sm text-muted dark:text-muted-dark">No issues configured for this template yet.</p>
+          ) : (
+            <IssueQuestionnaire catalog={catalog} inputs={inputs} occurrenceOptions={occurrenceOptions} detectionOptions={detectionOptions} onPatch={patchIssue} />
+          )}
 
           <div className="mt-5 flex flex-wrap gap-2">
-            <button className="btn-accent" onClick={() => run(false)} disabled={busy}>
+            <button className="btn-accent" onClick={() => run(false)} disabled={busy || !deptId}>
               <CalcIcon size={15} /> {busy ? 'Calculating…' : 'Calculate'}
             </button>
             {canSave && (
-              <button className="btn-outline" onClick={() => run(true)} disabled={busy}>
+              <button className="btn-outline" onClick={() => run(true)} disabled={busy || !deptId}>
                 <Save size={15} /> Calculate & save
               </button>
             )}
@@ -180,33 +186,52 @@ export default function Calculator() {
         <div>
           {!result ? (
             <Card>
-              <EmptyState icon={<Sparkles size={28} />} title="Your estimate appears here" hint="Configure the line on the left and run the calculator to see yield, savings and detection ranges." />
+              <EmptyState icon={<Sparkles size={28} />} title="Your estimate appears here" hint="Score the issues on the left and run the calculator to see per-issue risk bands and the annual yield loss at stake." />
             </Card>
           ) : (
-            <Card title="Estimated impact" eyebrow={result.modelVersion ?? undefined}>
-              <div className="grid grid-cols-3 gap-3 mb-5">
-                <StatCard label="Sigenic score" value={`${result.score}`} accent />
-                <StatCard label="Annual savings" value={fmtUSD(result.annualSavings.min)} sub={`up to ${fmtUSD(result.annualSavings.max)}`} accent />
-                <StatCard label="Monthly savings" value={fmtUSD(result.monthlySavings.min)} sub={`up to ${fmtUSD(result.monthlySavings.max)}`} />
+            <Card title="Risk & yield-loss estimate" eyebrow={result.modelVersion ?? undefined}>
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <StatCard label="Overall risk" value={`${result.overallRiskScore} / 15`} sub={<Badge tone={RISK_TIER_TONE[result.overallTier]}>{RISK_TIER_LABEL[result.overallTier]}</Badge>} accent />
+                <StatCard label="Annual savings opportunity" value={fmtUSD(result.totalAnnualValueLoss)} sub="yield loss at stake" accent />
+                <StatCard label="Wafers at risk / yr" value={result.totalAnnualWaferLoss.toLocaleString()} />
+              </div>
+              <p className="text-xs text-muted dark:text-muted-dark mb-4">
+                Based on {fmtUSD(result.pricePerWafer)} / wafer{result.priceSource === 'technology_average' ? ` (${result.technology} average)` : result.priceSource === 'input' ? ' (your input)' : ''}.
+              </p>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-muted dark:text-muted-dark border-b border-line dark:border-line-dark">
+                      <th className="font-medium py-2 pr-2">Issue</th>
+                      <th className="font-medium py-2 px-2 text-right">Sev</th>
+                      <th className="font-medium py-2 px-2 text-right">Occ</th>
+                      <th className="font-medium py-2 px-2">Detection</th>
+                      <th className="font-medium py-2 px-2 text-right">Risk</th>
+                      <th className="font-medium py-2 pl-2">Band</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-hair">
+                    {result.issues.map((it, idx) => (
+                      <tr key={it.issueId ?? idx}>
+                        <td className="py-2 pr-2">{it.label}</td>
+                        <td className="py-2 px-2 text-right num">{it.severity ? it.severity.toLocaleString() : '—'}</td>
+                        <td className="py-2 px-2 text-right num">{it.occurrence || '—'}</td>
+                        <td className="py-2 px-2 text-muted dark:text-muted-dark">{detName(it.detection)}</td>
+                        <td className="py-2 px-2 text-right num font-medium">{it.riskScore}</td>
+                        <td className="py-2 pl-2">{it.tier === 'none' ? <span className="text-faint">—</span> : <Badge tone={RISK_TIER_TONE[it.tier]}>{RISK_TIER_LABEL[it.tier]}</Badge>}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
 
-              <div className="space-y-3">
-                <RangeBar label="Yield improvement" min={result.yieldImprovement.min} max={result.yieldImprovement.max} format={(n) => `${n}%`} />
-                <RangeBar label="Scrap reduction" min={result.scrapReduction.min} max={result.scrapReduction.max} format={(n) => `${n}%`} />
-                <RangeBar label="Downtime reduction" min={result.downtimeReduction.min} max={result.downtimeReduction.max} format={(n) => `${n}%`} />
-                <RangeBar label="Detection speed-up" min={result.detectionSpeedImprovement.min} max={result.detectionSpeedImprovement.max} format={(n) => `${n}%`} />
-              </div>
-
-              <div className="mt-5 pt-4 border-t border-line dark:border-line-dark">
-                <div className="stat-label mb-2">Monthly breakdown (upper bound)</div>
-                <ul className="space-y-1.5">
-                  {result.breakdown.map((b) => (
-                    <li key={b.label} className="flex items-center justify-between text-sm">
-                      <span className="text-muted dark:text-muted-dark">{b.label}</span>
-                      <span className="num font-medium">{fmtUSD(b.value)}</span>
-                    </li>
-                  ))}
-                </ul>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-4 text-xs text-muted dark:text-muted-dark">
+                {RISK_TIERS.filter((t) => t.value !== 'none').map((t) => (
+                  <span key={t.value} className="inline-flex items-center gap-1.5">
+                    <Badge tone={t.tone}>{t.label}</Badge> {t.range}
+                  </span>
+                ))}
               </div>
 
               <div className="mt-5 flex flex-wrap gap-2">

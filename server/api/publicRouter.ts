@@ -68,6 +68,9 @@ export function publicRouter(store: Store): Router {
   r.post('/public/requests', async (req, res) => {
     res.status(201).json({ item: await requestService.createPublicLead(store, req.body?.request) })
   })
+  r.get('/public/calculator-config', async (_req, res) => {
+    res.json(await calculatorService.publicConfig(store))
+  })
   r.post('/public/calculate', async (req, res) => {
     res.json(await calculatorService.publicCalculate(store, req.body?.selection))
   })

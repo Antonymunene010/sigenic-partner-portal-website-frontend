@@ -1,209 +1,176 @@
 /**
- * Configurable ROI scoring engine (PRD §7.5 + Appendix §4 "Scoring & ROI Configuration").
+ * Configurable risk-score & yield-loss engine.
  *
- * Driven entirely by admin-managed data — a scoring_model, its scoring_rules
- * (metric_type with min/max/weight) and the resolved financial_assumptions —
- * NOT hard-coded magic numbers. The output is a set of min/max ranges
- * (estimated_yield_improvement, estimated_monthly_savings, estimated_annual_savings)
- * exactly as required by the calculator_runs schema.
+ * Faithful re-implementation of the client's "Risk Score & Yield Loss Simulator"
+ * spreadsheet. For each issue in a department/template questionnaire the user
+ * supplies three inputs — severity (pcs of affected wafers), occurrence (events
+ * per year) and detection capability — and we derive:
  *
- * This is the single source of truth: the portal always computes ROI server-side
+ *   severityScore  = min(log10(severity) · 1.5, 5)        // Section 1, capped at 5
+ *   occurrenceScore = lookup(occurrence)                   // Section 2 (= value)
+ *   detectionScore  = lookup(detection)                    // Section 3 (5/3/1)
+ *   riskScore       = severityScore + occurrenceScore + detectionScore   // 0–15
+ *
+ * and the aggregate annual yield loss:
+ *
+ *   yieldLoss = Σ (severity · occurrence) · pricePerWafer
+ *
+ * where pricePerWafer is the explicit wafer value, else the technology average.
+ * Lookups (occurrence/detection scores, technology prices) are admin-managed data
+ * — the spreadsheet's "Configuration" tab — NOT hard-coded magic numbers.
+ *
+ * This is the single source of truth: the portal always computes server-side
  * (/api/calculate, /api/public/calculate); the client only seeds default inputs.
  */
-import type { CalcSelection, MetricType, RoiResult } from './types'
+import type { CalcSelection, DetectionKey, IssueResult, LimitedRiskResult, RiskResult, RiskTier } from './types'
 
-const METRICS: MetricType[] = ['yield_improvement', 'scrap_reduction', 'downtime_reduction', 'detection_speed_improvement']
+// Severity transform + risk-band thresholds — fixed in the spreadsheet formula.
+const SEVERITY_MULTIPLIER = 1.5
+const SEVERITY_CAP = 5
+const TIER_HIGH = 9 // 9–15 High, 4–8 Medium, 1–3 Low, 0 None
+const TIER_MEDIUM = 4
+const TIER_LOW = 1
 
-const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v))
 const num = (v: unknown, fallback = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : fallback)
+const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v))
+const round2 = (v: number): number => Math.round(v * 100) / 100
+const round0 = (v: number): number => Math.round(v)
 
-// Hard caps so a mis-configured rule cannot produce absurd percentages.
-const METRIC_CAP: Record<MetricType, number> = {
-  yield_improvement: 25,
-  scrap_reduction: 60,
-  downtime_reduction: 60,
-  detection_speed_improvement: 90,
+/** Map a total risk score (0–15) to its band. */
+export function riskTier(score: number): RiskTier {
+  if (score >= TIER_HIGH) return 'high'
+  if (score >= TIER_MEDIUM) return 'medium'
+  if (score >= TIER_LOW) return 'low'
+  return 'none'
 }
 
-/** A scoring rule as stored — accepts both camelCase (API) and snake_case (raw row) keys. */
-export interface CalcRule {
+/** Section-1 severity score: min(log10(severity)·1.5, 5); 0 for non-positive input. */
+export function severityScore(severity: number): number {
+  if (!(severity > 0)) return 0
+  return clamp(Math.log10(severity) * SEVERITY_MULTIPLIER, 0, SEVERITY_CAP)
+}
+
+/** A catalog issue as stored — accepts camelCase (API) or snake_case (raw row). */
+export interface CalcIssueRow {
   id?: string
-  metricType?: MetricType
-  metric_type?: MetricType
-  machineId?: string | null
-  machine_id?: string | null
-  processId?: string | null
-  process_id?: string | null
-  departmentId?: string | null
-  department_id?: string | null
-  minValue?: number
-  min_value?: number
-  maxValue?: number
-  max_value?: number
-  weight?: number
+  label?: string
+}
+/** Occurrence option — value (per year) → score (defaults to the value itself). */
+export interface OccurrenceRow {
+  value?: number
+  score?: number
+}
+/** Detection option — stable key → score. */
+export interface DetectionRow {
+  key?: string
+  score?: number
+}
+/** Technology price band — avg is the default per-wafer value. */
+export interface TechnologyRow {
+  technology?: string
+  avgPrice?: number
+  currency?: string
 }
 
-export interface CalcModel {
-  id?: string
-  versionName?: string
-  version_name?: string
-}
-
-export interface CalcAssumption {
-  costPerWaferDefault?: number
-  cost_per_wafer_default?: number
-  monthlyVolumeDefault?: number
-  monthly_volume_default?: number
-  excursionCostDefault?: number
-  excursion_cost_default?: number
-}
-
-/** Specificity of a rule against a selection. -1 = does not apply. */
-function ruleSpecificity(rule: CalcRule, sel: CalcSelection): number {
-  let score = 0
-  if (rule.machineId || rule.machine_id) {
-    const m = rule.machineId ?? rule.machine_id
-    if (m !== sel.machineId) return -1
-    score += 3
-  }
-  if (rule.processId || rule.process_id) {
-    const p = rule.processId ?? rule.process_id
-    if (p !== sel.processId) return -1
-    score += 2
-  }
-  if (rule.departmentId || rule.department_id) {
-    const d = rule.departmentId ?? rule.department_id
-    if (d !== sel.departmentId) return -1
-    score += 1
-  }
-  return score
-}
-
-/** Most specific applicable rule for a metric (machine > process > department > global). */
-function pickRule(rules: CalcRule[], metric: MetricType, sel: CalcSelection): CalcRule | null {
-  let best: CalcRule | null = null
-  let bestScore = -1
-  for (const r of rules) {
-    const mt = r.metricType ?? r.metric_type
-    if (mt !== metric) continue
-    const s = ruleSpecificity(r, sel)
-    if (s > bestScore) {
-      best = r
-      bestScore = s
-    }
-  }
-  return best
-}
-
-function metricRange(rules: CalcRule[], metric: MetricType, sel: CalcSelection, headroom: number): { min: number; max: number; ruleId: string | null } {
-  const rule = pickRule(rules, metric, sel)
-  if (!rule) return { min: 0, max: 0, ruleId: null }
-  const weight = clamp(num(rule.weight ?? 1, 1), 0.25, 2)
-  const lo = num(rule.minValue ?? rule.min_value)
-  const hi = num(rule.maxValue ?? rule.max_value)
-  const cap = METRIC_CAP[metric] ?? 100
-  // Weight scales the whole range; headroom (from operational inputs) lifts the
-  // upper bound only — the lower bound stays the conservative floor.
-  const min = clamp(lo * weight, 0, cap)
-  const max = clamp(hi * weight * headroom, min, cap)
-  return { min, max, ruleId: rule.id ?? null }
-}
-
-export interface ComputeRoiArgs {
-  model?: CalcModel | null
-  rules?: CalcRule[]
-  assumption?: CalcAssumption | null
+export interface ComputeRiskArgs {
+  model?: { id?: string; versionName?: string } | null
+  department?: { id?: string; technology?: string | null } | null
+  issues?: CalcIssueRow[]
+  occurrenceOptions?: OccurrenceRow[]
+  detectionOptions?: DetectionRow[]
+  technologyPrices?: TechnologyRow[]
   selection?: CalcSelection
 }
 
-export function computeRoi({ model, rules = [], assumption = {}, selection = {} }: ComputeRoiArgs): RoiResult {
-  const sel = selection
-  const a = assumption ?? {}
-  // Resolve financial inputs: explicit input → assumption default.
-  const costPerWafer = num(sel.costPerWafer, num(a.costPerWaferDefault ?? a.cost_per_wafer_default, 550))
-  const monthlyVolume = num(sel.monthlyVolume, num(a.monthlyVolumeDefault ?? a.monthly_volume_default, 8000))
-  const excursionCost = num(sel.excursionCost, num(a.excursionCostDefault ?? a.excursion_cost_default, 450000))
+export function computeRisk({
+  model,
+  department,
+  issues = [],
+  occurrenceOptions = [],
+  detectionOptions = [],
+  technologyPrices = [],
+  selection = {},
+}: ComputeRiskArgs): RiskResult {
+  // Lookups (admin-configurable). Occurrence score defaults to its own value.
+  const occMap = new Map<number, number>()
+  for (const o of occurrenceOptions) occMap.set(num(o.value), num(o.score, num(o.value)))
+  const occScoreFor = (v: number): number => (occMap.has(v) ? (occMap.get(v) as number) : 0)
+  const detMap = new Map<string, number>()
+  for (const d of detectionOptions) detMap.set(String(d.key), num(d.score))
+  const detScoreFor = (k: string): number => detMap.get(k) ?? 0
+  const labelById = new Map<string, string>()
+  for (const i of issues) if (i.id) labelById.set(i.id, i.label ?? '')
 
-  const currentYield = num(sel.currentYieldPct, 88)
-  const scrapRate = num(sel.scrapRate, 3)
-  const defectRate = num(sel.defectRate, 0.5)
-  const downtime = num(sel.downtime, 8)
-
-  // Operational headroom — worse current state ⇒ more upside (lifts the max bound).
-  const headroom: Record<MetricType, number> = {
-    yield_improvement: clamp(1 + (88 - currentYield) / 120, 0.7, 1.5),
-    scrap_reduction: clamp(1 + (scrapRate - 3) / 15 + defectRate / 10, 0.7, 1.5),
-    downtime_reduction: clamp(1 + (downtime - 6) / 20, 0.7, 1.5),
-    detection_speed_improvement: clamp(1 + defectRate / 8, 0.8, 1.4),
+  // Price per wafer: explicit input → technology average → unavailable.
+  const techKey = department?.technology ?? null
+  const tp = techKey ? technologyPrices.find((t) => t.technology === techKey) : null
+  const currency = tp?.currency ?? 'USD'
+  const inputWafer = num(selection.waferValue, NaN)
+  let pricePerWafer = 0
+  let priceSource: RiskResult['priceSource'] = 'unavailable'
+  if (Number.isFinite(inputWafer) && inputWafer > 0) {
+    pricePerWafer = inputWafer
+    priceSource = 'input'
+  } else if (tp) {
+    pricePerWafer = num(tp.avgPrice)
+    priceSource = 'technology_average'
   }
 
-  const ranges = {} as Record<MetricType, { min: number; max: number; ruleId: string | null }>
-  for (const metric of METRICS) ranges[metric] = metricRange(rules, metric, sel, headroom[metric])
-
-  const baselineSpend = costPerWafer * monthlyVolume
-
-  // Monthly savings for a given endpoint (lo = mins, hi = maxes).
-  const monthlyAt = (pick: (r: { min: number; max: number }) => number) => {
-    const yieldImp = pick(ranges.yield_improvement)
-    const scrapRed = pick(ranges.scrap_reduction)
-    const downRed = pick(ranges.downtime_reduction)
-    const detSpeed = pick(ranges.detection_speed_improvement)
-    const scrapSavings = (scrapRate / 100) * baselineSpend * (scrapRed / 100)
-    const yieldRevenue = (yieldImp / 100) * monthlyVolume * costPerWafer * 0.3
-    const downtimeSavings = (downtime / 100) * baselineSpend * (downRed / 100) * 0.5
-    const excursionAvoidance = (excursionCost / 6) * (detSpeed / 100)
+  let totalWaferRaw = 0
+  const issueResults: IssueResult[] = (selection.issues ?? []).map((inp) => {
+    const severity = num(inp.severity)
+    const occurrence = num(inp.occurrence)
+    const detection: DetectionKey | null = inp.detection ?? null
+    const rawSev = severityScore(severity)
+    const rawOcc = occScoreFor(occurrence)
+    const rawDet = detection ? detScoreFor(detection) : 0
+    const riskRaw = rawSev + rawOcc + rawDet
+    const waferLoss = severity * occurrence
+    totalWaferRaw += waferLoss
+    const label = inp.label || (inp.issueId && labelById.get(inp.issueId)) || 'Issue'
     return {
-      total: scrapSavings + yieldRevenue + downtimeSavings + excursionAvoidance,
-      scrapSavings,
-      yieldRevenue,
-      downtimeSavings,
-      excursionAvoidance,
+      issueId: inp.issueId ?? null,
+      label,
+      severity,
+      occurrence,
+      detection,
+      severityScore: round2(rawSev),
+      occurrenceScore: round2(rawOcc),
+      detectionScore: round2(rawDet),
+      riskScore: round2(riskRaw),
+      tier: riskTier(round2(riskRaw)),
+      annualWaferLoss: round0(waferLoss),
+      annualValueLoss: round0(waferLoss * pricePerWafer),
     }
+  })
+
+  // One pass: highest risk score + per-band counts.
+  let overallRiskScore = 0
+  const tierCounts = { high: 0, medium: 0, low: 0 }
+  for (const r of issueResults) {
+    if (r.riskScore > overallRiskScore) overallRiskScore = r.riskScore
+    if (r.tier !== 'none') tierCounts[r.tier]++
   }
-
-  const lo = monthlyAt((r) => r.min)
-  const hi = monthlyAt((r) => r.max)
-
-  const mid = (r: { min: number; max: number }) => (r.min + r.max) / 2
-  const score = clamp(
-    Math.round(
-      mid(ranges.yield_improvement) * 5 +
-        mid(ranges.scrap_reduction) * 1.1 +
-        mid(ranges.downtime_reduction) * 1.1 +
-        mid(ranges.detection_speed_improvement) * 0.35 +
-        (currentYield < 85 ? 6 : 0) +
-        (scrapRate > 3 ? 4 : 0) +
-        (downtime > 6 ? 4 : 0),
-    ),
-    0,
-    100,
-  )
-
-  const round = (v: number) => Math.round(v)
-  const round2 = (v: number) => Math.round(v * 100) / 100
 
   return {
     modelId: model?.id ?? null,
-    modelVersion: model?.versionName ?? model?.version_name ?? null,
-    yieldImprovement: { min: round2(ranges.yield_improvement.min), max: round2(ranges.yield_improvement.max) },
-    scrapReduction: { min: round2(ranges.scrap_reduction.min), max: round2(ranges.scrap_reduction.max) },
-    downtimeReduction: { min: round2(ranges.downtime_reduction.min), max: round2(ranges.downtime_reduction.max) },
-    detectionSpeedImprovement: { min: round2(ranges.detection_speed_improvement.min), max: round2(ranges.detection_speed_improvement.max) },
-    monthlySavings: { min: round(lo.total), max: round(hi.total) },
-    annualSavings: { min: round(lo.total * 12), max: round(hi.total * 12) },
-    score,
-    assumptionsUsed: { costPerWafer, monthlyVolume, excursionCost },
-    breakdown: [
-      { label: 'Incremental yield revenue', value: round(hi.yieldRevenue) },
-      { label: 'Scrap avoidance', value: round(hi.scrapSavings) },
-      { label: 'Downtime recovery', value: round(hi.downtimeSavings) },
-      { label: 'Excursion avoidance', value: round(hi.excursionAvoidance) },
-    ],
+    modelVersion: model?.versionName ?? null,
+    departmentId: department?.id ?? selection.departmentId ?? null,
+    technology: techKey,
+    pricePerWafer: round2(pricePerWafer),
+    priceSource,
+    currency,
+    issues: issueResults,
+    totalAnnualWaferLoss: round0(totalWaferRaw),
+    totalAnnualValueLoss: round0(totalWaferRaw * pricePerWafer),
+    overallRiskScore,
+    overallTier: riskTier(overallRiskScore),
+    tierCounts,
   }
 }
 
 /**
- * Map a computeRoi() result + selection into a calculator_runs row payload
+ * Map a computeRisk() result + selection into a calculator_runs row payload
  * (snake_case columns). `runType` and ownership are supplied by the caller.
  */
 export function toCalculatorRun({
@@ -213,10 +180,10 @@ export function toCalculatorRun({
   model,
   ids = {},
 }: {
-  result: RoiResult
+  result: RiskResult
   selection: CalcSelection
   runType: string
-  model?: CalcModel | null
+  model?: { id?: string } | null
   ids?: { companyId?: string | null; siteId?: string | null; userId?: string | null }
 }) {
   return {
@@ -224,35 +191,32 @@ export function toCalculatorRun({
     site_id: ids.siteId ?? null,
     user_id: ids.userId ?? null,
     run_type: runType,
-    scoring_model_id: model?.id ?? null,
+    scoring_model_id: model?.id ?? result.modelId ?? null,
     department_id: selection.departmentId ?? null,
-    process_id: selection.processId ?? null,
     machine_id: selection.machineId ?? null,
-    current_yield_pct: selection.currentYieldPct ?? null,
-    defect_rate: selection.defectRate ?? null,
-    throughput: selection.throughput ?? null,
-    scrap_rate: selection.scrapRate ?? null,
-    downtime: selection.downtime ?? null,
-    cost_per_wafer: result.assumptionsUsed.costPerWafer,
-    monthly_volume: result.assumptionsUsed.monthlyVolume,
-    excursion_cost: result.assumptionsUsed.excursionCost,
-    estimated_yield_improvement_min: result.yieldImprovement.min,
-    estimated_yield_improvement_max: result.yieldImprovement.max,
-    estimated_monthly_savings_min: result.monthlySavings.min,
-    estimated_monthly_savings_max: result.monthlySavings.max,
-    estimated_annual_savings_min: result.annualSavings.min,
-    estimated_annual_savings_max: result.annualSavings.max,
+    technology: result.technology,
+    wafer_value: result.pricePerWafer,
+    price_source: result.priceSource,
+    overall_risk_score: result.overallRiskScore,
+    overall_tier: result.overallTier,
+    total_annual_wafer_loss: result.totalAnnualWaferLoss,
+    total_annual_value_loss: result.totalAnnualValueLoss,
+    inputs_json: selection.issues ?? [],
     output_summary_json: result,
   }
 }
 
-/** Public/limited output — hides the breakdown and exact figures (PRD: public sees a teaser). */
-export function toLimited(result: RoiResult) {
+/** Public/limited output — hides per-issue detail, keeps the risk band + headline loss. */
+export function toLimited(result: RiskResult): LimitedRiskResult {
   return {
     modelVersion: result.modelVersion,
-    yieldImprovement: result.yieldImprovement,
-    annualSavings: result.annualSavings,
-    score: result.score,
+    departmentId: result.departmentId,
+    technology: result.technology,
+    overallRiskScore: result.overallRiskScore,
+    overallTier: result.overallTier,
+    tierCounts: result.tierCounts,
+    totalAnnualValueLoss: result.totalAnnualValueLoss,
+    currency: result.currency,
     limited: true,
   }
 }

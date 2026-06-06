@@ -60,33 +60,6 @@ export function StatCard({
   )
 }
 
-/* ---------- RangeBar (min/max ROI ranges) ---------- */
-export function RangeBar({
-  label,
-  min,
-  max,
-  format = (n: number) => String(n),
-}: {
-  label: ReactNode
-  min: number
-  max: number
-  format?: (n: number) => string
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-muted dark:text-muted-dark">{label}</span>
-        <span className="num font-medium text-emphasis">
-          {format(min)} – {format(max)}
-        </span>
-      </div>
-      <div className="h-1.5 rounded-full bg-raised dark:bg-raised-dark overflow-hidden">
-        <div className="h-full bg-gold-gradient rounded-full" style={{ width: '100%' }} />
-      </div>
-    </div>
-  )
-}
-
 /* ---------- EmptyState ---------- */
 export function EmptyState({ icon, title, hint, action }: { icon?: ReactNode; title: ReactNode; hint?: ReactNode; action?: ReactNode }) {
   return (

@@ -59,8 +59,8 @@ function PortalDashboard() {
         <StatCard label="Open requests" value={openReqs.length} icon={<Inbox size={15} />} />
         <StatCard label="Calculator runs" value={calculatorRuns.length} icon={<Calculator size={15} />} />
         <StatCard
-          label="Est. annual savings"
-          value={latestRun?.estimatedAnnualSavingsMax ? fmtUSD(latestRun.estimatedAnnualSavingsMax) : '—'}
+          label="Annual savings opportunity"
+          value={latestRun?.totalAnnualValueLoss ? fmtUSD(latestRun.totalAnnualValueLoss) : '—'}
           accent
           icon={<TrendingUp size={15} />}
         />
@@ -155,7 +155,7 @@ function InternalDashboard() {
 
       <div className="grid sm:grid-cols-4 gap-3 mt-5">
         <QuickLink to="/app/admin/companies" icon={<Building2 size={16} />} label="Partners" hint="Companies & sites" />
-        <QuickLink to="/app/admin/scoring" icon={<Calculator size={16} />} label="Scoring" hint="Models & rules" />
+        <QuickLink to="/app/admin/scoring" icon={<Calculator size={16} />} label="Scoring" hint="Issues & config" />
         <QuickLink to="/app/admin/master-data" icon={<BookOpen size={16} />} label="Master data" hint="Machines & processes" />
         <QuickLink to="/app/admin/analytics" icon={<TrendingUp size={16} />} label="Analytics" hint="Usage & GTM" />
       </div>

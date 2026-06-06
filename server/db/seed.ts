@@ -130,64 +130,90 @@ export const SEED = {
   ],
 
   /* ---------- master data: departments → processes → machines ---------- */
+  // Departments = the Risk & Yield Loss Simulator templates (one per spreadsheet
+  // sheet). `technology` drives the default per-wafer price.
   departments: [
-    { id: 'dep-litho', name: 'Lithography', code: 'LITHO', description: 'Pattern transfer onto the wafer.' },
-    { id: 'dep-etch', name: 'Etch', code: 'ETCH', description: 'Selective material removal.' },
-    { id: 'dep-cmp', name: 'CMP', code: 'CMP', description: 'Chemical-mechanical planarisation.' },
-    { id: 'dep-depo', name: 'Deposition', code: 'DEPO', description: 'Thin-film deposition (ALD/CVD/PVD).' },
-    { id: 'dep-metro', name: 'Metrology & Inspection', code: 'METRO', description: 'Measurement, overlay and defect inspection.' },
+    { id: 'dep-wet-cmp', name: 'WET — Post CMP Clean', code: 'WET-CMP', description: 'WET single-wafer process — post-CMP clean (AS2000 or equivalent).', technology: '200mm' },
+    { id: 'dep-litho-scanner', name: 'Litho — Scanner', code: 'LITHO', description: 'Lithography scanner / stepper line with laminar cap pump.', technology: '200mm' },
+    { id: 'dep-wet-chem', name: 'WET — Chem Concentration', code: 'WET-CHEM', description: 'WET single-wafer process — chemical concentration monitoring (LAM EOS or equivalent).', technology: '300mm' },
+    { id: 'dep-implant', name: 'IMPLANT — Aligner', code: 'IMPLANT', description: 'Ion implant single-wafer process — aligner (Axcelis VIISion).', technology: '200mm' },
+    { id: 'dep-cvd', name: 'CVD / PVD / ETCH', code: 'CVD-PVD-ETCH', description: 'CVD/PVD/ETCH chambers (AMAT Producer / Centura).', technology: '200mm' },
   ],
 
-  processes: [
-    { id: 'proc-euv', department_id: 'dep-litho', process_name: 'EUV Patterning', process_code: 'EUV' },
-    { id: 'proc-duv', department_id: 'dep-litho', process_name: 'DUV Immersion', process_code: 'DUVi' },
-    { id: 'proc-plasma-etch', department_id: 'dep-etch', process_name: 'Plasma Etch', process_code: 'PE' },
-    { id: 'proc-ale', department_id: 'dep-etch', process_name: 'Atomic Layer Etch', process_code: 'ALE' },
-    { id: 'proc-oxide-cmp', department_id: 'dep-cmp', process_name: 'Oxide CMP', process_code: 'OXCMP' },
-    { id: 'proc-ald', department_id: 'dep-depo', process_name: 'Atomic Layer Deposition', process_code: 'ALD' },
-    { id: 'proc-pecvd', department_id: 'dep-depo', process_name: 'PECVD', process_code: 'PECVD' },
-    { id: 'proc-overlay', department_id: 'dep-metro', process_name: 'Overlay Metrology', process_code: 'OVL' },
-    { id: 'proc-defect', department_id: 'dep-metro', process_name: 'Defect Inspection', process_code: 'DEF' },
-  ],
+  // The simulator is keyed by department + machine; processes are unused (the
+  // taxonomy comes straight from the spreadsheet's sheets).
+  processes: [],
 
   machines: [
-    { id: 'mac-euv-3600', department_id: 'dep-litho', process_id: 'proc-euv', machine_name: 'EUV Scanner NXE-3600', machine_code: 'NXE3600', machine_category: 'Scanner', vendor: 'ASML', model: 'NXE:3600D' },
-    { id: 'mac-duv-2050', department_id: 'dep-litho', process_id: 'proc-duv', machine_name: 'DUV Immersion 2050i', machine_code: 'NXT2050', machine_category: 'Scanner', vendor: 'ASML', model: 'NXT:2050i' },
-    { id: 'mac-etch-pri', department_id: 'dep-etch', process_id: 'proc-plasma-etch', machine_name: 'Centura Plasma Etch', machine_code: 'CENT-ETCH', machine_category: 'Etcher', vendor: 'Applied Materials', model: 'Centura' },
-    { id: 'mac-ale-x', department_id: 'dep-etch', process_id: 'proc-ale', machine_name: 'Kiyo ALE', machine_code: 'KIYO', machine_category: 'Etcher', vendor: 'Lam Research', model: 'Kiyo' },
-    { id: 'mac-cmp-reflexion', department_id: 'dep-cmp', process_id: 'proc-oxide-cmp', machine_name: 'Reflexion CMP', machine_code: 'REFLEX', machine_category: 'Polisher', vendor: 'Applied Materials', model: 'Reflexion LK' },
-    { id: 'mac-ald-pulsar', department_id: 'dep-depo', process_id: 'proc-ald', machine_name: 'Pulsar ALD', machine_code: 'PULSAR', machine_category: 'Deposition', vendor: 'ASM', model: 'Pulsar' },
-    { id: 'mac-pecvd-producer', department_id: 'dep-depo', process_id: 'proc-pecvd', machine_name: 'Producer PECVD', machine_code: 'PROD-CVD', machine_category: 'Deposition', vendor: 'Applied Materials', model: 'Producer GT' },
-    { id: 'mac-overlay-yieldstar', department_id: 'dep-metro', process_id: 'proc-overlay', machine_name: 'YieldStar Overlay', machine_code: 'YSTAR', machine_category: 'Metrology', vendor: 'ASML', model: 'YieldStar 1385' },
-    { id: 'mac-defect-2935', department_id: 'dep-metro', process_id: 'proc-defect', machine_name: 'Defect Inspector 2935', machine_code: 'INS2935', machine_category: 'Inspection', vendor: 'KLA', model: '2935' },
+    { id: 'mac-as2000', department_id: 'dep-wet-cmp', machine_name: 'AS2000', machine_code: 'AS2000', machine_category: 'WET single wafer', model: 'AS2000 or equivalent' },
+    { id: 'mac-litho-scanner', department_id: 'dep-litho-scanner', machine_name: 'Scanner / Stepper', machine_code: 'SCANNER', machine_category: 'Litho', model: 'Scanner, Stepper' },
+    { id: 'mac-litho-pump', department_id: 'dep-litho-scanner', machine_name: 'Laminar Cap Pump', machine_code: 'LCP', machine_category: 'Auxiliary', model: 'Laminar cap pump' },
+    { id: 'mac-lam-eos', department_id: 'dep-wet-chem', machine_name: 'LAM EOS', machine_code: 'LAMEOS', machine_category: 'WET single wafer', vendor: 'Lam Research', model: 'EOS or equivalent' },
+    { id: 'mac-viision', department_id: 'dep-implant', machine_name: 'Axcelis VIISion', machine_code: 'VIISION', machine_category: 'Implant aligner', vendor: 'Axcelis', model: 'VIISion' },
+    { id: 'mac-amat-producer', department_id: 'dep-cvd', machine_name: 'AMAT Producer', machine_code: 'PRODUCER', machine_category: 'CVD/PVD/ETCH', vendor: 'Applied Materials', model: 'Producer (200mm) or equivalent' },
+    { id: 'mac-amat-centura', department_id: 'dep-cvd', machine_name: 'AMAT Centura', machine_code: 'CENTURA', machine_category: 'CVD/PVD/ETCH', vendor: 'Applied Materials', model: 'Centura (200mm) or equivalent' },
   ],
 
-  /* ---------- scoring model + rules + financial assumptions ---------- */
+  /* ---------- scoring model + issue catalog + configuration ---------- */
   scoring_models: [
-    { id: 'sm-v1', version_name: 'ROI Model v1.0', description: 'Baseline yield/scrap/downtime/detection model for the Sigenic Care calculator.', status: 'active', effective_from: '2026-01-01', created_by: 'u-priya' },
-    { id: 'sm-v2', version_name: 'ROI Model v2.0 (draft)', description: 'Draft revision with higher EUV detection weighting. Not yet active.', status: 'draft', effective_from: '2026-07-01', created_by: 'u-priya' },
+    { id: 'sm-v1', version_name: 'Risk & Yield Loss v1.0', description: 'Risk score + annual yield-loss model per the Sigenic Risk Score & Yield Loss Simulator.', status: 'active', effective_from: '2026-01-01', created_by: 'u-priya' },
+    { id: 'sm-v2', version_name: 'Risk & Yield Loss v2.0 (draft)', description: 'Draft revision of the issue catalog. Not yet active.', status: 'draft', effective_from: '2026-07-01', created_by: 'u-priya' },
   ],
 
-  // Rules: global baselines per metric + a few department/machine overrides.
-  // min_value / max_value are improvement percentages; weight scales contribution.
-  scoring_rules: [
-    // global baselines (no department/process/machine = applies everywhere)
-    { id: 'sr-g-yield', scoring_model_id: 'sm-v1', metric_type: 'yield_improvement', min_value: 1.5, max_value: 4.0, weight: 1.0, default_value: 2.5, notes: 'Global yield improvement baseline.' },
-    { id: 'sr-g-scrap', scoring_model_id: 'sm-v1', metric_type: 'scrap_reduction', min_value: 8, max_value: 22, weight: 1.0, default_value: 15, notes: 'Global scrap reduction baseline.' },
-    { id: 'sr-g-down', scoring_model_id: 'sm-v1', metric_type: 'downtime_reduction', min_value: 5, max_value: 18, weight: 1.0, default_value: 11, notes: 'Global unplanned downtime reduction baseline.' },
-    { id: 'sr-g-detect', scoring_model_id: 'sm-v1', metric_type: 'detection_speed_improvement', min_value: 20, max_value: 60, weight: 1.0, default_value: 40, notes: 'Global excursion detection speed-up baseline.' },
-    // lithography / EUV overrides — higher yield + detection headroom
-    { id: 'sr-litho-yield', scoring_model_id: 'sm-v1', department_id: 'dep-litho', metric_type: 'yield_improvement', min_value: 3.0, max_value: 6.5, weight: 1.2, default_value: 4.5, notes: 'EUV/DUV overlay control yields larger uplift.' },
-    { id: 'sr-euv-detect', scoring_model_id: 'sm-v1', department_id: 'dep-litho', machine_id: 'mac-euv-3600', metric_type: 'detection_speed_improvement', min_value: 40, max_value: 75, weight: 1.3, default_value: 58, notes: 'EUV excursion detection accelerated most.' },
-    // etch overrides — strong scrap reduction
-    { id: 'sr-etch-scrap', scoring_model_id: 'sm-v1', department_id: 'dep-etch', metric_type: 'scrap_reduction', min_value: 12, max_value: 28, weight: 1.15, default_value: 20, notes: 'Plasma etch variability reduction.' },
-    // metrology overrides — detection + downtime
-    { id: 'sr-metro-down', scoring_model_id: 'sm-v1', department_id: 'dep-metro', metric_type: 'downtime_reduction', min_value: 8, max_value: 24, weight: 1.1, default_value: 16, notes: 'Faster root-cause on inspection tools.' },
+  // Issue catalog — the questionnaire rows per department/template (sm-v1).
+  // Defaults pre-fill the calculator with the spreadsheet's example inputs.
+  calculator_issues: [
+    // WET — Post CMP Clean (200mm)
+    { id: 'iss-wetcmp-1', scoring_model_id: 'sm-v1', department_id: 'dep-wet-cmp', label: 'Brush Torque unstable (DBC/TBC)', default_severity: 2000, default_occurrence: 0.25, default_detection: 'system', sort_order: 1 },
+    { id: 'iss-wetcmp-2', scoring_model_id: 'sm-v1', department_id: 'dep-wet-cmp', label: 'DIW flow pressure (LD/DBC/TBC/DTC)', default_severity: 5888, default_occurrence: 1, default_detection: 'unable', sort_order: 2 },
+    { id: 'iss-wetcmp-3', scoring_model_id: 'sm-v1', department_id: 'dep-wet-cmp', label: 'Chem flow rate', default_severity: 10000, default_occurrence: 0.5, default_detection: 'unable', sort_order: 3 },
+    { id: 'iss-wetcmp-4', scoring_model_id: 'sm-v1', department_id: 'dep-wet-cmp', label: 'Exhaust pressure (DBC/TBC/DTC)', default_severity: 1500, default_occurrence: 2, default_detection: 'system', sort_order: 4 },
+    { id: 'iss-wetcmp-5', scoring_model_id: 'sm-v1', department_id: 'dep-wet-cmp', label: 'Vacuum level: MT1/2/3', default_severity: 1500, default_occurrence: 2, default_detection: 'partial', sort_order: 5 },
+    { id: 'iss-wetcmp-6', scoring_model_id: 'sm-v1', department_id: 'dep-wet-cmp', label: 'N2 Flow rate', default_severity: 1000, default_occurrence: 4, default_detection: 'unable', sort_order: 6 },
+    { id: 'iss-wetcmp-7', scoring_model_id: 'sm-v1', department_id: 'dep-wet-cmp', label: 'N2 Temp', default_severity: 1000, default_occurrence: 2, default_detection: 'system', sort_order: 7 },
+    { id: 'iss-wetcmp-8', scoring_model_id: 'sm-v1', department_id: 'dep-wet-cmp', label: 'Other issue', default_severity: 2000, default_occurrence: 0.5, default_detection: 'system', sort_order: 8 },
+    // Litho — Scanner (200mm)
+    { id: 'iss-litho-1', scoring_model_id: 'sm-v1', department_id: 'dep-litho-scanner', label: 'Light leak', default_severity: 2342, default_occurrence: 0.25, default_detection: 'unable', sort_order: 1 },
+    { id: 'iss-litho-2', scoring_model_id: 'sm-v1', department_id: 'dep-litho-scanner', label: 'Other issue', sort_order: 2 },
+    // WET — Chem Concentration (300mm)
+    { id: 'iss-wetchem-1', scoring_model_id: 'sm-v1', department_id: 'dep-wet-chem', label: 'Chemical concentration monitoring', default_severity: 1000, default_occurrence: 3, default_detection: 'partial', sort_order: 1 },
+    { id: 'iss-wetchem-2', scoring_model_id: 'sm-v1', department_id: 'dep-wet-chem', label: 'Other issue', default_severity: 1000, default_occurrence: 5, default_detection: 'unable', sort_order: 2 },
+    // IMPLANT — Aligner (200mm)
+    { id: 'iss-implant-1', scoring_model_id: 'sm-v1', department_id: 'dep-implant', label: 'Aligner scratching wafer edge', default_detection: 'system', sort_order: 1 },
+    { id: 'iss-implant-2', scoring_model_id: 'sm-v1', department_id: 'dep-implant', label: 'Other issue', default_detection: 'system', sort_order: 2 },
+    // CVD / PVD / ETCH (200mm)
+    { id: 'iss-cvd-1', scoring_model_id: 'sm-v1', department_id: 'dep-cvd', label: 'Transfer Module: FI Robot unstable issue', default_occurrence: 0.25, default_detection: 'system', sort_order: 1 },
+    { id: 'iss-cvd-2', scoring_model_id: 'sm-v1', department_id: 'dep-cvd', label: 'Transfer Module (Vacuum): Buffer robot / VTM leveling issue', default_occurrence: 4, default_detection: 'partial', sort_order: 2 },
+    { id: 'iss-cvd-3', scoring_model_id: 'sm-v1', department_id: 'dep-cvd', label: 'FFU: Hepa pressure', sort_order: 3 },
+    { id: 'iss-cvd-4', scoring_model_id: 'sm-v1', department_id: 'dep-cvd', label: 'Load Lock: Platform leveling', sort_order: 4 },
+    { id: 'iss-cvd-5', scoring_model_id: 'sm-v1', department_id: 'dep-cvd', label: 'Load Lock: Mapping (Lose Step)', sort_order: 5 },
+    { id: 'iss-cvd-6', scoring_model_id: 'sm-v1', department_id: 'dep-cvd', label: 'Chamber: Lifter pin vibration', default_detection: 'partial', sort_order: 6 },
+    { id: 'iss-cvd-7', scoring_model_id: 'sm-v1', department_id: 'dep-cvd', label: 'Chamber: Heater vibration', default_detection: 'unable', sort_order: 7 },
+    { id: 'iss-cvd-8', scoring_model_id: 'sm-v1', department_id: 'dep-cvd', label: 'Chiller: PCW flow rate', default_detection: 'system', sort_order: 8 },
   ],
 
-  financial_assumptions: [
-    { id: 'fa-global', scoring_model_id: 'sm-v1', cost_per_wafer_default: 550, excursion_cost_default: 450000, monthly_volume_default: 8000, labor_cost_default: 65, currency: 'USD' },
-    { id: 'fa-novacell', scoring_model_id: 'sm-v1', company_id: 'co-novacell', cost_per_wafer_default: 610, excursion_cost_default: 520000, monthly_volume_default: 12000, labor_cost_default: 70, currency: 'USD' },
+  // Configuration tab: occurrence (events/yr) → score (identity by default).
+  occurrence_options: [
+    { id: 'occ-025', value: 0.25, score: 0.25, label: '0.25 / yr', sort_order: 1 },
+    { id: 'occ-05', value: 0.5, score: 0.5, label: '0.5 / yr', sort_order: 2 },
+    { id: 'occ-1', value: 1, score: 1, label: '1 / yr', sort_order: 3 },
+    { id: 'occ-2', value: 2, score: 2, label: '2 / yr', sort_order: 4 },
+    { id: 'occ-3', value: 3, score: 3, label: '3 / yr', sort_order: 5 },
+    { id: 'occ-4', value: 4, score: 4, label: '4 / yr', sort_order: 6 },
+    { id: 'occ-5', value: 5, score: 5, label: '5 / yr', sort_order: 7 },
+  ],
+
+  // Configuration tab: detection capability → score.
+  detection_options: [
+    { id: 'det-unable', key: 'unable', label: 'Unable to Detect', score: 5, sort_order: 1 },
+    { id: 'det-partial', key: 'partial', label: 'Able to detect but not integrated to system', score: 3, sort_order: 2 },
+    { id: 'det-system', key: 'system', label: 'Able to detect by system', score: 1, sort_order: 3 },
+  ],
+
+  // Configuration tab: technology → wafer price band (avg = default per-wafer value).
+  technology_prices: [
+    { id: 'tp-200', technology: '200mm', label: '$600–$900 (Europe)', min_price: 600, avg_price: 750, max_price: 900, currency: 'USD' },
+    { id: 'tp-300', technology: '300mm', label: '$1,650–$3,984 (Europe)', min_price: 1650, avg_price: 2817, max_price: 3984, currency: 'USD' },
   ],
 
   /* ---------- success stories (public case studies) ---------- */
@@ -226,7 +252,7 @@ export const SEED = {
   knowledge_articles: [
     { id: 'kb-euv-drift', slug: 'euv-overlay-drift', source_type: 'portal', title: 'Known issue: EUV overlay drift on firmware 2.4.1', summary: 'Workaround for the overlay drift regression introduced in scanner firmware 2.4.1.', category: 'Known Issues', tags_json: ['euv', 'overlay', 'firmware'], body: 'Symptoms: gradual overlay drift after 2.4.1...\n\nWorkaround: pin firmware to 2.4.0 and recalibrate every 24h until 2.4.2.', featured: true, audience_type: 'all', last_reviewed_at: iso('2026-04-10') },
     { id: 'kb-plasma', slug: 'plasma-non-uniformity', source_type: 'portal', title: 'Troubleshooting plasma non-uniformity on etch', summary: 'Step-by-step diagnosis for chamber non-uniformity.', category: 'Troubleshooting', tags_json: ['etch', 'plasma'], body: '1. Check RF match...\n2. Inspect electrode wear...', featured: false, audience_type: 'all', last_reviewed_at: iso('2026-03-22') },
-    { id: 'kb-calc-logic', slug: 'calculator-assumptions', source_type: 'portal', title: 'SOP: ROI calculator logic & assumptions', summary: 'How the savings calculator estimates yield, scrap and downtime ranges.', category: 'Best Practices', tags_json: ['calculator', 'roi'], body: 'The calculator combines the active scoring model rules with your financial assumptions to produce min/max ranges...', featured: true, audience_type: 'all', last_reviewed_at: iso('2026-04-01') },
+    { id: 'kb-calc-logic', slug: 'calculator-assumptions', source_type: 'portal', title: 'SOP: Risk score & yield-loss calculator logic', summary: 'How the calculator derives per-issue risk scores and the annual yield loss.', category: 'Best Practices', tags_json: ['calculator', 'risk', 'yield'], body: 'For each issue you enter severity (pcs of affected wafers), occurrence (events per year) and detection capability. The risk score = severity score (min(log10(severity)·1.5, 5)) + occurrence score + detection score, banded as High (9–15), Medium (4–8) or Low (1–3). Annual yield loss = Σ(severity × occurrence) × wafer price, where the wafer price is your input or the technology average from the Configuration tab.', featured: true, audience_type: 'all', last_reviewed_at: iso('2026-04-01') },
     { id: 'kb-billing', slug: 'billing-faq', source_type: 'portal', title: 'FAQ: Billing & invoices', summary: 'Common billing questions for partner accounts.', category: 'FAQs', tags_json: ['billing'], body: 'Invoices are issued monthly...', featured: false, audience_type: 'customer', last_reviewed_at: iso('2026-02-15') },
     { id: 'kb-access', slug: 'portal-access', source_type: 'portal', title: 'FAQ: Portal access & roles', summary: 'Who can do what in the partner portal.', category: 'FAQs', tags_json: ['access', 'roles'], body: 'Roles are split by organisation type and permission...', featured: false, audience_type: 'all', last_reviewed_at: iso('2026-03-01') },
     { id: 'kb-pilot', slug: 'pilot-design', source_type: 'portal', title: 'Best practices: Designing a Sigenic pilot', summary: 'How to scope a high-signal pilot in 30 days.', category: 'Best Practices', tags_json: ['pilot', 'onboarding'], body: 'Pick one tool family and one excursion mode...', featured: false, audience_type: 'all', last_reviewed_at: iso('2026-03-18') },
@@ -241,8 +267,8 @@ export const SEED = {
 
   /* ---------- service requests ---------- */
   service_requests: [
-    { id: 'sr-001', company_id: 'co-novacell', site_id: 'site-novacell-sg', user_id: 'u-wei', request_type: 'support', title: 'EUV calibration drift after firmware update', description: 'Seeing overlay drift after updating to 2.4.1 on NXE:3600D.', department_id: 'dep-litho', process_id: 'proc-euv', machine_id: 'mac-euv-3600', urgency: 'high', status: 'open', source: 'portal_form', owner_team: 'support', contact_name: 'Wei Tan', contact_email: 'wei@novacell.sg', messages: [{ id: 'm1', author: 'Wei Tan', authorRole: 'you', body: 'Overlay drift started after the 2.4.1 update.', createdAt: iso('2026-05-21') }, { id: 'm2', author: 'Sigenic Support', authorRole: 'agent', body: 'Thanks Wei — please pin firmware to 2.4.0 and recalibrate. Tracking as ticket #4101.', createdAt: iso('2026-05-21') }] },
-    { id: 'sr-002', company_id: 'co-quantex', site_id: 'site-quantex-tw', user_id: 'u-daniel', request_type: 'consultation', title: 'Scope a pilot on the etch line', description: 'Would like to discuss a 30-day pilot for plasma etch excursion detection.', department_id: 'dep-etch', urgency: 'medium', status: 'open', source: 'calculator_cta', owner_team: 'sales', contact_name: 'Daniel Ong', contact_email: 'daniel@quantex.com' },
+    { id: 'sr-001', company_id: 'co-novacell', site_id: 'site-novacell-sg', user_id: 'u-wei', request_type: 'support', title: 'Brush torque (DBC/TBC) instability on AS2000', description: 'Recurring brush torque instability after the last PM on the post-CMP clean tool.', department_id: 'dep-wet-cmp', machine_id: 'mac-as2000', urgency: 'high', status: 'open', source: 'portal_form', owner_team: 'support', contact_name: 'Wei Tan', contact_email: 'wei@novacell.sg', messages: [{ id: 'm1', author: 'Wei Tan', authorRole: 'you', body: 'Brush torque keeps drifting after the last PM.', createdAt: iso('2026-05-21') }, { id: 'm2', author: 'Sigenic Support', authorRole: 'agent', body: 'Thanks Wei — let us review the DBC/TBC torque logs. Tracking as ticket #4101.', createdAt: iso('2026-05-21') }] },
+    { id: 'sr-002', company_id: 'co-quantex', site_id: 'site-quantex-tw', user_id: 'u-daniel', request_type: 'consultation', title: 'Scope a pilot on the CVD/PVD/ETCH line', description: 'Would like to discuss a 30-day pilot for chamber excursion detection.', department_id: 'dep-cvd', urgency: 'medium', status: 'open', source: 'calculator_cta', owner_team: 'sales', contact_name: 'Daniel Ong', contact_email: 'daniel@quantex.com' },
     { id: 'sr-003', company_id: 'co-apac', user_id: 'u-leo', request_type: 'demo', title: 'Demo request for prospective customer', description: 'Channel customer wants to see the calculator + inspection workflow.', urgency: 'medium', status: 'new', source: 'portal_form', owner_team: 'sales', contact_name: 'Leo Tan', contact_email: 'leo@apacpartners.com' },
     { id: 'sr-004', company_id: 'co-novacell', user_id: 'u-karen', request_type: 'feature_request', title: 'Batch upload of historical runs', description: 'Ability to bulk import past calculator runs from CSV.', urgency: 'low', status: 'new', source: 'dashboard', owner_team: 'product', contact_name: 'Karen Lim', contact_email: 'karen@novacell.sg' },
     { id: 'sr-005', company_id: null, user_id: null, request_type: 'demo', title: 'Public demo request — Lumen Photonics', description: 'Interested in yield analytics for a new GaN line.', urgency: 'medium', status: 'new', source: 'landing_page', owner_team: 'sales', contact_name: 'Aisha Rahman', contact_email: 'aisha@lumenphotonics.io', interest_type: 'ROI calculator' },
@@ -260,13 +286,21 @@ export const SEED = {
   calculator_runs: [
     {
       id: 'run-001', company_id: 'co-novacell', site_id: 'site-novacell-sg', user_id: 'u-wei', run_type: 'partner',
-      scoring_model_id: 'sm-v1', department_id: 'dep-litho', process_id: 'proc-euv', machine_id: 'mac-euv-3600',
-      current_yield_pct: 82, defect_rate: 0.6, throughput: 95, scrap_rate: 3.2, downtime: 8,
-      cost_per_wafer: 610, monthly_volume: 12000, excursion_cost: 520000,
-      estimated_yield_improvement_min: 3.0, estimated_yield_improvement_max: 6.5,
-      estimated_monthly_savings_min: 210000, estimated_monthly_savings_max: 430000,
-      estimated_annual_savings_min: 2520000, estimated_annual_savings_max: 5160000,
-      output_summary_json: { score: 84 },
+      scoring_model_id: 'sm-v1', department_id: 'dep-wet-cmp', machine_id: 'mac-as2000',
+      technology: '200mm', wafer_value: 750, price_source: 'technology_average',
+      overall_risk_score: 13.5, overall_tier: 'high',
+      total_annual_wafer_loss: 24388, total_annual_value_loss: 18291000,
+      inputs_json: [
+        { issueId: 'iss-wetcmp-1', severity: 2000, occurrence: 0.25, detection: 'system' },
+        { issueId: 'iss-wetcmp-2', severity: 5888, occurrence: 1, detection: 'unable' },
+        { issueId: 'iss-wetcmp-3', severity: 10000, occurrence: 0.5, detection: 'unable' },
+        { issueId: 'iss-wetcmp-4', severity: 1500, occurrence: 2, detection: 'system' },
+        { issueId: 'iss-wetcmp-5', severity: 1500, occurrence: 2, detection: 'partial' },
+        { issueId: 'iss-wetcmp-6', severity: 1000, occurrence: 4, detection: 'unable' },
+        { issueId: 'iss-wetcmp-7', severity: 1000, occurrence: 2, detection: 'system' },
+        { issueId: 'iss-wetcmp-8', severity: 2000, occurrence: 0.5, detection: 'system' },
+      ],
+      output_summary_json: { overallRiskScore: 13.5, overallTier: 'high', totalAnnualWaferLoss: 24388, totalAnnualValueLoss: 18291000, technology: '200mm', currency: 'USD' },
     },
   ],
 
@@ -274,6 +308,6 @@ export const SEED = {
   audit_logs: [
     { id: 'al-1', user_id: 'u-priya', actor_name: 'Priya Nair', entity_type: 'scoring_model', entity_id: 'sm-v1', action: 'activate', new_value_json: { status: 'active' } },
     { id: 'al-2', user_id: 'u-priya', actor_name: 'Priya Nair', entity_type: 'company', entity_id: 'co-quantex', action: 'create', new_value_json: { company_name: 'Quantex Semiconductors' } },
-    { id: 'al-3', user_id: 'u-bernard', actor_name: 'Bernard Soh', entity_type: 'machine', entity_id: 'mac-euv-3600', action: 'create', new_value_json: { machine_name: 'EUV Scanner NXE-3600' } },
+    { id: 'al-3', user_id: 'u-bernard', actor_name: 'Bernard Soh', entity_type: 'machine', entity_id: 'mac-as2000', action: 'create', new_value_json: { machine_name: 'AS2000' } },
   ],
 }

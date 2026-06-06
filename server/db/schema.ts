@@ -2,8 +2,9 @@
  * PRD-aligned relational schema for the Sigenic Partner Portal.
  *
  * Mirrors "Schema, UI Flow, and Permission Matrix" §1: companies, sites, users,
- * departments, processes, machines, scoring_models, scoring_rules,
- * financial_assumptions, calculator_runs, service_requests, knowledge_articles,
+ * departments, processes, machines, scoring_models, calculator_issues, the
+ * calculator Configuration tables (occurrence_options, detection_options,
+ * technology_prices), calculator_runs, service_requests, knowledge_articles,
  * announcements, audit_logs — plus success_stories (public case studies),
  * invoices (billing visibility) and notifications (in-app, future-facing).
  *
@@ -72,6 +73,7 @@ CREATE TABLE IF NOT EXISTS departments (
   name text NOT NULL,
   code text,
   description text,
+  technology text,
   active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
@@ -114,34 +116,55 @@ CREATE TABLE IF NOT EXISTS scoring_models (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS scoring_rules (
+-- Risk-issue catalog: the questionnaire rows for a department/template within a
+-- scoring model. The active model's issues drive the calculator.
+CREATE TABLE IF NOT EXISTS calculator_issues (
   id text PRIMARY KEY,
   scoring_model_id text NOT NULL REFERENCES scoring_models(id) ON DELETE CASCADE,
-  department_id text REFERENCES departments(id) ON DELETE SET NULL,
-  process_id text REFERENCES processes(id) ON DELETE SET NULL,
-  machine_id text REFERENCES machines(id) ON DELETE SET NULL,
-  metric_type text NOT NULL CHECK (metric_type IN (
-    'yield_improvement','scrap_reduction','downtime_reduction','detection_speed_improvement'
-  )),
-  min_value double precision NOT NULL DEFAULT 0,
-  max_value double precision NOT NULL DEFAULT 0,
-  weight double precision NOT NULL DEFAULT 1,
-  default_value double precision,
-  notes text,
+  department_id text NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
+  label text NOT NULL,
+  description text,
+  default_severity double precision,
+  default_occurrence double precision,
+  default_detection text CHECK (default_detection IN ('unable','partial','system')),
+  sort_order integer NOT NULL DEFAULT 0,
+  active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS financial_assumptions (
+-- Calculator "Configuration" lookups (admin-maintained, global).
+CREATE TABLE IF NOT EXISTS occurrence_options (
   id text PRIMARY KEY,
-  scoring_model_id text NOT NULL REFERENCES scoring_models(id) ON DELETE CASCADE,
-  company_id text REFERENCES companies(id) ON DELETE CASCADE,
-  site_id text REFERENCES sites(id) ON DELETE CASCADE,
-  cost_per_wafer_default double precision NOT NULL DEFAULT 0,
-  excursion_cost_default double precision NOT NULL DEFAULT 0,
-  monthly_volume_default double precision NOT NULL DEFAULT 0,
-  labor_cost_default double precision,
+  value double precision NOT NULL,
+  score double precision NOT NULL,
+  label text,
+  sort_order integer NOT NULL DEFAULT 0,
+  active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS detection_options (
+  id text PRIMARY KEY,
+  key text NOT NULL CHECK (key IN ('unable','partial','system')),
+  label text NOT NULL,
+  score double precision NOT NULL,
+  sort_order integer NOT NULL DEFAULT 0,
+  active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS technology_prices (
+  id text PRIMARY KEY,
+  technology text NOT NULL,
+  label text,
+  min_price double precision NOT NULL DEFAULT 0,
+  avg_price double precision NOT NULL DEFAULT 0,
+  max_price double precision NOT NULL DEFAULT 0,
   currency text NOT NULL DEFAULT 'USD',
+  active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -154,22 +177,15 @@ CREATE TABLE IF NOT EXISTS calculator_runs (
   run_type text NOT NULL CHECK (run_type IN ('public','partner','distributor','internal')),
   scoring_model_id text REFERENCES scoring_models(id) ON DELETE SET NULL,
   department_id text REFERENCES departments(id) ON DELETE SET NULL,
-  process_id text REFERENCES processes(id) ON DELETE SET NULL,
   machine_id text REFERENCES machines(id) ON DELETE SET NULL,
-  current_yield_pct double precision,
-  defect_rate double precision,
-  throughput double precision,
-  scrap_rate double precision,
-  downtime double precision,
-  cost_per_wafer double precision,
-  monthly_volume double precision,
-  excursion_cost double precision,
-  estimated_yield_improvement_min double precision,
-  estimated_yield_improvement_max double precision,
-  estimated_monthly_savings_min double precision,
-  estimated_monthly_savings_max double precision,
-  estimated_annual_savings_min double precision,
-  estimated_annual_savings_max double precision,
+  technology text,
+  wafer_value double precision,
+  price_source text,
+  overall_risk_score double precision,
+  overall_tier text,
+  total_annual_wafer_loss double precision,
+  total_annual_value_loss double precision,
+  inputs_json jsonb,
   output_summary_json jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
 );
@@ -321,8 +337,8 @@ CREATE INDEX IF NOT EXISTS idx_sites_company ON sites(company_id);
 CREATE INDEX IF NOT EXISTS idx_companies_parent ON companies(parent_company_id);
 CREATE INDEX IF NOT EXISTS idx_processes_department ON processes(department_id);
 CREATE INDEX IF NOT EXISTS idx_machines_department ON machines(department_id);
-CREATE INDEX IF NOT EXISTS idx_scoring_rules_model ON scoring_rules(scoring_model_id);
-CREATE INDEX IF NOT EXISTS idx_financial_assumptions_model ON financial_assumptions(scoring_model_id);
+CREATE INDEX IF NOT EXISTS idx_calculator_issues_model ON calculator_issues(scoring_model_id);
+CREATE INDEX IF NOT EXISTS idx_calculator_issues_department ON calculator_issues(department_id);
 CREATE INDEX IF NOT EXISTS idx_calculator_runs_company ON calculator_runs(company_id);
 CREATE INDEX IF NOT EXISTS idx_calculator_runs_user ON calculator_runs(user_id);
 CREATE INDEX IF NOT EXISTS idx_service_requests_company ON service_requests(company_id);

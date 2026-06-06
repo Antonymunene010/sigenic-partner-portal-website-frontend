@@ -4,7 +4,7 @@ import type { AuthPayload } from '../infra/auth'
 import type { HydrateBundle } from '../../shared/types'
 
 /**
- * Role-scoped data bundle for the authenticated client. The 18 reads fire
+ * Role-scoped data bundle for the authenticated client. The reads fire
  * concurrently; the permission/audience filtering lives here (service layer),
  * keeping the repository free of authorization logic.
  */
@@ -23,8 +23,10 @@ export async function hydrate(store: Store, auth: AuthPayload): Promise<HydrateB
     processes,
     machines,
     scoringModels,
-    scoringRules,
-    financialAssumptions,
+    allIssues,
+    occurrenceOptions,
+    detectionOptions,
+    technologyPrices,
     calculatorRuns,
     serviceRequests,
     allArticles,
@@ -42,8 +44,10 @@ export async function hydrate(store: Store, auth: AuthPayload): Promise<HydrateB
     store.list('processes', { order: 'process_name ASC' }),
     store.list('machines', { order: 'machine_name ASC' }),
     internal ? store.list('scoring_models', { order: 'created_at DESC' }) : store.getActiveScoringModel().then((m) => (m ? [m] : [])),
-    internal ? store.list('scoring_rules', { order: 'created_at ASC' }) : Promise.resolve([]),
-    internal ? store.list('financial_assumptions', {}) : Promise.resolve([]),
+    store.list('calculator_issues', { order: 'sort_order ASC' }),
+    store.list('occurrence_options', { order: 'sort_order ASC' }),
+    store.list('detection_options', { order: 'sort_order ASC' }),
+    store.list('technology_prices', { order: 'technology ASC' }),
     internal ? store.list('calculator_runs', { order: 'created_at DESC' }) : store.list('calculator_runs', { ...scoped, order: 'created_at DESC' }),
     internal ? store.list('service_requests', { order: 'updated_at DESC' }) : store.list('service_requests', { ...scoped, order: 'updated_at DESC' }),
     store.list('knowledge_articles', { order: 'updated_at DESC' }),
@@ -56,6 +60,8 @@ export async function hydrate(store: Store, auth: AuthPayload): Promise<HydrateB
 
   const companies = internal ? companiesAll ?? [] : company ? [company] : []
   const activeModel = (internal ? scoringModels.find((m: any) => m.status === 'active') : scoringModels[0]) ?? null
+  // Non-internal users only see the active model's issue catalog.
+  const calculatorIssues = internal ? allIssues : allIssues.filter((i: any) => i.scoringModelId === activeModel?.id)
   const knowledgeArticles = internal ? allArticles : allArticles.filter((a: any) => a.active && audienceMatches(me, a.audienceType))
   const successStories = internal ? allStories : allStories.filter((s: any) => s.status === 'published' && s.visibility !== 'internal')
   const now = Date.now()
@@ -80,8 +86,10 @@ export async function hydrate(store: Store, auth: AuthPayload): Promise<HydrateB
     processes,
     machines,
     scoringModels,
-    scoringRules,
-    financialAssumptions,
+    calculatorIssues,
+    occurrenceOptions,
+    detectionOptions,
+    technologyPrices,
     activeScoringModelId: activeModel?.id ?? null,
     calculatorRuns,
     serviceRequests,
