@@ -87,7 +87,9 @@ const CAPABILITIES: Record<Capability, Role[]> = {
   manage_companies: INTERNAL_MANAGE,
   view_master_data: INTERNAL_OVERSIGHT,
   manage_master_data: INTERNAL_MANAGE,
-  manage_scoring: INTERNAL_MANAGE,
+  // Risk-calculator calculation mechanism (scoring models, issue catalog and the
+  // occurrence/detection/price Configuration tables) — super_admin only.
+  manage_scoring: ['super_admin'],
   manage_knowledge: INTERNAL_MANAGE,
   manage_success_stories: INTERNAL_MANAGE,
   view_ticket_oversight: INTERNAL_OVERSIGHT,

@@ -42,9 +42,16 @@ test('can — super_admin holds every internal-management capability', () => {
 
 test('can — admin runs the business but NOT internal staff (PRD §5.1)', () => {
   assert.equal(can({ role: 'admin' }, 'manage_internal_users'), false)
-  assert.equal(can({ role: 'admin' }, 'manage_scoring'), true)
+  // Risk-calculator config is super_admin-only; admin can use the calculator but not configure it.
+  assert.equal(can({ role: 'admin' }, 'manage_scoring'), false)
   assert.equal(can({ role: 'admin' }, 'manage_companies'), true)
   assert.equal(can({ role: 'admin' }, 'manage_announcements'), true)
+})
+
+test('can — manage_scoring (calculator config) is super_admin-only among internal roles', () => {
+  assert.equal(can({ role: 'super_admin' }, 'manage_scoring'), true)
+  assert.equal(can({ role: 'admin' }, 'manage_scoring'), false)
+  assert.equal(can({ role: 'support_engineer' }, 'manage_scoring'), false)
 })
 
 test('can — support_engineer has oversight but cannot manage config', () => {
