@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, MapPin, Mail, Phone } from 'lucide-react'
+import { ArrowRight, MapPin, Mail, Phone } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { WordMark } from '../components/Logo'
 import { ThemeToggle } from '../components/ThemeToggle'
@@ -83,13 +83,7 @@ export default function Login() {
 
       {/* Form */}
       <div className="flex flex-col">
-        <div className="flex items-center justify-between p-4">
-          <Link
-            to="/app"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted dark:text-muted-dark hover:text-ink dark:hover:text-ink-dark transition-colors"
-          >
-            <ArrowLeft size={16} /> Back to portal
-          </Link>
+        <div className="flex items-center justify-end p-4">
           <ThemeToggle />
         </div>
         <div className="flex-1 flex items-center justify-center px-6 pb-16">
