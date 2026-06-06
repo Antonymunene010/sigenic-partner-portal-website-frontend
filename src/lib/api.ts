@@ -141,8 +141,8 @@ export function updateUserApi(id: string, fields: Partial<User>, opts?: { touch?
   // touch: false tells the server not to bump updated_at (used by the status toggle).
   return request(`/api/users/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ ...fields, touch: opts?.touch }) })
 }
-export async function resetPasswordApi(id: string, password: string): Promise<void> {
-  await request(`/api/users/${encodeURIComponent(id)}/reset-password`, { method: 'POST', body: JSON.stringify({ password }) })
+export async function resetPasswordApi(id: string): Promise<void> {
+  await request(`/api/users/${encodeURIComponent(id)}/reset-password`, { method: 'POST' })
 }
 
 /* ---------- generic admin resources ---------- */

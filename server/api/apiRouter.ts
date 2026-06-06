@@ -72,10 +72,10 @@ export function apiRouter(store: Store): Router {
   /* users */
   r.post('/users', async (req, res) => {
     const { user, password } = req.body ?? {}
-    res.status(201).json({ user: await userService.createUser(store, req.auth!, user, password) })
+    res.status(201).json({ user: await userService.createUser(store, req.auth!, user, password, req.headers.origin as string | undefined) })
   })
   r.post('/users/:id/reset-password', async (req, res) => {
-    await userService.resetUserPassword(store, req.auth!, req.params.id, req.body?.password)
+    await userService.resetUserPassword(store, req.auth!, req.params.id, req.headers.origin as string | undefined)
     res.json({ ok: true })
   })
   r.patch('/users/:id', async (req, res) => {

@@ -70,7 +70,7 @@ export function UsersPanel({
     try {
       await createUserApi({ fullName: fullName.trim(), email: email.trim(), role, companyId: companyId ?? undefined, userType })
       await refresh()
-      toast.push('User invited.')
+      toast.push(`Invite sent to ${email.trim()} — they'll set their own password.`)
       setOpen(false)
     } catch (e) {
       toast.push(e instanceof Error ? e.message : 'Could not invite user.', 'error')
@@ -95,14 +95,13 @@ export function UsersPanel({
   }
 
   const resetPassword = async (u: User) => {
-    const password = window.prompt(`Set a new password for ${u.fullName}`)
-    if (!password) return
+    if (!window.confirm(`Email ${u.fullName} a single-use link to set a new password?`)) return
     setBusyId(u.id)
     try {
-      await resetPasswordApi(u.id, password)
-      toast.push(`Password reset for ${u.fullName}.`)
+      await resetPasswordApi(u.id)
+      toast.push(`Reset link sent to ${u.email}.`)
     } catch (e) {
-      toast.push(e instanceof Error ? e.message : 'Could not reset password.', 'error')
+      toast.push(e instanceof Error ? e.message : 'Could not send reset link.', 'error')
     } finally {
       setBusyId(null)
     }

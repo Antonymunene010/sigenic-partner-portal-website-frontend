@@ -83,10 +83,11 @@ test('admin.activateScoringModel — archives other active models, activates the
   assert.deepStrictEqual(updates.find((u) => u.id === 'sm-target').data, { status: 'active' })
 })
 
-test('user.createUser — sends an invite email to the new user', async () => {
+test('user.createUser — emails a single-use invite link to the new user', async () => {
   const emails: any[] = []
   const store = {
     createUser: mock.fn(async () => ({ id: 'u-new', email: 'new@x', fullName: 'New User', role: 'customer_user' })),
+    getUserAuthById: mock.fn(async () => ({ id: 'u-new', email: 'new@x', fullName: 'New User', role: 'customer_user', companyId: 'co-c', companyName: 'Acme', passwordHash: 'pw-hash', status: 'invited' })),
     appendAudit: mock.fn(async () => {}),
     appendEmail: mock.fn(async (rec: any) => { emails.push(rec) }),
   } as unknown as Store
@@ -94,6 +95,7 @@ test('user.createUser — sends an invite email to the new user', async () => {
   assert.equal(emails.length, 1)
   assert.equal(emails[0].to, 'new@x')
   assert.match(emails[0].subject, /invited/i)
+  assert.match(emails[0].text, /\/reset-password\?token=/) // invite carries a setup link, not a shared password
 })
 
 test('serviceRequest.createServiceRequest — every type captures a first message (no Zendesk env ⇒ mock)', async () => {

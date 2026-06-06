@@ -66,6 +66,8 @@ export async function resetPasswordWithToken(store: Store, token: string, newPas
     throw badRequest('This reset link has already been used. Please request a new one.')
   }
   await store.setPassword(account.id, newPassword)
+  // An invited user activates their account by setting their first password.
+  if (account.status === 'invited') await store.update('users', account.id, { status: 'active' }, { touch: false })
   const msg = passwordChangedEmail({ fullName: account.fullName })
   await sendEmail(store, { to: account.email, subject: msg.subject, text: msg.text }).catch(() => {})
 }

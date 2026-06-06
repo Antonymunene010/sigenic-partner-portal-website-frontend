@@ -155,7 +155,7 @@ export function announcementEmail(announcement: { title: string; body: string; a
   }
 }
 
-export function inviteEmail(invite: { fullName: string; role: string; companyName?: string }): {
+export function inviteEmail(invite: { fullName: string; role: string; companyName?: string; link: string }): {
   subject: string
   text: string
 } {
@@ -167,29 +167,20 @@ export function inviteEmail(invite: { fullName: string; role: string; companyNam
       `An account has been created for you on the Sigenic Partner Portal${invite.companyName ? ` (${invite.companyName})` : ''}.`,
       `Role: ${invite.role}`,
       '',
-      'Sign in with this email address. Your administrator will share your initial password — please change it after your first sign-in.',
+      'Set your password to activate your account using the link below:',
+      '',
+      invite.link,
+      '',
+      'This link expires in 7 days and can only be used once. Once signed in you can',
+      'change your password anytime from your account settings.',
       '',
       '— Sigenic Partner Portal',
     ].join('\n'),
   }
 }
 
-export function passwordResetEmail(user: { fullName: string }): { subject: string; text: string } {
-  return {
-    subject: 'Your Sigenic Partner Portal password was reset',
-    text: [
-      `Hi ${user.fullName},`,
-      '',
-      'An administrator has reset your Sigenic Partner Portal password. Your administrator will share the new password; please change it after signing in.',
-      '',
-      "If you didn't expect this, please contact your administrator.",
-      '',
-      '— Sigenic Partner Portal',
-    ].join('\n'),
-  }
-}
-
-/** Self-service reset: the time-boxed, single-use link a user requests from the sign-in page. */
+/** Reset link a user follows to set a new password — used by both self-service
+ *  "forgot password" and admin-initiated resets from the user roster. */
 export function passwordResetLinkEmail(params: { fullName: string; link: string }): { subject: string; text: string } {
   return {
     subject: 'Reset your Sigenic Partner Portal password',

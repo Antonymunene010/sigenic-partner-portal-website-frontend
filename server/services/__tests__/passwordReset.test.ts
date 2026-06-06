@@ -57,6 +57,21 @@ test('resetPasswordWithToken — a valid token sets the new password', async () 
   assert.deepEqual(saved, { id: 'u-9', password: 'newsecret' })
 })
 
+test('resetPasswordWithToken — an invited user is activated on first password set', async () => {
+  const account = { id: 'u-inv', email: 'new@x.io', fullName: 'New', status: 'invited', passwordHash: hashPassword('temp') }
+  const updates: any[] = []
+  const store = {
+    getUserAuthById: mock.fn(async () => account),
+    setPassword: mock.fn(async () => {}),
+    update: mock.fn(async (table: string, id: string, data: any) => { updates.push({ table, id, data }) }),
+    appendEmail: mock.fn(async () => {}),
+  } as unknown as Store
+
+  const token = signResetToken(account.id, account.passwordHash)
+  await resetPasswordWithToken(store, token, 'newsecret')
+  assert.deepEqual(updates, [{ table: 'users', id: 'u-inv', data: { status: 'active' } }])
+})
+
 test('resetPasswordWithToken — a forged/garbage token is rejected', async () => {
   const store = {
     getUserAuthById: mock.fn(),

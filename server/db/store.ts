@@ -1,5 +1,5 @@
 import type { PoolClient, QueryResult } from 'pg'
-import { hashPassword } from '../infra/auth'
+import { hashPassword, randomPassword } from '../infra/auth'
 import { SCHEMA_SQL, LEGACY_CHECK_SQL, LEGACY_DROP_SQL } from './schema'
 import { SEED } from './seed'
 import { createPool, transaction as runTransaction } from './pool'
@@ -146,7 +146,9 @@ export function createStore() {
   async function createUser(data: Record<string, unknown>, password?: string): Promise<any> {
     const existing = await query('SELECT id FROM users WHERE lower(email) = lower($1)', [data.email])
     if (existing.rows[0]) throw new Error('A user with that email already exists.')
-    const payload = { ...data, password_hash: hashPassword(password || DEFAULT_PASSWORD) }
+    // No explicit password ⇒ an unguessable placeholder; the user sets their real
+    // one via the emailed invite link. Never the shared DEFAULT_PASSWORD (demo).
+    const payload = { ...data, password_hash: hashPassword(password || randomPassword()) }
     return insert('users', payload)
   }
 

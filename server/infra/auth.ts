@@ -43,6 +43,15 @@ export function hashPassword(password: string): string {
   return `scrypt$${salt}$${derived}`
 }
 
+/**
+ * A high-entropy, unguessable secret. Used as the placeholder password for an
+ * invited user who hasn't set one yet: they can't log in with it (nobody knows
+ * it), and it gives the invite link a real hash to fingerprint against.
+ */
+export function randomPassword(): string {
+  return crypto.randomBytes(24).toString('hex')
+}
+
 /** Constant-time verification of a plaintext password against a stored hash. */
 export function verifyPassword(password: string, stored: string | null | undefined): boolean {
   if (!stored || typeof stored !== 'string' || !stored.startsWith('scrypt$')) return false
