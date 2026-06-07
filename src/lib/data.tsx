@@ -90,6 +90,7 @@ export function useLookups() {
     companyName: (id?: string | null) => companies.find((c) => c.id === id)?.companyName ?? '—',
     siteName: (id?: string | null) => sites.find((s) => s.id === id)?.siteName ?? '—',
     userName: (id?: string | null) => users.find((u) => u.id === id)?.fullName ?? '—',
+    userEmail: (id?: string | null) => users.find((u) => u.id === id)?.email ?? null,
     // Request taxonomy (configurable). Label lookups do NOT filter active — a historical
     // request whose type/department was later retired still resolves its label.
     requestTypeLabel: (slug?: string | null) => requestTypes.find((t) => t.slug === slug)?.label ?? slug ?? '—',

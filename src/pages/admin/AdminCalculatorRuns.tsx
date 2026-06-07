@@ -34,7 +34,7 @@ const TIER_OPTIONS = RISK_TIERS.filter((t) => t.value !== 'none').map((t) => ({ 
 
 export default function AdminCalculatorRuns() {
   const { calculatorRuns, ready } = useData()
-  const { companyName, userName, departmentName, machineName } = useLookups()
+  const { companyName, userName, userEmail, departmentName, machineName } = useLookups()
   const [runTypes, setRunTypes] = useState<RunType[]>(['partner', 'distributor'])
   const [tiers, setTiers] = useState<RiskTier[]>([])
   const [selected, setSelected] = useState<CalculatorRun | null>(null)
@@ -67,18 +67,32 @@ export default function AdminCalculatorRuns() {
       key: 'contact',
       header: 'Lead',
       sortAccessor: (r) => companyName(r.companyId).toLowerCase(),
-      render: (r) =>
-        r.runType === 'public' ? (
-          <div className="min-w-0">
-            <div className="font-medium text-faint dark:text-faint-dark">Anonymous</div>
-            <div className="text-xs text-muted dark:text-muted-dark">Public landing-page calc</div>
-          </div>
-        ) : (
+      render: (r) => {
+        if (r.runType === 'public') {
+          return (
+            <div className="min-w-0">
+              <div className="font-medium text-faint dark:text-faint-dark">Anonymous</div>
+              <div className="text-xs text-muted dark:text-muted-dark">Public landing-page calc</div>
+            </div>
+          )
+        }
+        const email = userEmail(r.userId)
+        return (
           <div className="min-w-0">
             <div className="font-medium truncate">{userName(r.userId)}</div>
-            <div className="text-xs text-muted dark:text-muted-dark truncate">{companyName(r.companyId)}</div>
+            {email && (
+              <a
+                href={`mailto:${email}`}
+                onClick={(e) => e.stopPropagation()}
+                className="text-xs text-muted dark:text-muted-dark hover:text-accent-ink hover:underline truncate block"
+              >
+                {email}
+              </a>
+            )}
+            <div className="text-xs text-faint dark:text-faint-dark truncate">{companyName(r.companyId)}</div>
           </div>
-        ),
+        )
+      },
     },
     {
       key: 'type',
@@ -181,9 +195,10 @@ export default function AdminCalculatorRuns() {
 }
 
 function RunDetailModal({ run, onClose }: { run: CalculatorRun | null; onClose: () => void }) {
-  const { companyName, userName, departmentName, machineName, siteName, scoringModelName } = useLookups()
+  const { companyName, userName, userEmail, departmentName, machineName, siteName, scoringModelName } = useLookups()
   if (!run) return null
   const output = run.outputSummaryJson
+  const email = run.runType === 'public' ? null : userEmail(run.userId)
 
   return (
     <Modal
@@ -199,6 +214,10 @@ function RunDetailModal({ run, onClose }: { run: CalculatorRun | null; onClose: 
     >
       <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-2 text-sm mb-5">
         <DescRow k="Lead" v={run.runType === 'public' ? 'Anonymous (public calc)' : userName(run.userId)} />
+        <DescRow
+          k="Email"
+          v={email ? <a href={`mailto:${email}`} className="hover:text-accent-ink hover:underline">{email}</a> : '—'}
+        />
         <DescRow k="Company" v={run.runType === 'public' ? '—' : companyName(run.companyId)} />
         <DescRow k="Department" v={departmentName(run.departmentId)} />
         <DescRow k="Machine" v={run.machineId ? machineName(run.machineId) : '—'} />
