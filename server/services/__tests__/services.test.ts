@@ -4,6 +4,7 @@ import { createAnnouncement } from '../announcement.service'
 import { createUser, deleteUser } from '../user.service'
 import { createServiceRequest, updateServiceRequest } from '../serviceRequest.service'
 import { activateScoringModel } from '../admin.service'
+import { calculate } from '../calculator.service'
 import type { Store } from '../../db/store'
 import type { AuthPayload } from '../../infra/auth'
 
@@ -81,6 +82,27 @@ test('admin.activateScoringModel — archives other active models, activates the
   await activateScoringModel(store, superAdmin, 'sm-target')
   assert.deepStrictEqual(updates.find((u) => u.id === 'sm-old').data, { status: 'archived' })
   assert.deepStrictEqual(updates.find((u) => u.id === 'sm-target').data, { status: 'active' })
+})
+
+test('calculator.calculate — persists the run as a lead and returns its id for linking', async () => {
+  const inserts: any[] = []
+  const store = {
+    getActiveScoringModel: mock.fn(async () => ({ id: 'sm-1', versionName: 'v1' })),
+    getOne: mock.fn(async () => null),
+    getIssuesForModel: mock.fn(async () => []),
+    list: mock.fn(async () => []), // occurrence/detection/technology Configuration lookups
+    insert: mock.fn(async (table: string, data: any) => { inserts.push({ table, data }); return { id: data.id, ...data } }),
+  } as unknown as Store
+  const customer: AuthPayload = { sub: 'u-c', role: 'customer_user', userType: 'customer', companyId: 'co-c', companyType: 'customer', email: 'c@x', name: 'Cust' }
+  const { result, runId } = await calculate(store, customer, { selection: { siteId: 'site-1', issues: [] } })
+  const run = inserts.find((i) => i.table === 'calculator_runs')
+  assert.ok(run, 'a calculator_runs row is inserted')
+  assert.equal(run.data.run_type, 'partner') // a customer company is an external partner lead
+  assert.equal(run.data.user_id, 'u-c')
+  assert.equal(run.data.company_id, 'co-c')
+  assert.equal(run.data.site_id, 'site-1')
+  assert.equal(runId, run.data.id) // id returned so a consultation can link back
+  assert.ok(result, 'the computed result is still returned to the caller')
 })
 
 test('user.createUser — emails a single-use invite link to the new user', async () => {

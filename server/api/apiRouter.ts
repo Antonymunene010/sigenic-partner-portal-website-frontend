@@ -38,7 +38,7 @@ export function apiRouter(store: Store): Router {
 
   /* calculator */
   r.post('/calculate', async (req, res) => {
-    res.json(await calculatorService.calculate(store, req.body ?? {}))
+    res.json(await calculatorService.calculate(store, req.auth!, req.body ?? {}))
   })
 
   /* service requests */

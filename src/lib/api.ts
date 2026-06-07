@@ -90,7 +90,7 @@ export function hydrate(): Promise<HydrateBundle> {
 export function calculate(
   selection: CalcSelection,
   opts: { modelId?: string } = {},
-): Promise<{ result: RiskResult }> {
+): Promise<{ result: RiskResult; runId: string | null }> {
   return request('/api/calculate', { method: 'POST', body: JSON.stringify({ selection, ...opts }) })
 }
 

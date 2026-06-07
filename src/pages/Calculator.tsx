@@ -7,6 +7,7 @@ import { PageHeader } from '../components/PageHeader'
 import { Card, Field, StatCard, EmptyState, Spinner, useToast } from '../components/ui'
 import { Badge } from '../components/Badge'
 import { IssueQuestionnaire } from '../components/IssueQuestionnaire'
+import { RiskBreakdownTable } from '../components/RiskBreakdownTable'
 import { RISK_TIERS, RISK_TIER_LABEL, RISK_TIER_TONE, DETECTION_LABEL } from '../lib/constants'
 import { defaultIssueInputs, type IssueValues } from '../lib/calculator'
 import { fmtUSD } from '../lib/format'
@@ -37,7 +38,7 @@ export default function Calculator() {
   const machineOptions = useMemo(() => machines.filter((m) => m.departmentId === deptId), [machines, deptId])
   const dept = departments.find((d) => d.id === deptId)
   const techPrice = technologyPrices.find((t) => t.technology === dept?.technology)
-  const detName = (k: DetectionKey | null) => (k ? detectionOptions.find((d) => d.key === k)?.label ?? DETECTION_LABEL[k] : '—')
+  const detName = (k: DetectionKey | null | undefined) => (k ? detectionOptions.find((d) => d.key === k)?.label ?? DETECTION_LABEL[k] : '—')
 
   const selectDepartment = (id: string) => {
     setDeptId(id)
@@ -183,32 +184,7 @@ export default function Calculator() {
                 Based on {fmtUSD(result.pricePerWafer)} / wafer{result.priceSource === 'technology_average' ? ` (${result.technology} average)` : result.priceSource === 'input' ? ' (your input)' : ''}.
               </p>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-muted dark:text-muted-dark border-b border-line dark:border-line-dark">
-                      <th className="font-medium py-2 pr-2">Issue</th>
-                      <th className="font-medium py-2 px-2 text-right">Sev</th>
-                      <th className="font-medium py-2 px-2 text-right">Occ</th>
-                      <th className="font-medium py-2 px-2">Detection</th>
-                      <th className="font-medium py-2 px-2 text-right">Risk</th>
-                      <th className="font-medium py-2 pl-2">Band</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-hair">
-                    {result.issues.map((it, idx) => (
-                      <tr key={it.issueId ?? idx}>
-                        <td className="py-2 pr-2">{it.label}</td>
-                        <td className="py-2 px-2 text-right num">{it.severity ? it.severity.toLocaleString() : '—'}</td>
-                        <td className="py-2 px-2 text-right num">{it.occurrence || '—'}</td>
-                        <td className="py-2 px-2 text-muted dark:text-muted-dark">{detName(it.detection)}</td>
-                        <td className="py-2 px-2 text-right num font-medium">{it.riskScore}</td>
-                        <td className="py-2 pl-2">{it.tier === 'none' ? <span className="text-faint">—</span> : <Badge tone={RISK_TIER_TONE[it.tier]}>{RISK_TIER_LABEL[it.tier]}</Badge>}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <RiskBreakdownTable issues={result.issues} detectionLabel={detName} />
 
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-4 text-xs text-muted dark:text-muted-dark">
                 {RISK_TIERS.filter((t) => t.value !== 'none').map((t) => (

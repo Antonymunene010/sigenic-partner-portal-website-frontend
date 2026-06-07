@@ -1,12 +1,11 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Inbox, AlertTriangle, Users, RefreshCw } from 'lucide-react'
-import clsx from 'clsx'
 import { useData, useLookups } from '../../lib/data'
-import { useOutsideClick } from '../../lib/useOutsideClick'
 import { PageHeader } from '../../components/PageHeader'
 import { DataTable, type Column } from '../../components/DataTable'
 import { Badge } from '../../components/Badge'
+import { MultiSelect } from '../../components/MultiSelect'
 import { StatCard, Spinner, useToast } from '../../components/ui'
 import { syncRequests } from '../../lib/api'
 import { fmtRelative } from '../../lib/format'
@@ -147,71 +146,6 @@ export default function AdminRequests() {
         empty="No requests match these filters."
         defaultSort={{ key: 'updated', dir: 'desc' }}
       />
-    </div>
-  )
-}
-
-function MultiSelect<T extends string>({
-  label,
-  options,
-  selected,
-  onChange,
-}: {
-  label: string
-  options: { value: T; label: string }[]
-  selected: T[]
-  onChange: (next: T[]) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  useOutsideClick(ref, open, () => setOpen(false))
-
-  const toggle = (value: T) =>
-    onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value])
-
-  const summary =
-    selected.length === 0
-      ? label
-      : selected.length === 1
-        ? (options.find((o) => o.value === selected[0])?.label ?? label)
-        : `${selected.length} selected`
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className={clsx('select sm:w-56 text-left truncate', selected.length === 0 && 'text-faint dark:text-faint-dark')}
-        aria-label={label}
-        aria-expanded={open}
-      >
-        {summary}
-      </button>
-      {open && (
-        <div className="absolute left-0 top-full mt-1.5 w-full min-w-[12rem] card shadow-lift p-1 animate-fade-up z-20">
-          <button
-            type="button"
-            onClick={() => onChange([])}
-            className="w-full text-left px-2 py-1.5 rounded text-[13px] text-muted dark:text-muted-dark hover:bg-raised dark:hover:bg-raised-dark transition"
-          >
-            {label}
-          </button>
-          {options.map((o) => (
-            <label
-              key={o.value}
-              className="flex items-center gap-2 px-2 py-1.5 rounded text-[13px] hover:bg-raised dark:hover:bg-raised-dark cursor-pointer transition"
-            >
-              <input
-                type="checkbox"
-                checked={selected.includes(o.value)}
-                onChange={() => toggle(o.value)}
-                className="accent-accent"
-              />
-              {o.label}
-            </label>
-          ))}
-        </div>
-      )}
     </div>
   )
 }

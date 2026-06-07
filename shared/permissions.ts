@@ -35,6 +35,7 @@ export type Capability =
   | 'manage_announcements'
   | 'view_audit_logs'
   | 'view_analytics'
+  | 'view_calculator_runs'
   | 'manage_billing'
 
 export const ROLES: Role[] = [
@@ -101,6 +102,10 @@ const CAPABILITIES: Record<Capability, Role[]> = {
   manage_announcements: INTERNAL_MANAGE,
   view_audit_logs: INTERNAL_MANAGE,
   view_analytics: INTERNAL_OVERSIGHT,
+  // Calculator leads — the per-run list of who used the calculator (company, contact,
+  // risk, yield-loss opportunity) so internal sales can follow up. Same oversight set
+  // as analytics; the run itself is persisted server-side on every authenticated calc.
+  view_calculator_runs: INTERNAL_OVERSIGHT,
   manage_billing: INTERNAL_MANAGE,
 }
 

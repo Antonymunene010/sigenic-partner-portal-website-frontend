@@ -75,6 +75,11 @@ test('can — support_engineer has oversight but cannot manage config', () => {
   assert.equal(can({ role: 'support_engineer' }, 'manage_companies'), false)
 })
 
+test('can — view_calculator_runs (calculator leads) is internal-oversight, like analytics', () => {
+  for (const role of ['super_admin', 'admin', 'support_engineer'] as Role[]) assert.equal(can({ role }, 'view_calculator_runs'), true, role)
+  for (const role of ['distributor_admin', 'distributor_user', 'customer_admin', 'customer_user'] as Role[]) assert.equal(can({ role }, 'view_calculator_runs'), false, role)
+})
+
 test('can — every authenticated role may view success stories', () => {
   for (const role of ROLES) assert.equal(can({ role }, 'view_success_stories'), true, role)
   assert.equal(can(null, 'view_success_stories'), false)
