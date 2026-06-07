@@ -1,5 +1,7 @@
 import type {
   Announcement,
+  CalcAdditionalInfo,
+  CalcContact,
   CalcSelection,
   HydrateBundle,
   LimitedRiskResult,
@@ -62,6 +64,17 @@ export function submitPublicRequest(req: {
 export function publicCalculate(selection: CalcSelection): Promise<{ result: LimitedRiskResult }> {
   return request('/api/public/calculate', { method: 'POST', body: JSON.stringify({ selection }) })
 }
+/** Final wizard submit for unauthenticated users — captures a contact card. */
+export function publicSubmitCalculation(
+  selection: CalcSelection,
+  contact: CalcContact,
+  additional?: CalcAdditionalInfo,
+): Promise<{ result: LimitedRiskResult; runId: string; submittedAt: string }> {
+  return request('/api/public/calculator/submit', {
+    method: 'POST',
+    body: JSON.stringify({ selection, contact, additional }),
+  })
+}
 export function getPublicCalculatorConfig(): Promise<PublicCalcConfig> {
   return request<PublicCalcConfig>('/api/public/calculator-config')
 }
@@ -87,11 +100,19 @@ export function hydrate(): Promise<HydrateBundle> {
 }
 
 /* ---------- calculator ---------- */
+// Stateless preview — does not persist. Used by Step 2 of the wizard.
 export function calculate(
   selection: CalcSelection,
   opts: { modelId?: string } = {},
-): Promise<{ result: RiskResult; runId: string | null }> {
+): Promise<{ result: RiskResult }> {
   return request('/api/calculate', { method: 'POST', body: JSON.stringify({ selection, ...opts }) })
+}
+/** Final wizard submit for authenticated users — persists + emails admins. */
+export function submitCalculation(
+  selection: CalcSelection,
+  opts: { additional?: CalcAdditionalInfo; clientName?: string; modelId?: string } = {},
+): Promise<{ result: RiskResult; runId: string; submittedAt: string }> {
+  return request('/api/calculator/submit', { method: 'POST', body: JSON.stringify({ selection, ...opts }) })
 }
 
 /* ---------- service requests ---------- */

@@ -40,6 +40,12 @@ export function apiRouter(store: Store): Router {
   r.post('/calculate', async (req, res) => {
     res.json(await calculatorService.calculate(store, req.auth!, req.body ?? {}))
   })
+  // Final wizard step — persists the run as a lead + emails internal admins. Distinct
+  // from /calculate so the intermediate "Statistical Analysis" step on the wizard
+  // stays stateless and doesn't litter the admin dashboard with abandoned previews.
+  r.post('/calculator/submit', async (req, res) => {
+    res.status(201).json(await calculatorService.submit(store, req.auth!, req.body ?? {}))
+  })
 
   /* service requests */
   r.post('/service-requests', async (req, res) => {

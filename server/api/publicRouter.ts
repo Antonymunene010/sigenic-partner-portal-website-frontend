@@ -74,6 +74,11 @@ export function publicRouter(store: Store): Router {
   r.post('/public/calculate', async (req, res) => {
     res.json(await calculatorService.publicCalculate(store, req.body?.selection))
   })
+  // Final wizard step for unauthenticated users — captures a contact card so admins
+  // can follow up. Stateless /public/calculate above stays a free preview.
+  r.post('/public/calculator/submit', async (req, res) => {
+    res.status(201).json(await calculatorService.publicSubmit(store, req.body ?? {}))
+  })
 
   return r
 }

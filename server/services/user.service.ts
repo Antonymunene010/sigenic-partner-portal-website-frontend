@@ -1,7 +1,7 @@
-import { canManageUser, roleMeta, INTERNAL_MANAGE } from '../../shared/permissions'
+import { canManageUser, roleMeta } from '../../shared/permissions'
 import { badRequest, forbidden, notFound } from '../http/errors'
 import { audit } from './audit'
-import { sendEmail, inviteEmail, passwordResetLinkEmail, userMutationAdminEmail, accountRemovedEmail } from '../infra/email'
+import { sendEmail, inviteEmail, passwordResetLinkEmail, userMutationAdminEmail, accountRemovedEmail, notifyInternalAdmins } from '../infra/email'
 import { signResetToken } from '../infra/auth'
 import { uid } from '../util/ids'
 import type { Store } from '../db/store'
@@ -21,13 +21,6 @@ function inferUserType(role: Role): string {
 function resetLink(token: string, origin?: string): string {
   const base = (process.env.APP_BASE_URL || origin || 'http://localhost:5173').replace(/\/$/, '')
   return `${base}/reset-password?token=${encodeURIComponent(token)}`
-}
-
-/** Email every active internal admin (super_admin + admin). Best-effort, per-recipient. */
-async function notifyInternalAdmins(store: Store, message: { subject: string; text: string }): Promise<void> {
-  const everyone = await store.list('users')
-  const admins = everyone.filter((u: any) => INTERNAL_MANAGE.includes(u.role) && u.status !== 'inactive' && u.email)
-  await Promise.all(admins.map((a: any) => sendEmail(store, { to: a.email, ...message }).catch(() => {})))
 }
 
 /** Create a user, gated by canManageUser (company scope + assignable role). */

@@ -1,4 +1,7 @@
 import { uid, nowIso } from '../util/ids'
+import { INTERNAL_MANAGE } from '../../shared/permissions'
+import { RISK_TIER_LABEL } from '../../shared/calc'
+import type { CalcAdditionalInfo, RiskResult } from '../../shared/types'
 
 /** A persisted outbox record — every send (real or mocked) is recorded for audit. */
 export interface EmailRecord {
@@ -15,6 +18,11 @@ export interface EmailRecord {
 
 interface EmailOutbox {
   appendEmail: (record: EmailRecord) => Promise<unknown>
+}
+
+/** Narrow store interface for the cross-service admin fanout helper below. */
+interface AdminFanoutStore extends EmailOutbox {
+  list: (table: string, opts?: { where?: string; params?: unknown[] }) => Promise<any[]>
 }
 
 // nodemailer transport is loaded lazily and has no shared type here — kept as `any`.
@@ -238,6 +246,54 @@ export function userMutationAdminEmail(params: {
       '',
       '— Sigenic Partner Portal',
     ].join('\n'),
+  }
+}
+
+/**
+ * Fan out one message to every active internal admin (super_admin + admin). SQL
+ * filter avoids dragging the full users table into Node. Each send is best-effort,
+ * so a flaky SMTP recipient never poisons the rest of the batch.
+ */
+export async function notifyInternalAdmins(
+  store: AdminFanoutStore,
+  message: { subject: string; text: string },
+): Promise<void> {
+  const admins = await store.list('users', {
+    where: "role = ANY($1::text[]) AND status <> 'inactive'",
+    params: [INTERNAL_MANAGE],
+  })
+  await Promise.all(admins.map((a) => sendEmail(store, { to: a.email, ...message }).catch(() => {})))
+}
+
+/** "New calculator submission" notification — sent to internal admins on Submit and Send Email. */
+export function calculatorLeadEmail(params: {
+  runId: string
+  result: RiskResult
+  submitterName?: string | null
+  submitterEmail?: string | null
+  companyName?: string | null
+  additional?: CalcAdditionalInfo | null
+}): { subject: string; text: string } {
+  const tierLabel = RISK_TIER_LABEL[params.result.overallTier] ?? params.result.overallTier
+  const lines: (string | null)[] = [
+    'A new risk-calculator submission was just received on the partner portal.',
+    '',
+    `Documentation: ${params.runId}`,
+    `From: ${params.submitterName ?? 'Unknown'}${params.submitterEmail ? ` <${params.submitterEmail}>` : ''}`,
+    params.companyName ? `Company: ${params.companyName}` : null,
+    '',
+    `Overall risk: ${params.result.overallRiskScore} / 15 (${tierLabel})`,
+    `Annual yield-loss at stake: ${params.result.currency} ${params.result.totalAnnualValueLoss.toLocaleString()}`,
+    params.additional?.preventiveMeasures ? `\nPreventive measures already implemented:\n${params.additional.preventiveMeasures}` : null,
+    params.additional?.costsIncurred ? `\nAssociated costs incurred:\n${params.additional.costsIncurred}` : null,
+    '',
+    'See the full breakdown on the Calculator leads page in the admin dashboard.',
+    '',
+    '— Sigenic Partner Portal',
+  ]
+  return {
+    subject: `[Calculator lead] ${params.submitterName ?? 'Unknown'} — ${tierLabel}`,
+    text: lines.filter((l) => l !== null).join('\n'),
   }
 }
 

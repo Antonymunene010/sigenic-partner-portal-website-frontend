@@ -22,7 +22,7 @@
  * This is the single source of truth: the portal always computes server-side
  * (/api/calculate, /api/public/calculate); the client only seeds default inputs.
  */
-import type { CalcSelection, DetectionKey, IssueResult, LimitedRiskResult, RiskResult, RiskTier } from './types'
+import type { CalcAdditionalInfo, CalcContact, CalcSelection, DetectionKey, IssueResult, LimitedRiskResult, RiskResult, RiskTier } from './types'
 
 // Severity transform + risk-band thresholds — fixed in the spreadsheet formula.
 const SEVERITY_MULTIPLIER = 1.5
@@ -42,6 +42,33 @@ export function riskTier(score: number): RiskTier {
   if (score >= TIER_MEDIUM) return 'medium'
   if (score >= TIER_LOW) return 'low'
   return 'none'
+}
+
+/** Customer-facing tier label — single source of truth for the portal UI and admin emails. */
+export const RISK_TIER_LABEL: Record<RiskTier, string> = {
+  high: 'High Risk',
+  medium: 'Medium Risk',
+  low: 'Low Risk',
+  none: '—',
+}
+
+/** Tier score-range copy, kept here so server-rendered docs (emails / PDFs) match the UI. */
+export const RISK_TIER_RANGE: Record<RiskTier, string> = {
+  high: '9–15',
+  medium: '4–8',
+  low: '1–3',
+  none: '0',
+}
+
+/**
+ * Recommendation copy shown next to the risk band on the wizard's Statistical Analysis
+ * step. Verbatim from the client's reference flow (partner.sigenic.com) — kept in shared/
+ * so the calc engine, the wizard, and any server-rendered summary point at one string.
+ */
+export const RISK_TIER_GUIDANCE: Record<Exclude<RiskTier, 'none'>, string> = {
+  high: 'Consider adopting Sigenic Solution.',
+  medium: 'May escalate to high risk if ignored.',
+  low: 'Tolerable loss, but great saving opportunity.',
 }
 
 /** Section-1 severity score: min(log10(severity)·1.5, 5); 0 for non-positive input. */
@@ -179,12 +206,21 @@ export function toCalculatorRun({
   runType,
   model,
   ids = {},
+  additional,
+  contact,
+  clientName,
 }: {
   result: RiskResult
   selection: CalcSelection
   runType: string
   model?: { id?: string } | null
   ids?: { companyId?: string | null; siteId?: string | null; userId?: string | null }
+  /** Step 3 free-text fields — preventive measures already implemented, costs incurred. */
+  additional?: CalcAdditionalInfo | null
+  /** Public submissions: contact card filled on Step 3 (required for follow-up). */
+  contact?: CalcContact | null
+  /** Authenticated submissions can override the displayed client name (defaults: caller's company). */
+  clientName?: string | null
 }) {
   return {
     company_id: ids.companyId ?? null,
@@ -203,6 +239,11 @@ export function toCalculatorRun({
     total_annual_value_loss: result.totalAnnualValueLoss,
     inputs_json: selection.issues ?? [],
     output_summary_json: result,
+    client_name: clientName ?? contact?.clientName ?? null,
+    contact_name: contact?.contactName ?? null,
+    contact_email: contact?.contactEmail ?? null,
+    preventive_measures: additional?.preventiveMeasures ?? null,
+    costs_incurred: additional?.costsIncurred ?? null,
   }
 }
 

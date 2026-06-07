@@ -4,7 +4,7 @@ import { createAnnouncement } from '../../../server/services/announcement.servic
 import { createUser, deleteUser } from '../../../server/services/user.service'
 import { createServiceRequest, updateServiceRequest } from '../../../server/services/serviceRequest.service'
 import { activateScoringModel } from '../../../server/services/admin.service'
-import { calculate } from '../../../server/services/calculator.service'
+import { calculate, submit, publicSubmit } from '../../../server/services/calculator.service'
 import type { Store } from '../../../server/db/store'
 import type { AuthPayload } from '../../../server/infra/auth'
 
@@ -84,25 +84,82 @@ test('admin.activateScoringModel — archives other active models, activates the
   assert.deepStrictEqual(updates.find((u) => u.id === 'sm-target').data, { status: 'active' })
 })
 
-test('calculator.calculate — persists the run as a lead and returns its id for linking', async () => {
+test('calculator.calculate — pure preview: returns a result without persisting a run', async () => {
   const inserts: any[] = []
   const store = {
     getActiveScoringModel: mock.fn(async () => ({ id: 'sm-1', versionName: 'v1' })),
     getOne: mock.fn(async () => null),
     getIssuesForModel: mock.fn(async () => []),
-    list: mock.fn(async () => []), // occurrence/detection/technology Configuration lookups
+    list: mock.fn(async () => []),
     insert: mock.fn(async (table: string, data: any) => { inserts.push({ table, data }); return { id: data.id, ...data } }),
   } as unknown as Store
   const customer: AuthPayload = { sub: 'u-c', role: 'customer_user', userType: 'customer', companyId: 'co-c', companyType: 'customer', email: 'c@x', name: 'Cust' }
-  const { result, runId } = await calculate(store, customer, { selection: { siteId: 'site-1', issues: [] } })
+  const out = await calculate(store, customer, { selection: { siteId: 'site-1', issues: [] } })
+  assert.ok(out.result, 'a computed result is returned to the caller')
+  assert.equal(inserts.length, 0, 'calculate must not persist anything — submit() owns persistence')
+})
+
+test('calculator.submit — persists the run as a lead and notifies internal admins', async () => {
+  const inserts: any[] = []
+  const emails: any[] = []
+  const store = {
+    getActiveScoringModel: mock.fn(async () => ({ id: 'sm-1', versionName: 'v1' })),
+    getOne: mock.fn(async () => null),
+    getIssuesForModel: mock.fn(async () => []),
+    list: mock.fn(async (table: string) => {
+      if (table === 'users') return [{ id: 'u-int', email: 'admin@sigenic', role: 'admin', status: 'active' }]
+      return []
+    }),
+    insert: mock.fn(async (table: string, data: any) => { inserts.push({ table, data }); return { id: data.id, ...data } }),
+    appendEmail: mock.fn(async (rec: any) => { emails.push(rec) }),
+  } as unknown as Store
+  const customer: AuthPayload = { sub: 'u-c', role: 'customer_user', userType: 'customer', companyId: 'co-c', companyType: 'customer', email: 'c@x', name: 'Cust' }
+  const { result, runId } = await submit(store, customer, {
+    selection: { siteId: 'site-1', issues: [] },
+    additional: { preventiveMeasures: 'weekly PM', costsIncurred: '$10k/quarter' },
+    clientName: 'Acme Wafer',
+  })
   const run = inserts.find((i) => i.table === 'calculator_runs')
-  assert.ok(run, 'a calculator_runs row is inserted')
-  assert.equal(run.data.run_type, 'partner') // a customer company is an external partner lead
+  assert.ok(run, 'a calculator_runs row is inserted on submit')
+  assert.equal(run.data.run_type, 'partner')
   assert.equal(run.data.user_id, 'u-c')
   assert.equal(run.data.company_id, 'co-c')
   assert.equal(run.data.site_id, 'site-1')
-  assert.equal(runId, run.data.id) // id returned so a consultation can link back
-  assert.ok(result, 'the computed result is still returned to the caller')
+  assert.equal(run.data.client_name, 'Acme Wafer')
+  assert.equal(run.data.preventive_measures, 'weekly PM')
+  assert.equal(run.data.costs_incurred, '$10k/quarter')
+  assert.ok(run.data.submitted_at, 'submitted_at is stamped')
+  assert.equal(runId, run.data.id)
+  assert.ok(result)
+  assert.equal(emails.length, 1, 'a notification email is fanned out to the one active admin')
+  assert.equal(emails[0].to, 'admin@sigenic')
+})
+
+test('calculator.publicSubmit — requires a contact card, stamps run_type=public', async () => {
+  const inserts: any[] = []
+  const store = {
+    getActiveScoringModel: mock.fn(async () => ({ id: 'sm-1', versionName: 'v1' })),
+    getOne: mock.fn(async () => null),
+    getIssuesForModel: mock.fn(async () => []),
+    list: mock.fn(async () => []),
+    insert: mock.fn(async (table: string, data: any) => { inserts.push({ table, data }); return { id: data.id, ...data } }),
+    appendEmail: mock.fn(async () => {}),
+  } as unknown as Store
+  await assert.rejects(
+    () => publicSubmit(store, { selection: { issues: [] }, contact: { clientName: '', contactEmail: '' } }),
+    /Client name and contact email/,
+  )
+  const { runId } = await publicSubmit(store, {
+    selection: { issues: [] },
+    contact: { clientName: 'Aisha', contactEmail: 'a@x', contactName: 'Aisha Rahman', companyName: 'Lumen' },
+    additional: { preventiveMeasures: 'none' },
+  })
+  const run = inserts.find((i) => i.table === 'calculator_runs')
+  assert.ok(run)
+  assert.equal(run.data.run_type, 'public')
+  assert.equal(run.data.contact_email, 'a@x')
+  assert.equal(run.data.client_name, 'Aisha')
+  assert.equal(runId, run.data.id)
 })
 
 test('user.createUser — emails a single-use invite link to the new user', async () => {
@@ -202,15 +259,23 @@ test('serviceRequest.updateServiceRequest — non-super_admin oversight cannot r
 
 test('user.createUser — emails the active internal admins that a new user joined', async () => {
   const emails: any[] = []
+  // notifyInternalAdmins now filters at the SQL layer (role = ANY + status <> 'inactive'),
+  // so this mock interprets opts.params the same way the DB would, keeping the test honest
+  // about the negative cases (customer_user + inactive admin should NOT receive a mail).
+  const allUsers = [
+    { id: 'a1', email: 'boss@sigenic.com', role: 'super_admin', status: 'active' },
+    { id: 'a2', email: 'mgr@sigenic.com', role: 'admin', status: 'active' },
+    { id: 'x', email: 'cust@x', role: 'customer_user', status: 'active' },
+    { id: 'y', email: 'old@sigenic.com', role: 'admin', status: 'inactive' },
+  ]
   const store = {
     createUser: mock.fn(async () => ({ id: 'u-new', email: 'new@x', fullName: 'New User', role: 'customer_user' })),
     getUserAuthById: mock.fn(async () => ({ id: 'u-new', email: 'new@x', fullName: 'New User', role: 'customer_user', companyId: 'co-c', companyName: 'Acme', passwordHash: 'pw', status: 'invited' })),
-    list: mock.fn(async () => [
-      { id: 'a1', email: 'boss@sigenic.com', role: 'super_admin', status: 'active' },
-      { id: 'a2', email: 'mgr@sigenic.com', role: 'admin', status: 'active' },
-      { id: 'x', email: 'cust@x', role: 'customer_user', status: 'active' }, // not an admin
-      { id: 'y', email: 'old@sigenic.com', role: 'admin', status: 'inactive' }, // deactivated
-    ]),
+    list: mock.fn(async (_table: string, opts?: { params?: any[] }) => {
+      if (!opts?.params) return allUsers
+      const roles: string[] = opts.params[0]
+      return allUsers.filter((u) => roles.includes(u.role) && u.status !== 'inactive')
+    }),
     appendAudit: mock.fn(async () => {}),
     appendEmail: mock.fn(async (rec: any) => { emails.push(rec) }),
   } as unknown as Store

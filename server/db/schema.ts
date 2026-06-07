@@ -169,6 +169,9 @@ CREATE TABLE IF NOT EXISTS technology_prices (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Calculator submissions: persisted only when the user clicks "Submit and Send Email"
+-- at the end of the 3-step wizard (Basic info → Statistical analysis → Additional info).
+-- Intermediate calculations are stateless on /api/calculate.
 CREATE TABLE IF NOT EXISTS calculator_runs (
   id text PRIMARY KEY,
   company_id text REFERENCES companies(id) ON DELETE SET NULL,
@@ -187,8 +190,23 @@ CREATE TABLE IF NOT EXISTS calculator_runs (
   total_annual_value_loss double precision,
   inputs_json jsonb,
   output_summary_json jsonb,
+  client_name text,
+  contact_name text,
+  contact_email text,
+  preventive_measures text,
+  costs_incurred text,
+  submitted_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Additive columns for portals already deployed on an older calculator_runs schema.
+-- (CREATE TABLE IF NOT EXISTS won't alter an existing table, so we add columns here.)
+ALTER TABLE calculator_runs ADD COLUMN IF NOT EXISTS client_name text;
+ALTER TABLE calculator_runs ADD COLUMN IF NOT EXISTS contact_name text;
+ALTER TABLE calculator_runs ADD COLUMN IF NOT EXISTS contact_email text;
+ALTER TABLE calculator_runs ADD COLUMN IF NOT EXISTS preventive_measures text;
+ALTER TABLE calculator_runs ADD COLUMN IF NOT EXISTS costs_incurred text;
+ALTER TABLE calculator_runs ADD COLUMN IF NOT EXISTS submitted_at timestamptz;
 
 -- Configurable request-type taxonomy. Super-admins manage these (label, the
 -- owner team a new request routes to, the blurb shown on the intake form). The

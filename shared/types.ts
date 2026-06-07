@@ -314,7 +314,46 @@ export interface CalculatorRun {
   totalAnnualValueLoss?: number | null
   inputsJson?: IssueInput[] | null
   outputSummaryJson?: RiskResult | null
+  /** Wizard Step 1 client identity — entered by the submitter (auth users default to their company). */
+  clientName?: string | null
+  /** Public-submit only: how to follow up. Authenticated runs leave these blank — userId is the lookup key. */
+  contactName?: string | null
+  contactEmail?: string | null
+  /** Wizard Step 3 additional information — free-text, optional. */
+  preventiveMeasures?: string | null
+  costsIncurred?: string | null
+  /** Stamp set when the user clicks "Submit and Send Email" (mirrors createdAt for now, but explicit). */
+  submittedAt?: string | null
   createdAt: string
+}
+
+/** Fields filled on Wizard Step 3 before the user submits ("Submit and Send Email"). */
+export interface CalcAdditionalInfo {
+  preventiveMeasures?: string
+  costsIncurred?: string
+}
+
+/** Public-submit contact card (Step 3) — required so admins can follow up. */
+export interface CalcContact {
+  clientName: string
+  contactName?: string
+  contactEmail: string
+  companyName?: string
+}
+
+/** Authenticated wizard submission. */
+export interface CalcSubmitRequest {
+  selection: CalcSelection
+  additional?: CalcAdditionalInfo
+  clientName?: string
+  modelId?: string
+}
+
+/** Public wizard submission — adds a required contact card. */
+export interface PublicCalcSubmitRequest {
+  selection: CalcSelection
+  additional?: CalcAdditionalInfo
+  contact: CalcContact
 }
 
 /* ---------- request-form taxonomy (super-admin configurable, decoupled from the calculator master data) ---------- */

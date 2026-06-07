@@ -58,20 +58,22 @@ export const REQUEST_SOURCE_LABEL: Record<RequestSource, string> = {
 }
 
 // Risk bands for the calculator (PRD: 9–15 High, 4–8 Medium, 1–3 Low).
-export const RISK_TIERS: { value: RiskTier; label: string; tone: Tone; range: string }[] = [
-  { value: 'high', label: 'High Risk', tone: 'danger', range: '9–15' },
-  { value: 'medium', label: 'Medium Risk', tone: 'warn', range: '4–8' },
-  { value: 'low', label: 'Low Risk', tone: 'success', range: '1–3' },
-  { value: 'none', label: '—', tone: 'neutral', range: '0' },
-]
+// RISK_TIER_LABEL / RISK_TIER_RANGE / RISK_TIER_GUIDANCE live in shared/calc.ts so
+// the server (admin emails) and the client render off one source of truth; only the
+// UI-specific tone (Badge color) lives here.
+export { RISK_TIER_LABEL, RISK_TIER_RANGE, RISK_TIER_GUIDANCE } from '../../shared/calc'
+import { RISK_TIER_LABEL as TIER_LABEL, RISK_TIER_RANGE as TIER_RANGE } from '../../shared/calc'
 
-export const RISK_TIER_TONE: Record<RiskTier, Tone> = Object.fromEntries(
-  RISK_TIERS.map((t) => [t.value, t.tone]),
-) as Record<RiskTier, Tone>
+export const RISK_TIER_TONE: Record<RiskTier, Tone> = {
+  high: 'danger',
+  medium: 'warn',
+  low: 'success',
+  none: 'neutral',
+}
 
-export const RISK_TIER_LABEL: Record<RiskTier, string> = Object.fromEntries(
-  RISK_TIERS.map((t) => [t.value, t.label]),
-) as Record<RiskTier, string>
+export const RISK_TIERS: { value: RiskTier; label: string; tone: Tone; range: string }[] = (
+  ['high', 'medium', 'low', 'none'] as RiskTier[]
+).map((value) => ({ value, label: TIER_LABEL[value], tone: RISK_TIER_TONE[value], range: TIER_RANGE[value] }))
 
 // Fallback detection labels (the authoritative list comes from detection_options).
 export const DETECTION_LABEL: Record<DetectionKey, string> = {

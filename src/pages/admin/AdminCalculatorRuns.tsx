@@ -198,7 +198,9 @@ function RunDetailModal({ run, onClose }: { run: CalculatorRun | null; onClose: 
   const { companyName, userName, userEmail, departmentName, machineName, siteName, scoringModelName } = useLookups()
   if (!run) return null
   const output = run.outputSummaryJson
-  const email = run.runType === 'public' ? null : userEmail(run.userId)
+  // Public runs carry contactEmail on the row itself; authenticated runs look it up by userId.
+  const email = run.runType === 'public' ? run.contactEmail ?? null : userEmail(run.userId)
+  const submitter = run.runType === 'public' ? run.contactName ?? run.clientName ?? null : userName(run.userId)
 
   return (
     <Modal
@@ -213,18 +215,21 @@ function RunDetailModal({ run, onClose }: { run: CalculatorRun | null; onClose: 
       }
     >
       <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-2 text-sm mb-5">
-        <DescRow k="Lead" v={run.runType === 'public' ? 'Anonymous (public calc)' : userName(run.userId)} />
+        <DescRow k="Lead" v={submitter ?? 'Anonymous (public calc)'} />
         <DescRow
           k="Email"
           v={email ? <a href={`mailto:${email}`} className="hover:text-accent-ink hover:underline">{email}</a> : '—'}
         />
-        <DescRow k="Company" v={run.runType === 'public' ? '—' : companyName(run.companyId)} />
+        <DescRow
+          k="Company"
+          v={run.runType === 'public' ? run.clientName ?? '—' : companyName(run.companyId)}
+        />
         <DescRow k="Department" v={departmentName(run.departmentId)} />
         <DescRow k="Machine" v={run.machineId ? machineName(run.machineId) : '—'} />
         <DescRow k="Site" v={run.siteId ? siteName(run.siteId) : '—'} />
         <DescRow k="Technology" v={run.technology ?? '—'} />
         <DescRow k="Scoring model" v={scoringModelName(run.scoringModelId)} />
-        <DescRow k="Run at" v={fmtDateTime(run.createdAt)} />
+        <DescRow k="Submitted at" v={fmtDateTime(run.submittedAt ?? run.createdAt)} />
       </dl>
 
       <div className="grid grid-cols-3 gap-3 mb-4">
@@ -250,6 +255,23 @@ function RunDetailModal({ run, onClose }: { run: CalculatorRun | null; onClose: 
         <RiskBreakdownTable issues={output.issues} />
       ) : (
         <p className="text-sm text-muted dark:text-muted-dark">No per-issue breakdown captured for this run.</p>
+      )}
+
+      {(run.preventiveMeasures || run.costsIncurred) && (
+        <div className="mt-5 grid sm:grid-cols-2 gap-4">
+          {run.preventiveMeasures && (
+            <div className="rounded-md border border-line dark:border-line-dark p-3">
+              <div className="stat-label mb-1">Preventive measures already implemented</div>
+              <p className="text-sm whitespace-pre-wrap">{run.preventiveMeasures}</p>
+            </div>
+          )}
+          {run.costsIncurred && (
+            <div className="rounded-md border border-line dark:border-line-dark p-3">
+              <div className="stat-label mb-1">Associated costs incurred</div>
+              <p className="text-sm whitespace-pre-wrap">{run.costsIncurred}</p>
+            </div>
+          )}
+        </div>
       )}
     </Modal>
   )
