@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Inbox, AlertTriangle, Users, RefreshCw } from 'lucide-react'
+import clsx from 'clsx'
 import { useData, useLookups } from '../../lib/data'
+import { useOutsideClick } from '../../lib/useOutsideClick'
 import { PageHeader } from '../../components/PageHeader'
 import { DataTable, type Column } from '../../components/DataTable'
 import { Badge } from '../../components/Badge'
@@ -23,9 +25,9 @@ export default function AdminRequests() {
   const { companyName, requestTypeLabel } = useLookups()
   const { push } = useToast()
   const navigate = useNavigate()
-  const [status, setStatus] = useState<RequestStatus | 'all'>('all')
-  const [owner, setOwner] = useState<OwnerTeam | 'all'>('all')
-  const [urgency, setUrgency] = useState<Urgency | 'all'>('all')
+  const [statuses, setStatuses] = useState<RequestStatus[]>([])
+  const [owners, setOwners] = useState<OwnerTeam[]>([])
+  const [urgencies, setUrgencies] = useState<Urgency[]>([])
   const [syncing, setSyncing] = useState(false)
 
   const open = useMemo(() => serviceRequests.filter((r) => r.status !== 'closed'), [serviceRequests])
@@ -35,11 +37,11 @@ export default function AdminRequests() {
     () =>
       serviceRequests.filter(
         (r) =>
-          (status === 'all' || r.status === status) &&
-          (owner === 'all' || r.ownerTeam === owner) &&
-          (urgency === 'all' || r.urgency === urgency),
+          (statuses.length === 0 || statuses.includes(r.status)) &&
+          (owners.length === 0 || owners.includes(r.ownerTeam)) &&
+          (urgencies.length === 0 || urgencies.includes(r.urgency)),
       ),
-    [serviceRequests, status, owner, urgency],
+    [serviceRequests, statuses, owners, urgencies],
   )
 
   async function handleSync() {
@@ -133,9 +135,9 @@ export default function AdminRequests() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <FilterSelect value={status} onChange={setStatus} label="Filter by status" allLabel="All statuses" options={REQUEST_STATUSES} />
-        <FilterSelect value={owner} onChange={setOwner} label="Filter by owner team" allLabel="All teams" options={OWNER_TEAMS} />
-        <FilterSelect value={urgency} onChange={setUrgency} label="Filter by urgency" allLabel="Any urgency" options={URGENCIES} />
+        <MultiSelect label="All statuses" options={REQUEST_STATUSES} selected={statuses} onChange={setStatuses} />
+        <MultiSelect label="All teams" options={OWNER_TEAMS} selected={owners} onChange={setOwners} />
+        <MultiSelect label="Any urgency" options={URGENCIES} selected={urgencies} onChange={setUrgencies} />
       </div>
 
       <DataTable
@@ -149,32 +151,67 @@ export default function AdminRequests() {
   )
 }
 
-function FilterSelect<T extends string>({
-  value,
-  onChange,
+function MultiSelect<T extends string>({
   label,
-  allLabel,
   options,
+  selected,
+  onChange,
 }: {
-  value: T | 'all'
-  onChange: (value: T | 'all') => void
   label: string
-  allLabel: string
   options: { value: T; label: string }[]
+  selected: T[]
+  onChange: (next: T[]) => void
 }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useOutsideClick(ref, open, () => setOpen(false))
+
+  const toggle = (value: T) =>
+    onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value])
+
+  const summary =
+    selected.length === 0
+      ? label
+      : selected.length === 1
+        ? (options.find((o) => o.value === selected[0])?.label ?? label)
+        : `${selected.length} selected`
+
   return (
-    <select
-      className="select sm:w-56"
-      value={value}
-      onChange={(e) => onChange(e.target.value as T | 'all')}
-      aria-label={label}
-    >
-      <option value="all">{allLabel}</option>
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={clsx('select sm:w-56 text-left truncate', selected.length === 0 && 'text-faint dark:text-faint-dark')}
+        aria-label={label}
+        aria-expanded={open}
+      >
+        {summary}
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1.5 w-full min-w-[12rem] card shadow-lift p-1 animate-fade-up z-20">
+          <button
+            type="button"
+            onClick={() => onChange([])}
+            className="w-full text-left px-2 py-1.5 rounded text-[13px] text-muted dark:text-muted-dark hover:bg-raised dark:hover:bg-raised-dark transition"
+          >
+            {label}
+          </button>
+          {options.map((o) => (
+            <label
+              key={o.value}
+              className="flex items-center gap-2 px-2 py-1.5 rounded text-[13px] hover:bg-raised dark:hover:bg-raised-dark cursor-pointer transition"
+            >
+              <input
+                type="checkbox"
+                checked={selected.includes(o.value)}
+                onChange={() => toggle(o.value)}
+                className="accent-accent"
+              />
+              {o.label}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
