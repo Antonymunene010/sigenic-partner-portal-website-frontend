@@ -14,7 +14,6 @@ import type { Role, User, UserType } from './types'
 
 export type Capability =
   | 'use_full_calculator'
-  | 'save_calculator_result'
   | 'download_report'
   | 'view_company_profile'
   | 'view_request_list'
@@ -69,7 +68,6 @@ export const INTERNAL_MANAGE: Role[] = ['admin', 'super_admin']
  */
 const CAPABILITIES: Record<Capability, Role[]> = {
   use_full_calculator: ALL_AUTH,
-  save_calculator_result: ['customer_user', 'customer_admin', ...INTERNAL_OVERSIGHT],
   download_report: ALL_AUTH,
   view_company_profile: ['distributor_user', 'distributor_admin', 'customer_user', 'customer_admin', 'admin', 'super_admin'],
   view_request_list: ALL_AUTH,

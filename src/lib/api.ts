@@ -89,8 +89,8 @@ export function hydrate(): Promise<HydrateBundle> {
 /* ---------- calculator ---------- */
 export function calculate(
   selection: CalcSelection,
-  opts: { modelId?: string; save?: boolean } = {},
-): Promise<{ result: RiskResult; run: import('./types').CalculatorRun | null }> {
+  opts: { modelId?: string } = {},
+): Promise<{ result: RiskResult }> {
   return request('/api/calculate', { method: 'POST', body: JSON.stringify({ selection, ...opts }) })
 }
 

@@ -1,9 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Calculator as CalcIcon, Download, Save, MessageSquarePlus, Sparkles } from 'lucide-react'
-import { useAuth } from '../lib/auth'
+import { Calculator as CalcIcon, Download, MessageSquarePlus, Sparkles } from 'lucide-react'
 import { useData, useLookups } from '../lib/data'
-import { can } from '../lib/permissions'
 import { calculate, createServiceRequest, downloadReportPdf } from '../lib/api'
 import { PageHeader } from '../components/PageHeader'
 import { Card, Field, StatCard, EmptyState, Spinner, useToast } from '../components/ui'
@@ -15,10 +13,9 @@ import { fmtUSD } from '../lib/format'
 import type { CalcSelection, DetectionKey, IssueInput, RiskResult } from '../lib/types'
 
 export default function Calculator() {
-  const { user } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
-  const { departments, machines, sites, calculatorIssues, occurrenceOptions, detectionOptions, technologyPrices, activeScoringModelId, refresh, ready } = useData()
+  const { departments, machines, sites, calculatorIssues, occurrenceOptions, detectionOptions, technologyPrices, activeScoringModelId, ready } = useData()
   const lookups = useLookups()
 
   const [deptId, setDeptId] = useState<string>('')
@@ -27,7 +24,6 @@ export default function Calculator() {
   const [waferValue, setWaferValue] = useState<number | undefined>(undefined)
   const [inputs, setInputs] = useState<Record<string, IssueValues>>({})
   const [result, setResult] = useState<RiskResult | null>(null)
-  const [savedRunId, setSavedRunId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [requesting, setRequesting] = useState(false)
@@ -59,20 +55,15 @@ export default function Calculator() {
     issues: catalog.map<IssueInput>((i) => ({ issueId: i.id, label: i.label, severity: inputs[i.id]?.severity, occurrence: inputs[i.id]?.occurrence, detection: inputs[i.id]?.detection })),
   })
 
-  const run = async (save: boolean) => {
+  const run = async () => {
     if (!deptId) {
       toast.push('Select a department first.', 'error')
       return
     }
     setBusy(true)
     try {
-      const res = await calculate(buildSelection(), { save })
+      const res = await calculate(buildSelection())
       setResult(res.result)
-      if (res.run) {
-        setSavedRunId(res.run.id)
-        await refresh()
-        toast.push('Result saved to your company.')
-      }
     } catch (e) {
       toast.push(e instanceof Error ? e.message : 'Calculation failed.', 'error')
     } finally {
@@ -86,12 +77,12 @@ export default function Calculator() {
     try {
       await downloadReportPdf(
         {
-          estimateId: savedRunId ?? 'estimate',
+          estimateId: 'estimate',
           generatedAt: new Date().toISOString(),
           context: { site: lookups.siteName(siteId), department: lookups.departmentName(deptId), machine: machineId ? lookups.machineName(machineId) : '—', technology: dept?.technology ?? '—' },
           output: result,
         },
-        savedRunId ?? 'sigenic-risk-estimate',
+        'sigenic-risk-estimate',
       )
     } catch (e) {
       toast.push(e instanceof Error ? e.message : 'Download failed.', 'error')
@@ -111,7 +102,6 @@ export default function Calculator() {
         source: 'calculator_cta',
         departmentId: deptId,
         machineId: machineId || undefined,
-        linkedCalculatorRunId: savedRunId ?? undefined,
       })
       toast.push('Consultation request sent to Sigenic.')
       navigate(`/app/requests/${r.item.id}`)
@@ -122,7 +112,6 @@ export default function Calculator() {
     }
   }
 
-  const canSave = can(user, 'save_calculator_result')
   if (!ready) return <Spinner />
 
   return (
@@ -171,14 +160,9 @@ export default function Calculator() {
           )}
 
           <div className="mt-5 flex flex-wrap gap-2">
-            <button className="btn-accent" onClick={() => run(false)} disabled={busy || !deptId}>
+            <button className="btn-accent" onClick={run} disabled={busy || !deptId}>
               <CalcIcon size={15} /> {busy ? 'Calculating…' : 'Calculate'}
             </button>
-            {canSave && (
-              <button className="btn-outline" onClick={() => run(true)} disabled={busy || !deptId}>
-                <Save size={15} /> Calculate & save
-              </button>
-            )}
           </div>
         </Card>
 

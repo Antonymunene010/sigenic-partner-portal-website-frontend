@@ -52,7 +52,7 @@ export async function hydrate(store: Store, auth: AuthPayload): Promise<HydrateB
     store.list('occurrence_options', { order: 'sort_order ASC' }),
     store.list('detection_options', { order: 'sort_order ASC' }),
     store.list('technology_prices', { order: 'technology ASC' }),
-    internal ? store.list('calculator_runs', { order: 'created_at DESC' }) : store.list('calculator_runs', { ...scoped, order: 'created_at DESC' }),
+    internal ? store.list('calculator_runs', { order: 'created_at DESC' }) : Promise.resolve([]),
     internal ? store.list('service_requests', { order: 'updated_at DESC' }) : store.list('service_requests', { ...scoped, order: 'updated_at DESC' }),
     store.list('request_types', { order: 'sort_order ASC' }),
     store.list('request_departments', { order: 'sort_order ASC' }),

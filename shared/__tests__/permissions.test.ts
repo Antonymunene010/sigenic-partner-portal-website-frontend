@@ -80,14 +80,6 @@ test('can — every authenticated role may view success stories', () => {
   assert.equal(can(null, 'view_success_stories'), false)
 })
 
-test('can — save_calculator_result covers customers + internal oversight, NOT distributors', () => {
-  assert.equal(can({ role: 'customer_user' }, 'save_calculator_result'), true)
-  assert.equal(can({ role: 'customer_admin' }, 'save_calculator_result'), true)
-  assert.equal(can({ role: 'support_engineer' }, 'save_calculator_result'), true)
-  assert.equal(can({ role: 'distributor_admin' }, 'save_calculator_result'), false)
-  assert.equal(can({ role: 'distributor_user' }, 'save_calculator_result'), false)
-})
-
 test('can — external company admins manage their own company users; plain users cannot', () => {
   assert.equal(can({ role: 'distributor_admin' }, 'manage_company_users'), true)
   assert.equal(can({ role: 'customer_admin' }, 'manage_company_users'), true)

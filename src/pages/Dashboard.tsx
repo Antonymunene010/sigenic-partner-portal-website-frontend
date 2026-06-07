@@ -6,7 +6,7 @@ import { isInternal } from '../lib/permissions'
 import { PageHeader } from '../components/PageHeader'
 import { Card, StatCard, Spinner, EmptyState } from '../components/ui'
 import { Badge } from '../components/Badge'
-import { fmtUSD, fmtRelative } from '../lib/format'
+import { fmtRelative } from '../lib/format'
 import { REQUEST_STATUS_TONE, REQUEST_STATUS_LABEL, ONBOARDING_STATUS_LABEL } from '../lib/constants'
 
 export default function Dashboard() {
@@ -38,10 +38,9 @@ function AnnouncementList() {
 
 function PortalDashboard() {
   const { user } = useAuth()
-  const { company, serviceRequests, calculatorRuns } = useData()
+  const { company, serviceRequests } = useData()
   const { requestTypeLabel } = useLookups()
   const openReqs = serviceRequests.filter((r) => r.status !== 'closed')
-  const latestRun = calculatorRuns[0]
 
   return (
     <div>
@@ -56,15 +55,8 @@ function PortalDashboard() {
         }
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 gap-3 mb-6">
         <StatCard label="Open requests" value={openReqs.length} icon={<Inbox size={15} />} />
-        <StatCard label="Calculator runs" value={calculatorRuns.length} icon={<Calculator size={15} />} />
-        <StatCard
-          label="Annual savings opportunity"
-          value={latestRun?.totalAnnualValueLoss ? fmtUSD(latestRun.totalAnnualValueLoss) : '—'}
-          accent
-          icon={<TrendingUp size={15} />}
-        />
         <StatCard label="Onboarding" value={company ? ONBOARDING_STATUS_LABEL[company.onboardingStatus] : '—'} icon={<Building2 size={15} />} />
       </div>
 

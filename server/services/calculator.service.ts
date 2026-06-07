@@ -1,10 +1,7 @@
 import { computeRisk, toCalculatorRun, toLimited } from '../../shared/calc'
-import { isInternal, can } from '../../shared/permissions'
-import { badRequest, forbidden } from '../http/errors'
-import { audit } from './audit'
+import { badRequest } from '../http/errors'
 import { uid } from '../util/ids'
 import type { Store } from '../db/store'
-import type { AuthPayload } from '../infra/auth'
 import type { CalcSelection } from '../../shared/types'
 
 /** Load the global Configuration lookups (occurrence/detection scores, tech prices). */
@@ -28,27 +25,15 @@ async function buildResult(store: Store, model: any, selection: CalcSelection) {
   return computeRisk({ model, department, issues, ...config, selection })
 }
 
-/** Full risk + yield-loss calculation. Anyone may compute; only some roles may persist (save). */
+/** Full risk + yield-loss calculation for an authenticated user (computed live, not persisted). */
 export async function calculate(
   store: Store,
-  auth: AuthPayload,
-  { selection = {}, modelId, save }: { selection?: CalcSelection; modelId?: string; save?: boolean },
-): Promise<{ result: any; run: any }> {
+  { selection = {}, modelId }: { selection?: CalcSelection; modelId?: string },
+): Promise<{ result: any }> {
   const model = modelId ? await store.getOne('scoring_models', modelId) : await store.getActiveScoringModel()
   if (!model) throw badRequest('No scoring model available.')
-  const companyId = isInternal(auth) ? selection.companyId ?? auth.companyId : auth.companyId
   const result = await buildResult(store, model, selection)
-  let run = null
-  if (save) {
-    if (!can(auth, 'save_calculator_result')) throw forbidden('Your role cannot save calculator results.')
-    const runType = isInternal(auth) ? 'internal' : auth.userType === 'distributor' ? 'distributor' : 'partner'
-    run = await store.insert('calculator_runs', {
-      ...toCalculatorRun({ result, selection, runType, model, ids: { companyId, siteId: selection.siteId, userId: auth.sub } }),
-      id: uid('run'),
-    })
-    await audit(store, auth, 'calculator_run', run.id, 'save', null, { overallRiskScore: result.overallRiskScore, totalAnnualValueLoss: result.totalAnnualValueLoss })
-  }
-  return { result, run }
+  return { result }
 }
 
 /** Public/limited teaser — persists an anonymous run, returns a trimmed result. */
