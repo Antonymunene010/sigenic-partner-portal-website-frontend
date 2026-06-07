@@ -163,6 +163,10 @@ export type ResourceName =
   | 'knowledge-articles'
   | 'success-stories'
   | 'invoices'
+  | 'request-types'
+  | 'request-departments'
+  | 'request-processes'
+  | 'request-machines'
 
 export function createResource<T>(resource: ResourceName, item: Partial<T>): Promise<{ item: T }> {
   return request(`/api/${resource}`, { method: 'POST', body: JSON.stringify({ item }) })

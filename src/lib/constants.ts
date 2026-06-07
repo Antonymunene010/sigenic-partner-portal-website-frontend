@@ -8,7 +8,6 @@ import type {
   OwnerTeam,
   RequestSource,
   RequestStatus,
-  RequestType,
   RiskTier,
   Urgency,
   Visibility,
@@ -16,18 +15,6 @@ import type {
 
 /** Badge tones map to Badge.tsx color variants. */
 export type Tone = 'neutral' | 'accent' | 'success' | 'warn' | 'danger' | 'info'
-
-export const REQUEST_TYPES: { value: RequestType; label: string; owner: OwnerTeam; blurb: string }[] = [
-  { value: 'support', label: 'Support', owner: 'support', blurb: 'A technical issue routed to Zendesk.' },
-  { value: 'demo', label: 'Demo', owner: 'sales', blurb: 'Request a product walkthrough.' },
-  { value: 'consultation', label: 'Consultation', owner: 'sales', blurb: 'Scope a pilot or ROI review.' },
-  { value: 'onboarding', label: 'Onboarding', owner: 'ops', blurb: 'Kickoff, training or access setup.' },
-  { value: 'feature_request', label: 'Feature request', owner: 'product', blurb: 'Suggest a product improvement.' },
-]
-
-export const REQUEST_TYPE_LABEL: Record<RequestType, string> = Object.fromEntries(
-  REQUEST_TYPES.map((r) => [r.value, r.label]),
-) as Record<RequestType, string>
 
 export const URGENCIES: { value: Urgency; label: string; tone: Tone }[] = [
   { value: 'low', label: 'Low', tone: 'neutral' },

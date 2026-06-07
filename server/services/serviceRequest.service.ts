@@ -9,6 +9,25 @@ import type { AuthPayload } from '../infra/auth'
 
 const URGENCY_TO_PRIORITY: Record<string, string> = { low: 'low', medium: 'normal', high: 'high' }
 
+/**
+ * Slugs whose behavior is wired in code (Zendesk routing, the support-cap gate, the
+ * public-lead allowlist). Super-admins can add/relabel other types freely — those get
+ * generic handling. Renaming/retiring a built-in slug detaches its special behavior
+ * (the type still works generically); intentional.
+ */
+export const BUILTIN_REQUEST_TYPE = { support: 'support', demo: 'demo', consultation: 'consultation' } as const
+
+/**
+ * Validate a request-type slug against the configurable request_types table and resolve
+ * its owner team. Throws if the slug is unknown or inactive. The owner team comes from the
+ * row (configurable), falling back to the built-in default map.
+ */
+async function resolveRequestType(store: Store, slug: string): Promise<{ slug: string; ownerTeam: string }> {
+  const row = await store.getRequestTypeBySlug(slug)
+  if (!row) throw badRequest(`Unknown or inactive request type: ${slug}`)
+  return { slug, ownerTeam: row.ownerTeam }
+}
+
 /** Create the linked Zendesk ticket for a support request; returns its id or null. */
 async function createZendeskForRequest(payload: any): Promise<string | null> {
   const ticket = {
@@ -68,7 +87,9 @@ async function openZendeskTicket(payload: any): Promise<void> {
 /** Create a portal service request (every type opens a linked Zendesk ticket, per PRD §5/§8). */
 export async function createServiceRequest(store: Store, auth: AuthPayload, request: any): Promise<any> {
   if (!request?.title || !request?.requestType) throw badRequest('Request type and title are required.')
-  if (request.requestType === 'support' && !can(auth, 'submit_support_request')) throw forbidden()
+  if (request.requestType === BUILTIN_REQUEST_TYPE.support && !can(auth, 'submit_support_request')) throw forbidden()
+  // Validate the (now configurable) type against active request_types + resolve its owner team.
+  const resolved = await resolveRequestType(store, request.requestType)
   const companyId = isInternal(auth) ? request.companyId ?? auth.companyId : auth.companyId
   const messages = [{ id: uid('m'), author: auth.name, authorRole: 'you', body: request.description ?? request.title, createdAt: nowIso() }]
   const payload: any = {
@@ -85,7 +106,7 @@ export async function createServiceRequest(store: Store, auth: AuthPayload, requ
     urgency: request.urgency ?? 'medium',
     status: 'new',
     source: request.source ?? 'portal_form',
-    owner_team: store.ownerTeamFor(request.requestType),
+    owner_team: resolved.ownerTeam,
     linked_calculator_run_id: request.linkedCalculatorRunId ?? null,
     contact_name: request.contactName ?? auth.name,
     contact_email: request.contactEmail ?? auth.email,
@@ -137,6 +158,9 @@ export async function updateServiceRequest(store: Store, auth: AuthPayload, id: 
   for (const f of OVERSIGHT_FIELDS) if (patch?.[f] !== undefined) clean[f] = patch[f]
   if (CLASSIFY_FIELDS.some((f) => patch?.[f] !== undefined)) {
     if (!can(auth, 'reclassify_request')) throw forbidden('Only super admins can re-classify a request.')
+    // Validate a re-classified type against active request_types (throws on unknown/inactive).
+    // Owner team is NOT auto-rerouted here — that stays an explicit oversight edit (ownerTeam field).
+    if (patch.requestType !== undefined) await resolveRequestType(store, patch.requestType)
     // Empty selection ("—") clears the field; request_type itself is never blank.
     for (const f of CLASSIFY_FIELDS) if (patch?.[f] !== undefined) clean[f] = f === 'requestType' ? patch[f] : patch[f] || null
   }
@@ -189,7 +213,10 @@ export async function triggerZendeskSync(store: Store, auth: AuthPayload): Promi
 /** Public (unauthenticated) lead/demo/consultation request from the marketing site. */
 export async function createPublicLead(store: Store, request: any): Promise<{ id: string; status: string }> {
   if (!request?.contactEmail || !request?.title) throw badRequest('Name, email and message are required.')
-  const requestType = ['demo', 'consultation'].includes(request.requestType) ? request.requestType : 'demo'
+  // Public leads only ever use the built-in demo/consultation slugs — never validated against
+  // request_types, so a config change can't break the unauthenticated marketing form.
+  const allowed: string[] = [BUILTIN_REQUEST_TYPE.demo, BUILTIN_REQUEST_TYPE.consultation]
+  const requestType = allowed.includes(request.requestType) ? request.requestType : BUILTIN_REQUEST_TYPE.demo
   const payload: any = {
     id: uid('sr'),
     company_id: null,

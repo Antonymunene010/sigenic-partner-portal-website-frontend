@@ -9,13 +9,13 @@ import { DataTable, type Column } from '../components/DataTable'
 import { Badge } from '../components/Badge'
 import { Spinner, chipClass } from '../components/ui'
 import { fmtRelative } from '../lib/format'
-import { REQUEST_STATUSES, REQUEST_STATUS_TONE, REQUEST_STATUS_LABEL, REQUEST_TYPE_LABEL, URGENCY_TONE } from '../lib/constants'
+import { REQUEST_STATUSES, REQUEST_STATUS_TONE, REQUEST_STATUS_LABEL, URGENCY_TONE } from '../lib/constants'
 import type { RequestStatus, ServiceRequest } from '../lib/types'
 
 export default function RequestList() {
   const { user } = useAuth()
   const { serviceRequests, ready } = useData()
-  const { companyName } = useLookups()
+  const { companyName, requestTypeLabel } = useLookups()
   const navigate = useNavigate()
   const [status, setStatus] = useState<RequestStatus | 'all'>('all')
   const [q, setQ] = useState('')
@@ -33,7 +33,7 @@ export default function RequestList() {
     { key: 'title', header: 'Request', render: (r) => (
       <div className="min-w-0">
         <div className="font-medium truncate">{r.title}</div>
-        <div className="text-xs text-muted dark:text-muted-dark">{REQUEST_TYPE_LABEL[r.requestType]}{internal && r.companyId ? ` · ${companyName(r.companyId)}` : ''}</div>
+        <div className="text-xs text-muted dark:text-muted-dark">{requestTypeLabel(r.requestType)}{internal && r.companyId ? ` · ${companyName(r.companyId)}` : ''}</div>
       </div>
     ) },
     { key: 'urgency', header: 'Urgency', render: (r) => <Badge tone={URGENCY_TONE[r.urgency]}>{r.urgency}</Badge> },

@@ -265,10 +265,40 @@ export const SEED = {
     { id: 'ann-webinar', title: 'Distributor enablement webinar', body: 'Join our pre-sales calculator deep-dive for channel partners.', audience_type: 'distributor', pinned: false, created_by: 'u-priya', publish_at: iso('2026-05-15') },
   ],
 
+  /* ---------- request-form taxonomy (super-admin configurable, decoupled from the calculator) ---------- */
+  request_types: [
+    { id: 'rt-support', slug: 'support', label: 'Support', owner_team: 'support', blurb: 'A technical issue routed to Zendesk.', sort_order: 1 },
+    { id: 'rt-demo', slug: 'demo', label: 'Demo', owner_team: 'sales', blurb: 'Request a product walkthrough.', sort_order: 2 },
+    { id: 'rt-consultation', slug: 'consultation', label: 'Consultation', owner_team: 'sales', blurb: 'Scope a pilot or ROI review.', sort_order: 3 },
+    { id: 'rt-onboarding', slug: 'onboarding', label: 'Onboarding', owner_team: 'ops', blurb: 'Kickoff, training or access setup.', sort_order: 4 },
+    { id: 'rt-feature', slug: 'feature_request', label: 'Feature request', owner_team: 'product', blurb: 'Suggest a product improvement.', sort_order: 5 },
+  ],
+
+  // Independent request taxonomy — NOT the calculator's departments/processes/machines.
+  request_departments: [
+    { id: 'rdep-cmp', name: 'CMP / Post-CMP Clean', code: 'CMP', sort_order: 1 },
+    { id: 'rdep-litho', name: 'Lithography', code: 'LITHO', sort_order: 2 },
+    { id: 'rdep-cvd', name: 'CVD / PVD / ETCH', code: 'CVD', sort_order: 3 },
+    { id: 'rdep-metro', name: 'Metrology / Inspection', code: 'METRO', sort_order: 4 },
+    { id: 'rdep-other', name: 'Other / General', code: 'GEN', sort_order: 5 },
+  ],
+
+  request_processes: [
+    { id: 'rproc-clean', request_department_id: 'rdep-cmp', process_name: 'Post-CMP clean', process_code: 'CLEAN', sort_order: 1 },
+    { id: 'rproc-scan', request_department_id: 'rdep-litho', process_name: 'Scanner / Stepper', process_code: 'SCAN', sort_order: 1 },
+    { id: 'rproc-etch', request_department_id: 'rdep-cvd', process_name: 'Etch', process_code: 'ETCH', sort_order: 1 },
+  ],
+
+  request_machines: [
+    { id: 'rmac-as2000', request_department_id: 'rdep-cmp', request_process_id: 'rproc-clean', machine_name: 'AS2000', machine_code: 'AS2000', machine_category: 'WET single wafer', sort_order: 1 },
+    { id: 'rmac-amat', request_department_id: 'rdep-cvd', request_process_id: 'rproc-etch', machine_name: 'AMAT Producer', machine_code: 'PRODUCER', machine_category: 'CVD/PVD/ETCH', vendor: 'Applied Materials', sort_order: 1 },
+    { id: 'rmac-scanner', request_department_id: 'rdep-litho', request_process_id: 'rproc-scan', machine_name: 'Scanner / Stepper', machine_code: 'SCANNER', machine_category: 'Litho', sort_order: 1 },
+  ],
+
   /* ---------- service requests ---------- */
   service_requests: [
-    { id: 'sr-001', company_id: 'co-novacell', site_id: 'site-novacell-sg', user_id: 'u-wei', request_type: 'support', title: 'Brush torque (DBC/TBC) instability on AS2000', description: 'Recurring brush torque instability after the last PM on the post-CMP clean tool.', department_id: 'dep-wet-cmp', machine_id: 'mac-as2000', urgency: 'high', status: 'open', source: 'portal_form', owner_team: 'support', contact_name: 'Wei Tan', contact_email: 'wei@novacell.sg', messages: [{ id: 'm1', author: 'Wei Tan', authorRole: 'you', body: 'Brush torque keeps drifting after the last PM.', createdAt: iso('2026-05-21') }, { id: 'm2', author: 'Sigenic Support', authorRole: 'agent', body: 'Thanks Wei — let us review the DBC/TBC torque logs. Tracking as ticket #4101.', createdAt: iso('2026-05-21') }] },
-    { id: 'sr-002', company_id: 'co-quantex', site_id: 'site-quantex-tw', user_id: 'u-daniel', request_type: 'consultation', title: 'Scope a pilot on the CVD/PVD/ETCH line', description: 'Would like to discuss a 30-day pilot for chamber excursion detection.', department_id: 'dep-cvd', urgency: 'medium', status: 'open', source: 'calculator_cta', owner_team: 'sales', contact_name: 'Daniel Ong', contact_email: 'daniel@quantex.com' },
+    { id: 'sr-001', company_id: 'co-novacell', site_id: 'site-novacell-sg', user_id: 'u-wei', request_type: 'support', title: 'Brush torque (DBC/TBC) instability on AS2000', description: 'Recurring brush torque instability after the last PM on the post-CMP clean tool.', department_id: 'rdep-cmp', machine_id: 'rmac-as2000', urgency: 'high', status: 'open', source: 'portal_form', owner_team: 'support', contact_name: 'Wei Tan', contact_email: 'wei@novacell.sg', messages: [{ id: 'm1', author: 'Wei Tan', authorRole: 'you', body: 'Brush torque keeps drifting after the last PM.', createdAt: iso('2026-05-21') }, { id: 'm2', author: 'Sigenic Support', authorRole: 'agent', body: 'Thanks Wei — let us review the DBC/TBC torque logs. Tracking as ticket #4101.', createdAt: iso('2026-05-21') }] },
+    { id: 'sr-002', company_id: 'co-quantex', site_id: 'site-quantex-tw', user_id: 'u-daniel', request_type: 'consultation', title: 'Scope a pilot on the CVD/PVD/ETCH line', description: 'Would like to discuss a 30-day pilot for chamber excursion detection.', department_id: 'rdep-cvd', urgency: 'medium', status: 'open', source: 'calculator_cta', owner_team: 'sales', contact_name: 'Daniel Ong', contact_email: 'daniel@quantex.com' },
     { id: 'sr-003', company_id: 'co-apac', user_id: 'u-leo', request_type: 'demo', title: 'Demo request for prospective customer', description: 'Channel customer wants to see the calculator + inspection workflow.', urgency: 'medium', status: 'new', source: 'portal_form', owner_team: 'sales', contact_name: 'Leo Tan', contact_email: 'leo@apacpartners.com' },
     { id: 'sr-004', company_id: 'co-novacell', user_id: 'u-karen', request_type: 'feature_request', title: 'Batch upload of historical runs', description: 'Ability to bulk import past calculator runs from CSV.', urgency: 'low', status: 'new', source: 'dashboard', owner_team: 'product', contact_name: 'Karen Lim', contact_email: 'karen@novacell.sg' },
     { id: 'sr-005', company_id: null, user_id: null, request_type: 'demo', title: 'Public demo request — Lumen Photonics', description: 'Interested in yield analytics for a new GaN line.', urgency: 'medium', status: 'new', source: 'landing_page', owner_team: 'sales', contact_name: 'Aisha Rahman', contact_email: 'aisha@lumenphotonics.io', interest_type: 'ROI calculator' },

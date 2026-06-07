@@ -26,7 +26,6 @@ export type DetectionKey = 'unable' | 'partial' | 'system'
 export type RiskTier = 'high' | 'medium' | 'low' | 'none'
 export type ModelStatus = 'draft' | 'active' | 'archived'
 
-export type RequestType = 'support' | 'demo' | 'onboarding' | 'consultation' | 'feature_request'
 export type Urgency = 'low' | 'medium' | 'high'
 export type RequestStatus = 'new' | 'open' | 'pending' | 'hold' | 'solved' | 'closed'
 export type RequestSource = 'landing_page' | 'portal_form' | 'calculator_cta' | 'dashboard'
@@ -318,6 +317,58 @@ export interface CalculatorRun {
   createdAt: string
 }
 
+/* ---------- request-form taxonomy (super-admin configurable, decoupled from the calculator master data) ---------- */
+/** A configurable request type. `slug` is the stable value stored on service_requests. */
+export interface RequestTypeDef {
+  id: string
+  slug: string
+  label: string
+  ownerTeam: OwnerTeam
+  blurb?: string | null
+  sortOrder: number
+  active: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface RequestDepartment {
+  id: string
+  name: string
+  code?: string | null
+  description?: string | null
+  sortOrder: number
+  active: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface RequestProcess {
+  id: string
+  requestDepartmentId: string
+  processName: string
+  processCode?: string | null
+  description?: string | null
+  sortOrder: number
+  active: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface RequestMachine {
+  id: string
+  requestDepartmentId: string
+  requestProcessId?: string | null
+  machineName: string
+  machineCode?: string | null
+  machineCategory?: string | null
+  vendor?: string | null
+  model?: string | null
+  sortOrder: number
+  active: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 export interface ServiceRequestMessage {
   id: string
   author: string
@@ -332,7 +383,8 @@ export interface ServiceRequest {
   companyId?: string | null
   siteId?: string | null
   userId?: string | null
-  requestType: RequestType
+  /** Configurable request-type slug (validated against request_types; see RequestTypeDef). */
+  requestType: string
   title: string
   description?: string
   departmentId?: string | null
@@ -462,6 +514,10 @@ export interface HydrateBundle {
   activeScoringModelId: string | null
   calculatorRuns: CalculatorRun[]
   serviceRequests: ServiceRequest[]
+  requestTypes: RequestTypeDef[]
+  requestDepartments: RequestDepartment[]
+  requestProcesses: RequestProcess[]
+  requestMachines: RequestMachine[]
   knowledgeArticles: KnowledgeArticle[]
   successStories: SuccessStory[]
   announcements: Announcement[]

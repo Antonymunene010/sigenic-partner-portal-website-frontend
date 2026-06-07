@@ -33,6 +33,13 @@ export const RESOURCES: Record<string, ResourceCfg> = {
   'knowledge-articles': { table: 'knowledge_articles', manage: 'manage_knowledge', read: null, entity: 'knowledge_article', prefix: 'kb' },
   'success-stories': { table: 'success_stories', manage: 'manage_success_stories', read: null, entity: 'success_story', prefix: 'story' },
   invoices: { table: 'invoices', manage: 'manage_billing', read: 'view_all_companies', entity: 'invoice', prefix: 'inv', companyScoped: true },
+  // Request-form taxonomy — its OWN super-admin capability (manage_request_config),
+  // independent of the calculator's manage_scoring. Reads are public (read: null):
+  // ships to every client via hydrate, like the calculator master data above.
+  'request-types': { table: 'request_types', manage: 'manage_request_config', read: null, entity: 'request_type', prefix: 'rt' },
+  'request-departments': { table: 'request_departments', manage: 'manage_request_config', read: null, entity: 'request_department', prefix: 'rdep' },
+  'request-processes': { table: 'request_processes', manage: 'manage_request_config', read: null, entity: 'request_process', prefix: 'rproc' },
+  'request-machines': { table: 'request_machines', manage: 'manage_request_config', read: null, entity: 'request_machine', prefix: 'rmac' },
 }
 
 export function isResource(name: string): boolean {

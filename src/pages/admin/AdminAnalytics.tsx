@@ -8,8 +8,8 @@ import { Badge } from '../../components/Badge'
 import { DataTable } from '../../components/DataTable'
 import type { Column } from '../../components/DataTable'
 import { fmtNumber } from '../../lib/format'
-import { REQUEST_TYPE_LABEL, COMPANY_TYPE_LABEL } from '../../lib/constants'
-import type { RequestType, CompanyType } from '../../lib/types'
+import { COMPANY_TYPE_LABEL } from '../../lib/constants'
+import type { CompanyType } from '../../lib/types'
 
 interface Analytics {
   counts: {
@@ -95,7 +95,7 @@ export default function AdminAnalytics() {
   if (loading) return <Spinner label="Loading analytics" />
 
   const counts = data?.counts
-  const typeRows = toRows(data?.requestsByType, (k) => REQUEST_TYPE_LABEL[k as RequestType] ?? k)
+  const typeRows = toRows(data?.requestsByType, (k) => lookups.requestTypeLabel(k))
   const statusRows = toRows(data?.requestsByStatus, (k) => k.replace('_', ' '))
   const deptRows = toRows(data?.runsByDepartment, (k) => lookups.departmentName(k))
   const topPartners = data?.topPartners ?? []

@@ -35,7 +35,7 @@ test('can — null user and unknown capability are always denied', () => {
 })
 
 test('can — super_admin holds every internal-management capability', () => {
-  for (const cap of ['manage_internal_users', 'manage_scoring', 'manage_companies', 'view_audit_logs', 'manage_announcements', 'manage_billing'] as Capability[]) {
+  for (const cap of ['manage_internal_users', 'manage_scoring', 'manage_request_config', 'manage_companies', 'view_audit_logs', 'manage_announcements', 'manage_billing'] as Capability[]) {
     assert.equal(can({ role: 'super_admin' }, cap), true, cap)
   }
 })
@@ -60,6 +60,12 @@ test('can — reclassify_request (request type + site/dept/process/machine) is s
   assert.equal(can({ role: 'admin' }, 'reclassify_request'), false)
   assert.equal(can({ role: 'support_engineer' }, 'reclassify_request'), false)
   assert.equal(can({ role: 'customer_admin' }, 'reclassify_request'), false)
+})
+
+test('can — manage_request_config (request taxonomy) is super_admin-only, decoupled from manage_scoring', () => {
+  assert.equal(can({ role: 'super_admin' }, 'manage_request_config'), true)
+  assert.equal(can({ role: 'admin' }, 'manage_request_config'), false)
+  assert.equal(can({ role: 'support_engineer' }, 'manage_request_config'), false)
 })
 
 test('can — support_engineer has oversight but cannot manage config', () => {

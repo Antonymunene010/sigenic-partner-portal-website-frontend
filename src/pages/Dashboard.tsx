@@ -1,13 +1,13 @@
 import { Link } from 'react-router-dom'
 import { Calculator, Inbox, BookOpen, Building2, Users, ArrowUpRight, Megaphone, TrendingUp } from 'lucide-react'
 import { useAuth } from '../lib/auth'
-import { useData } from '../lib/data'
+import { useData, useLookups } from '../lib/data'
 import { isInternal } from '../lib/permissions'
 import { PageHeader } from '../components/PageHeader'
 import { Card, StatCard, Spinner, EmptyState } from '../components/ui'
 import { Badge } from '../components/Badge'
 import { fmtUSD, fmtRelative } from '../lib/format'
-import { REQUEST_STATUS_TONE, REQUEST_STATUS_LABEL, REQUEST_TYPE_LABEL, ONBOARDING_STATUS_LABEL } from '../lib/constants'
+import { REQUEST_STATUS_TONE, REQUEST_STATUS_LABEL, ONBOARDING_STATUS_LABEL } from '../lib/constants'
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -39,6 +39,7 @@ function AnnouncementList() {
 function PortalDashboard() {
   const { user } = useAuth()
   const { company, serviceRequests, calculatorRuns } = useData()
+  const { requestTypeLabel } = useLookups()
   const openReqs = serviceRequests.filter((r) => r.status !== 'closed')
   const latestRun = calculatorRuns[0]
 
@@ -78,7 +79,7 @@ function PortalDashboard() {
                   <Link to={`/app/requests/${r.id}`} className="flex items-center justify-between gap-3 py-3 first:pt-0 group">
                     <div className="min-w-0">
                       <div className="text-sm font-medium truncate group-hover:text-emphasis">{r.title}</div>
-                      <div className="text-xs text-muted dark:text-muted-dark">{REQUEST_TYPE_LABEL[r.requestType]} · {fmtRelative(r.updatedAt)}</div>
+                      <div className="text-xs text-muted dark:text-muted-dark">{requestTypeLabel(r.requestType)} · {fmtRelative(r.updatedAt)}</div>
                     </div>
                     <Badge tone={REQUEST_STATUS_TONE[r.status]}>{REQUEST_STATUS_LABEL[r.status]}</Badge>
                   </Link>
@@ -105,6 +106,7 @@ function PortalDashboard() {
 function InternalDashboard() {
   const { user } = useAuth()
   const { companies, serviceRequests, calculatorRuns, users } = useData()
+  const { requestTypeLabel } = useLookups()
   const partners = companies.filter((c) => c.companyType !== 'sigenic')
   const openReqs = serviceRequests.filter((r) => r.status !== 'closed')
   const highUrgency = serviceRequests.filter((r) => r.urgency === 'high' && r.status !== 'closed')
@@ -135,7 +137,7 @@ function InternalDashboard() {
                   <Link to={`/app/requests/${r.id}`} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 group">
                     <div className="min-w-0">
                       <div className="text-sm font-medium truncate group-hover:text-emphasis">{r.title}</div>
-                      <div className="text-xs text-muted dark:text-muted-dark">{REQUEST_TYPE_LABEL[r.requestType]} · {r.ownerTeam}</div>
+                      <div className="text-xs text-muted dark:text-muted-dark">{requestTypeLabel(r.requestType)} · {r.ownerTeam}</div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {r.urgency === 'high' && <Badge tone="danger">high</Badge>}

@@ -20,6 +20,10 @@ const EMPTY: HydrateBundle = {
   activeScoringModelId: null,
   calculatorRuns: [],
   serviceRequests: [],
+  requestTypes: [],
+  requestDepartments: [],
+  requestProcesses: [],
+  requestMachines: [],
   knowledgeArticles: [],
   successStories: [],
   announcements: [],
@@ -77,7 +81,7 @@ export function useData(): DataCtx {
 
 /* convenience lookups */
 export function useLookups() {
-  const { departments, processes, machines, scoringModels, companies, sites, users } = useData()
+  const { departments, processes, machines, scoringModels, companies, sites, users, requestTypes, requestDepartments, requestProcesses, requestMachines } = useData()
   return {
     departmentName: (id?: string | null) => departments.find((d) => d.id === id)?.name ?? '—',
     processName: (id?: string | null) => processes.find((p) => p.id === id)?.processName ?? '—',
@@ -86,5 +90,11 @@ export function useLookups() {
     companyName: (id?: string | null) => companies.find((c) => c.id === id)?.companyName ?? '—',
     siteName: (id?: string | null) => sites.find((s) => s.id === id)?.siteName ?? '—',
     userName: (id?: string | null) => users.find((u) => u.id === id)?.fullName ?? '—',
+    // Request taxonomy (configurable). Label lookups do NOT filter active — a historical
+    // request whose type/department was later retired still resolves its label.
+    requestTypeLabel: (slug?: string | null) => requestTypes.find((t) => t.slug === slug)?.label ?? slug ?? '—',
+    requestDepartmentName: (id?: string | null) => requestDepartments.find((d) => d.id === id)?.name ?? '—',
+    requestProcessName: (id?: string | null) => requestProcesses.find((p) => p.id === id)?.processName ?? '—',
+    requestMachineName: (id?: string | null) => requestMachines.find((m) => m.id === id)?.machineName ?? '—',
   }
 }

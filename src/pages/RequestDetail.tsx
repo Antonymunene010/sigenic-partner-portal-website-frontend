@@ -10,13 +10,13 @@ import { Badge } from '../components/Badge'
 import { Avatar } from '../components/Avatar'
 import { DescRow } from '../components/DescRow'
 import { fmtDateTime } from '../lib/format'
-import { REQUEST_STATUSES, REQUEST_STATUS_TONE, REQUEST_STATUS_LABEL, REQUEST_TYPE_LABEL, REQUEST_TYPES, URGENCY_TONE, OWNER_TEAMS, REQUEST_SOURCE_LABEL } from '../lib/constants'
-import type { OwnerTeam, RequestStatus, RequestType, ServiceRequest } from '../lib/types'
+import { REQUEST_STATUSES, REQUEST_STATUS_TONE, REQUEST_STATUS_LABEL, URGENCY_TONE, OWNER_TEAMS, REQUEST_SOURCE_LABEL } from '../lib/constants'
+import type { OwnerTeam, RequestStatus, ServiceRequest } from '../lib/types'
 
 export default function RequestDetail() {
   const { id } = useParams()
   const { user } = useAuth()
-  const { serviceRequests, departments, processes, machines, sites, refresh } = useData()
+  const { serviceRequests, requestTypes, requestDepartments, requestProcesses, requestMachines, sites, refresh } = useData()
   const lookups = useLookups()
   const toast = useToast()
   const [reply, setReply] = useState('')
@@ -33,8 +33,12 @@ export default function RequestDetail() {
 
   const internal = isInternal(user)
   const canReclassify = can(user, 'reclassify_request')
-  const procOptions = processes.filter((p) => !sr.departmentId || p.departmentId === sr.departmentId)
-  const macOptions = machines.filter((m) => !sr.departmentId || m.departmentId === sr.departmentId)
+  // Active taxonomy for the reclassify pickers, but always keep the request's current
+  // value selectable even if it was later deactivated (so the live value never vanishes).
+  const typeOptions = requestTypes.filter((t) => t.active || t.slug === sr.requestType).sort((a, b) => a.sortOrder - b.sortOrder)
+  const deptOptions = requestDepartments.filter((d) => d.active || d.id === sr.departmentId)
+  const procOptions = requestProcesses.filter((p) => (p.active || p.id === sr.processId) && (!sr.departmentId || p.requestDepartmentId === sr.departmentId))
+  const macOptions = requestMachines.filter((m) => (m.active || m.id === sr.machineId) && (!sr.departmentId || m.requestDepartmentId === sr.departmentId))
 
   const sendReply = async () => {
     if (!reply.trim()) return
@@ -124,14 +128,14 @@ export default function RequestDetail() {
         <div className="space-y-5">
           <Card title="Details">
             <dl className="space-y-2.5 text-sm">
-              <DescRow k="Type" v={REQUEST_TYPE_LABEL[sr.requestType]} />
+              <DescRow k="Type" v={lookups.requestTypeLabel(sr.requestType)} />
               <DescRow k="Owner team" v={<span className="capitalize">{sr.ownerTeam}</span>} />
               <DescRow k="Source" v={REQUEST_SOURCE_LABEL[sr.source]} />
               {sr.companyId && <DescRow k="Company" v={lookups.companyName(sr.companyId)} />}
               {sr.siteId && <DescRow k="Site" v={lookups.siteName(sr.siteId)} />}
-              {sr.departmentId && <DescRow k="Department" v={lookups.departmentName(sr.departmentId)} />}
-              {sr.processId && <DescRow k="Process" v={lookups.processName(sr.processId)} />}
-              {sr.machineId && <DescRow k="Machine" v={lookups.machineName(sr.machineId)} />}
+              {sr.departmentId && <DescRow k="Department" v={lookups.requestDepartmentName(sr.departmentId)} />}
+              {sr.processId && <DescRow k="Process" v={lookups.requestProcessName(sr.processId)} />}
+              {sr.machineId && <DescRow k="Machine" v={lookups.requestMachineName(sr.machineId)} />}
               {sr.contactEmail && <DescRow k="Contact" v={sr.contactEmail} />}
               <DescRow k="Created" v={fmtDateTime(sr.createdAt)} />
             </dl>
@@ -155,8 +159,8 @@ export default function RequestDetail() {
                   <div className="pt-3 mt-1 border-t border-line dark:border-line-dark space-y-3">
                     <p className="text-[11px] font-medium uppercase tracking-wide text-faint">Classification · Super admin</p>
                     <Field label="Request type">
-                      <select className="select" value={sr.requestType} onChange={(e) => setField({ requestType: e.target.value as RequestType })}>
-                        {REQUEST_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      <select className="select" value={sr.requestType} onChange={(e) => setField({ requestType: e.target.value })}>
+                        {typeOptions.map((t) => <option key={t.slug} value={t.slug}>{t.label}</option>)}
                       </select>
                     </Field>
                     <Field label="Site / fab">
@@ -168,7 +172,7 @@ export default function RequestDetail() {
                     <Field label="Department">
                       <select className="select" value={sr.departmentId ?? ''} onChange={(e) => setField({ departmentId: e.target.value || null, processId: null, machineId: null })}>
                         <option value="">—</option>
-                        {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                        {deptOptions.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                       </select>
                     </Field>
                     <Field label="Process">

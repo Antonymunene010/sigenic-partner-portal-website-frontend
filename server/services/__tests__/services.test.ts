@@ -103,6 +103,7 @@ test('serviceRequest.createServiceRequest — every type captures a first messag
   const inserts: any[] = []
   const store = {
     insert: mock.fn(async (table: string, data: any) => { inserts.push({ table, data }); return { id: 'sr-1', ...data, requestType: data.request_type, ownerTeam: data.owner_team } }),
+    getRequestTypeBySlug: mock.fn(async (slug: string) => ({ slug, label: 'Consultation', ownerTeam: 'sales', active: true })),
     ownerTeamFor: mock.fn(() => 'sales'),
     appendAudit: mock.fn(async () => {}),
     appendEmail: mock.fn(async () => {}),
@@ -113,6 +114,21 @@ test('serviceRequest.createServiceRequest — every type captures a first messag
   assert.ok(sr) // a non-support type used to get messages: [] — now always a first message
   assert.equal(sr.data.messages.length, 1)
   assert.equal(sr.data.messages[0].body, 'details')
+  assert.equal(sr.data.owner_team, 'sales') // owner team resolved from the request_types row
+})
+
+test('serviceRequest.createServiceRequest — rejects an unknown/inactive request type', async () => {
+  const inserts: any[] = []
+  const store = {
+    insert: mock.fn(async (table: string, data: any) => { inserts.push({ table, data }); return { id: 'sr-x', ...data } }),
+    getRequestTypeBySlug: mock.fn(async () => null), // not an active request_types row
+    ownerTeamFor: mock.fn(() => 'support'),
+    appendAudit: mock.fn(async () => {}),
+    appendEmail: mock.fn(async () => {}),
+  } as unknown as Store
+  const customer: AuthPayload = { sub: 'u-c', role: 'customer_user', userType: 'customer', companyId: 'co-c', companyType: 'customer', email: 'c@x', name: 'Cust' }
+  await assert.rejects(() => createServiceRequest(store, customer, { requestType: 'made_up', title: 'X', description: 'y' }), /Unknown or inactive request type/)
+  assert.equal(inserts.find((i) => i.table === 'service_requests'), undefined) // never inserted
 })
 
 test('serviceRequest.updateServiceRequest — notifies the requester on status change', async () => {
@@ -139,6 +155,7 @@ test('serviceRequest.updateServiceRequest — super_admin re-classifies type + s
   const store = {
     getOne: mock.fn(async () => before),
     update: mock.fn(async (_t: string, _id: string, patch: any) => { patched = patch; return { ...before, ...patch } }),
+    getRequestTypeBySlug: mock.fn(async (slug: string) => ({ slug, ownerTeam: 'sales', active: true })),
     appendNotification: mock.fn(async () => {}),
     appendAudit: mock.fn(async () => {}),
     appendEmail: mock.fn(async () => {}),

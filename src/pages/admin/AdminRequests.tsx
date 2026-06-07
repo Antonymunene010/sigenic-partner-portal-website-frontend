@@ -13,7 +13,6 @@ import {
   REQUEST_STATUSES,
   REQUEST_STATUS_TONE,
   REQUEST_STATUS_LABEL,
-  REQUEST_TYPE_LABEL,
   URGENCIES,
   URGENCY_TONE,
 } from '../../lib/constants'
@@ -21,7 +20,7 @@ import type { OwnerTeam, RequestStatus, ServiceRequest, Urgency } from '../../li
 
 export default function AdminRequests() {
   const { serviceRequests, ready, refresh } = useData()
-  const { companyName } = useLookups()
+  const { companyName, requestTypeLabel } = useLookups()
   const { push } = useToast()
   const navigate = useNavigate()
   const [status, setStatus] = useState<RequestStatus | 'all'>('all')
@@ -66,7 +65,7 @@ export default function AdminRequests() {
         <div className="min-w-0">
           <div className="font-medium truncate">{r.title}</div>
           <div className="text-xs text-muted dark:text-muted-dark">
-            {REQUEST_TYPE_LABEL[r.requestType]}
+            {requestTypeLabel(r.requestType)}
             {r.companyId ? ` · ${companyName(r.companyId)}` : ''}
           </div>
         </div>

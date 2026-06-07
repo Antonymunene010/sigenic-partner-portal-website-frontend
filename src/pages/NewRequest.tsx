@@ -5,16 +5,18 @@ import { useData } from '../lib/data'
 import { createServiceRequest } from '../lib/api'
 import { PageHeader } from '../components/PageHeader'
 import { Card, Field, useToast } from '../components/ui'
-import { REQUEST_TYPES, URGENCIES } from '../lib/constants'
-import type { RequestType, Urgency } from '../lib/types'
+import { URGENCIES } from '../lib/constants'
+import type { Urgency } from '../lib/types'
 
 export default function NewRequest() {
-  const { departments, processes, machines, sites, refresh } = useData()
+  const { requestTypes, requestDepartments, requestProcesses, requestMachines, sites, refresh } = useData()
   const toast = useToast()
   const navigate = useNavigate()
   const [params] = useSearchParams()
 
-  const [requestType, setRequestType] = useState<RequestType>((params.get('type') as RequestType) || 'support')
+  // Active request types from config, ordered. The ?type= deep-link is honored only if it's an active slug.
+  const types = requestTypes.filter((t) => t.active).sort((a, b) => a.sortOrder - b.sortOrder)
+  const [requestType, setRequestType] = useState<string>(params.get('type') ?? '')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [urgency, setUrgency] = useState<Urgency>('medium')
@@ -24,17 +26,21 @@ export default function NewRequest() {
   const [siteId, setSiteId] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const owner = REQUEST_TYPES.find((r) => r.value === requestType)?.owner ?? 'support'
-  const procOptions = processes.filter((p) => !departmentId || p.departmentId === departmentId)
-  const macOptions = machines.filter((m) => !departmentId || m.departmentId === departmentId)
+  // Selected slug, falling back to the first active type (config loads async — empty until hydrate).
+  const selectedType = types.some((t) => t.slug === requestType) ? requestType : types[0]?.slug ?? ''
+  const owner = types.find((t) => t.slug === selectedType)?.ownerTeam ?? 'support'
+  const deptOptions = requestDepartments.filter((d) => d.active).sort((a, b) => a.sortOrder - b.sortOrder)
+  const procOptions = requestProcesses.filter((p) => p.active && (!departmentId || p.requestDepartmentId === departmentId))
+  const macOptions = requestMachines.filter((m) => m.active && (!departmentId || m.requestDepartmentId === departmentId))
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim()) return toast.push('Add a title.', 'error')
+    if (!selectedType) return toast.push('No request type is available.', 'error')
     setBusy(true)
     try {
       const r = await createServiceRequest({
-        requestType,
+        requestType: selectedType,
         title: title.trim(),
         description: description.trim(),
         urgency,
@@ -45,7 +51,7 @@ export default function NewRequest() {
         source: 'portal_form',
       })
       await refresh()
-      toast.push(requestType === 'support' ? 'Support request raised (routed to Zendesk).' : 'Request submitted.')
+      toast.push(selectedType === 'support' ? 'Support request raised (routed to Zendesk).' : 'Request submitted.')
       navigate(`/app/requests/${r.item.id}`)
     } catch (err) {
       toast.push(err instanceof Error ? err.message : 'Submit failed.', 'error')
@@ -62,12 +68,12 @@ export default function NewRequest() {
         <Card>
           <Field label="Request type">
             <div className="grid sm:grid-cols-2 gap-2">
-              {REQUEST_TYPES.map((t) => (
+              {types.map((t) => (
                 <button
-                  key={t.value}
+                  key={t.slug}
                   type="button"
-                  onClick={() => setRequestType(t.value)}
-                  className={`text-left p-3 rounded-md border transition ${requestType === t.value ? 'border-accent bg-accent/8' : 'border-line dark:border-line-dark hover:bg-raised dark:hover:bg-raised-dark'}`}
+                  onClick={() => setRequestType(t.slug)}
+                  className={`text-left p-3 rounded-md border transition ${selectedType === t.slug ? 'border-accent bg-accent/8' : 'border-line dark:border-line-dark hover:bg-raised dark:hover:bg-raised-dark'}`}
                 >
                   <div className="text-sm font-medium">{t.label}</div>
                   <div className="text-xs text-muted dark:text-muted-dark mt-0.5">{t.blurb}</div>
@@ -101,7 +107,7 @@ export default function NewRequest() {
             <Field label="Department">
               <select className="select" value={departmentId} onChange={(e) => { setDepartmentId(e.target.value); setProcessId(''); setMachineId('') }}>
                 <option value="">—</option>
-                {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                {deptOptions.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
             </Field>
             <Field label="Process">

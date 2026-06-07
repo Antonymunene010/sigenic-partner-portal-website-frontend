@@ -33,6 +33,7 @@ import Account from './pages/Account'
 import AdminCompanies from './pages/admin/AdminCompanies'
 import AdminInternalUsers from './pages/admin/AdminInternalUsers'
 import AdminCalculatorConfig from './pages/admin/AdminCalculatorConfig'
+import AdminRequestConfig from './pages/admin/AdminRequestConfig'
 import AdminRequests from './pages/admin/AdminRequests'
 import AdminKnowledge from './pages/admin/AdminKnowledge'
 import AdminStories from './pages/admin/AdminStories'
@@ -91,6 +92,7 @@ export default function App() {
                   <Route path="admin/companies" element={<ProtectedRoute internal cap="view_all_companies"><AdminCompanies /></ProtectedRoute>} />
                   <Route path="admin/users" element={<ProtectedRoute internal cap="manage_internal_users"><AdminInternalUsers /></ProtectedRoute>} />
                   <Route path="admin/calculator-config" element={<ProtectedRoute internal cap="manage_scoring"><AdminCalculatorConfig /></ProtectedRoute>} />
+                  <Route path="admin/request-config" element={<ProtectedRoute internal cap="manage_request_config"><AdminRequestConfig /></ProtectedRoute>} />
                   <Route path="admin/requests" element={<ProtectedRoute internal cap="view_ticket_oversight"><AdminRequests /></ProtectedRoute>} />
                   <Route path="admin/knowledge" element={<ProtectedRoute internal cap="manage_knowledge"><AdminKnowledge /></ProtectedRoute>} />
                   <Route path="admin/stories" element={<ProtectedRoute internal cap="manage_success_stories"><AdminStories /></ProtectedRoute>} />

@@ -79,6 +79,7 @@ export function createStore() {
         'companies', 'sites', 'users', 'departments', 'processes', 'machines',
         'scoring_models', 'calculator_issues', 'occurrence_options', 'detection_options',
         'technology_prices', 'success_stories',
+        'request_types', 'request_departments', 'request_processes', 'request_machines',
         'knowledge_articles', 'announcements', 'invoices', 'calculator_runs',
         'service_requests', 'audit_logs',
       ]
@@ -168,6 +169,10 @@ export function createStore() {
 
   /* ----- service requests ----- */
 
+  // Built-in owner-team defaults keyed on the seeded request-type slugs. The
+  // authoritative owner_team now lives on request_types (super-admin configurable);
+  // this map is the sync fallback used when a row/column is missing — public leads,
+  // or before the table is seeded.
   const OWNER_TEAM_BY_TYPE: Record<string, string> = {
     support: 'support',
     demo: 'sales',
@@ -178,6 +183,12 @@ export function createStore() {
 
   function ownerTeamFor(type: string): string {
     return OWNER_TEAM_BY_TYPE[type] ?? 'support'
+  }
+
+  /** The active request_types row for a slug (or null) — validates intake + resolves owner_team. */
+  async function getRequestTypeBySlug(slug: string): Promise<any> {
+    const res = await query(`SELECT * FROM request_types WHERE slug = $1 AND active = true LIMIT 1`, [slug])
+    return res.rows[0] ? rowToObj(res.rows[0]) : null
   }
 
   async function addServiceRequestMessage(id: string, message: any, newStatus?: string): Promise<any> {
@@ -351,6 +362,7 @@ export function createStore() {
     getIssuesForModel,
     // service requests
     ownerTeamFor,
+    getRequestTypeBySlug,
     addServiceRequestMessage,
     getZendeskLinkedRequests,
     applyZendeskSync,

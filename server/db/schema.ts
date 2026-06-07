@@ -190,19 +190,86 @@ CREATE TABLE IF NOT EXISTS calculator_runs (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Configurable request-type taxonomy. Super-admins manage these (label, the
+-- owner team a new request routes to, the blurb shown on the intake form). The
+-- slug is the stable value stored in service_requests.request_type; rows are
+-- soft-disabled via active rather than deleted, so historical requests keep
+-- their type. No FK from service_requests so a (mis)removed slug never orphans
+-- a request — the service layer validates against active rows on intake.
+CREATE TABLE IF NOT EXISTS request_types (
+  id text PRIMARY KEY,
+  slug text NOT NULL UNIQUE,
+  label text NOT NULL,
+  owner_team text NOT NULL DEFAULT 'support' CHECK (owner_team IN ('support','sales','ops','product')),
+  blurb text,
+  sort_order integer NOT NULL DEFAULT 0,
+  active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Request-form taxonomy — the department/process/machine selectors on the
+-- service-request intake form. DELIBERATELY SEPARATE from the calculator's
+-- departments/processes/machines master data (which carries scoring-specific
+-- fields like the technology column and feeds calculator_issues): super-admins
+-- configure these independently on the "Request config" screen, so adding or
+-- retiring a request taxonomy row never touches the calculator and vice-versa.
+-- Soft-disabled via the active flag. (Site uses the company's own sites table,
+-- which is already calculator-independent, so there is no request_sites table.)
+CREATE TABLE IF NOT EXISTS request_departments (
+  id text PRIMARY KEY,
+  name text NOT NULL,
+  code text,
+  description text,
+  sort_order integer NOT NULL DEFAULT 0,
+  active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS request_processes (
+  id text PRIMARY KEY,
+  request_department_id text NOT NULL REFERENCES request_departments(id) ON DELETE CASCADE,
+  process_name text NOT NULL,
+  process_code text,
+  description text,
+  sort_order integer NOT NULL DEFAULT 0,
+  active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS request_machines (
+  id text PRIMARY KEY,
+  request_department_id text NOT NULL REFERENCES request_departments(id) ON DELETE CASCADE,
+  request_process_id text REFERENCES request_processes(id) ON DELETE SET NULL,
+  machine_name text NOT NULL,
+  machine_code text,
+  machine_category text,
+  vendor text,
+  model text,
+  sort_order integer NOT NULL DEFAULT 0,
+  active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS service_requests (
   id text PRIMARY KEY,
   company_id text REFERENCES companies(id) ON DELETE SET NULL,
   site_id text REFERENCES sites(id) ON DELETE SET NULL,
   user_id text REFERENCES users(id) ON DELETE SET NULL,
-  request_type text NOT NULL CHECK (request_type IN (
-    'support','demo','onboarding','consultation','feature_request'
-  )),
+  -- Validated against request_types (active rows) in the service layer, not a CHECK,
+  -- so super-admins can add/retire types without a schema migration.
+  request_type text NOT NULL,
   title text NOT NULL,
   description text,
-  department_id text REFERENCES departments(id) ON DELETE SET NULL,
-  process_id text REFERENCES processes(id) ON DELETE SET NULL,
-  machine_id text REFERENCES machines(id) ON DELETE SET NULL,
+  -- department/process/machine reference the request_* taxonomy (NOT the calculator
+  -- master data) by convention. No FK — mirrors request_type above: retiring a
+  -- taxonomy row never orphans a request, and the service layer validates on intake.
+  department_id text,
+  process_id text,
+  machine_id text,
   urgency text NOT NULL DEFAULT 'medium' CHECK (urgency IN ('low','medium','high')),
   status text NOT NULL DEFAULT 'new' CHECK (status IN ('new','open','pending','hold','solved','closed')),
   source text NOT NULL DEFAULT 'portal_form'
@@ -337,6 +404,8 @@ CREATE INDEX IF NOT EXISTS idx_sites_company ON sites(company_id);
 CREATE INDEX IF NOT EXISTS idx_companies_parent ON companies(parent_company_id);
 CREATE INDEX IF NOT EXISTS idx_processes_department ON processes(department_id);
 CREATE INDEX IF NOT EXISTS idx_machines_department ON machines(department_id);
+CREATE INDEX IF NOT EXISTS idx_request_processes_department ON request_processes(request_department_id);
+CREATE INDEX IF NOT EXISTS idx_request_machines_department ON request_machines(request_department_id);
 CREATE INDEX IF NOT EXISTS idx_calculator_issues_model ON calculator_issues(scoring_model_id);
 CREATE INDEX IF NOT EXISTS idx_calculator_issues_department ON calculator_issues(department_id);
 CREATE INDEX IF NOT EXISTS idx_calculator_runs_company ON calculator_runs(company_id);

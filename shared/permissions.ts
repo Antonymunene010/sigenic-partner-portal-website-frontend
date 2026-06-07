@@ -32,6 +32,7 @@ export type Capability =
   | 'view_ticket_oversight'
   | 'resolve_tickets'
   | 'reclassify_request'
+  | 'manage_request_config'
   | 'manage_announcements'
   | 'view_audit_logs'
   | 'view_analytics'
@@ -92,10 +93,13 @@ const CAPABILITIES: Record<Capability, Role[]> = {
   manage_success_stories: INTERNAL_MANAGE,
   view_ticket_oversight: INTERNAL_OVERSIGHT,
   resolve_tickets: INTERNAL_OVERSIGHT,
-  // Re-classify a request after intake — its type plus the site/department/
-  // process/machine taxonomy. Super_admin only (mirrors manage_scoring, which
-  // owns that same master-data taxonomy); plain oversight stays status/owner.
+  // Re-classify a request after intake — its type plus the request department/
+  // process/machine taxonomy. Super_admin only; plain oversight stays status/owner.
   reclassify_request: ['super_admin'],
+  // Manage the request-form taxonomy itself (request types + request department/
+  // process/machine lists). Its own capability, decoupled from manage_scoring so the
+  // request config and the risk-calculator config stay independent. Super_admin only.
+  manage_request_config: ['super_admin'],
   manage_announcements: INTERNAL_MANAGE,
   view_audit_logs: INTERNAL_MANAGE,
   view_analytics: INTERNAL_OVERSIGHT,

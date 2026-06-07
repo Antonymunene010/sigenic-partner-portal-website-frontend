@@ -1,4 +1,4 @@
-import type { Company, Department, Machine, Process, ScoringModel, Site } from './types'
+import type { Company, Department, Machine, Process, RequestDepartment, RequestProcess, ScoringModel, Site } from './types'
 
 export interface SelectOption {
   value: string
@@ -16,3 +16,6 @@ export const machineOptions = (items: Machine[]): SelectOption[] => items.map((m
 export const companyOptions = (items: Company[]): SelectOption[] => items.map((c) => ({ value: c.id, label: c.companyName }))
 export const siteOptions = (items: Site[]): SelectOption[] => items.map((s) => ({ value: s.id, label: s.siteName }))
 export const scoringModelOptions = (items: ScoringModel[]): SelectOption[] => items.map((m) => ({ value: m.id, label: m.versionName }))
+// Request taxonomy (decoupled from the calculator master data above).
+export const requestDepartmentOptions = (items: RequestDepartment[]): SelectOption[] => items.map((d) => ({ value: d.id, label: d.name }))
+export const requestProcessOptions = (items: RequestProcess[]): SelectOption[] => items.map((p) => ({ value: p.id, label: p.processName }))
