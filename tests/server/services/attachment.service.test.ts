@@ -1,8 +1,8 @@
 import { test, mock } from 'node:test'
 import assert from 'node:assert/strict'
-import { createAttachment, getAttachment } from '../attachment.service'
-import type { Store } from '../../db/store'
-import type { AuthPayload } from '../../infra/auth'
+import { createAttachment, getAttachment } from '../../../server/services/attachment.service'
+import type { Store } from '../../../server/db/store'
+import type { AuthPayload } from '../../../server/infra/auth'
 
 const admin: AuthPayload = { sub: 'u-1', role: 'admin', userType: 'internal', companyId: 'co-sigenic', companyType: 'sigenic', email: 'a@b.c', name: 'Admin' }
 const customer: AuthPayload = { sub: 'u-c', role: 'customer_user', userType: 'customer', companyId: 'co-c', companyType: 'customer', email: 'c@x', name: 'Cust' }

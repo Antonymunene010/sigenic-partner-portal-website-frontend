@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { toCamel, rowToObj, pick, buildInsert, buildUpdate, toApiRow, type ColumnMap } from '../columns'
+import { toCamel, rowToObj, pick, buildInsert, buildUpdate, toApiRow, type ColumnMap } from '../../../server/db/columns'
 
 const COLS: ColumnMap = {
   widgets: [

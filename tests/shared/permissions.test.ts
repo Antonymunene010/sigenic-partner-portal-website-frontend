@@ -9,8 +9,8 @@ import {
   canManageUser,
   audienceMatches,
   type Capability,
-} from '../permissions'
-import type { Role } from '../types'
+} from '../../shared/permissions'
+import type { Role } from '../../shared/types'
 
 // Characterization of the PRD §5 permission matrix. These assert human-readable
 // facts (not a copy of the CAPABILITIES table) so they double as documentation.

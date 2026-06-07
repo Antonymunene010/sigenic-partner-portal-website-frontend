@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { computeRisk, toLimited, severityScore, riskTier } from '../calc'
+import { computeRisk, toLimited, severityScore, riskTier } from '../../shared/calc'
 
 // Characterization tests: lock the risk-score & yield-loss output against the
 // client's "Risk Score & Yield Loss Simulator" spreadsheet. Self-contained

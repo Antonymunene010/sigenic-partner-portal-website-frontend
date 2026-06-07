@@ -1,12 +1,12 @@
 import { test, mock } from 'node:test'
 import assert from 'node:assert/strict'
-import { createAnnouncement } from '../announcement.service'
-import { createUser, deleteUser } from '../user.service'
-import { createServiceRequest, updateServiceRequest } from '../serviceRequest.service'
-import { activateScoringModel } from '../admin.service'
-import { calculate } from '../calculator.service'
-import type { Store } from '../../db/store'
-import type { AuthPayload } from '../../infra/auth'
+import { createAnnouncement } from '../../../server/services/announcement.service'
+import { createUser, deleteUser } from '../../../server/services/user.service'
+import { createServiceRequest, updateServiceRequest } from '../../../server/services/serviceRequest.service'
+import { activateScoringModel } from '../../../server/services/admin.service'
+import { calculate } from '../../../server/services/calculator.service'
+import type { Store } from '../../../server/db/store'
+import type { AuthPayload } from '../../../server/infra/auth'
 
 const superAdmin: AuthPayload = { sub: 'u-1', role: 'super_admin', userType: 'internal', companyId: 'co-sigenic', companyType: 'sigenic', email: 'a@b.c', name: 'Admin' }
 const admin: AuthPayload = { ...superAdmin, role: 'admin' }

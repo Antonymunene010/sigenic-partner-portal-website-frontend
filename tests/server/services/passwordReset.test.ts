@@ -1,8 +1,8 @@
 import { test, mock } from 'node:test'
 import assert from 'node:assert/strict'
-import { requestPasswordReset, resetPasswordWithToken } from '../auth.service'
-import { hashPassword, signResetToken } from '../../infra/auth'
-import type { Store } from '../../db/store'
+import { requestPasswordReset, resetPasswordWithToken } from '../../../server/services/auth.service'
+import { hashPassword, signResetToken } from '../../../server/infra/auth'
+import type { Store } from '../../../server/db/store'
 
 const APP_URL = 'https://portal.example'
 
