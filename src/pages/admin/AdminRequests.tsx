@@ -5,7 +5,7 @@ import { useData, useLookups } from '../../lib/data'
 import { PageHeader } from '../../components/PageHeader'
 import { DataTable, type Column } from '../../components/DataTable'
 import { Badge } from '../../components/Badge'
-import { StatCard, Spinner, useToast, chipClass } from '../../components/ui'
+import { StatCard, Spinner, useToast } from '../../components/ui'
 import { syncRequests } from '../../lib/api'
 import { fmtRelative } from '../../lib/format'
 import {
@@ -132,37 +132,10 @@ export default function AdminRequests() {
         <StatCard label="Total requests" value={serviceRequests.length} icon={<Users size={15} />} />
       </div>
 
-      <div className="flex flex-wrap items-center gap-4 mb-4">
-        <div className="flex items-center gap-1 flex-wrap">
-          <button onClick={() => setStatus('all')} className={chipClass(status === 'all')}>
-            All
-          </button>
-          {REQUEST_STATUSES.map((s) => (
-            <button key={s.value} onClick={() => setStatus(s.value)} className={chipClass(status === s.value)}>
-              {s.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-1 flex-wrap">
-          <button onClick={() => setOwner('all')} className={chipClass(owner === 'all')}>
-            All teams
-          </button>
-          {OWNER_TEAMS.map((o) => (
-            <button key={o.value} onClick={() => setOwner(o.value)} className={chipClass(owner === o.value)}>
-              {o.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-1 flex-wrap">
-          <button onClick={() => setUrgency('all')} className={chipClass(urgency === 'all')}>
-            Any urgency
-          </button>
-          {URGENCIES.map((u) => (
-            <button key={u.value} onClick={() => setUrgency(u.value)} className={chipClass(urgency === u.value)}>
-              {u.label}
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <FilterSelect value={status} onChange={setStatus} label="Filter by status" allLabel="All statuses" options={REQUEST_STATUSES} />
+        <FilterSelect value={owner} onChange={setOwner} label="Filter by owner team" allLabel="All teams" options={OWNER_TEAMS} />
+        <FilterSelect value={urgency} onChange={setUrgency} label="Filter by urgency" allLabel="Any urgency" options={URGENCIES} />
       </div>
 
       <DataTable
@@ -173,5 +146,35 @@ export default function AdminRequests() {
         defaultSort={{ key: 'updated', dir: 'desc' }}
       />
     </div>
+  )
+}
+
+function FilterSelect<T extends string>({
+  value,
+  onChange,
+  label,
+  allLabel,
+  options,
+}: {
+  value: T | 'all'
+  onChange: (value: T | 'all') => void
+  label: string
+  allLabel: string
+  options: { value: T; label: string }[]
+}) {
+  return (
+    <select
+      className="select sm:w-56"
+      value={value}
+      onChange={(e) => onChange(e.target.value as T | 'all')}
+      aria-label={label}
+    >
+      <option value="all">{allLabel}</option>
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
   )
 }
