@@ -65,20 +65,19 @@ export default function Login() {
             ))}
           </div>
         </div>
-        <div className="space-y-3">
-          <address className="not-italic space-y-1.5 text-xs text-muted dark:text-muted-dark">
-            <div className="flex items-start gap-2">
-              <MapPin size={14} className="mt-0.5 shrink-0 text-faint dark:text-faint-dark" />
-              <span>1 Fusionopolis Way, #21-01 Connexis South Tower, Singapore 138632</span>
-            </div>
-            <a href="mailto:hello@sigenic.com" className="flex items-center gap-2 hover:text-ink dark:hover:text-ink-dark transition-colors">
-              <Mail size={14} className="shrink-0 text-faint dark:text-faint-dark" /> hello@sigenic.com
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-faint dark:text-faint-dark">
+          <span className="font-mono uppercase tracking-[0.12em]">© 2026 Sigenic</span>
+          <address className="contents not-italic">
+            <span className="flex items-center gap-1.5">
+              <MapPin size={12} className="shrink-0" /> 10 Ubi Crescent, Ubi Techpark, #07-19C, Singapore 408564
+            </span>
+            <a href="mailto:sigenic_sales@sigenic.com" className="flex items-center gap-1.5 hover:text-ink dark:hover:text-ink-dark transition-colors">
+              <Mail size={12} className="shrink-0" /> sigenic_sales@sigenic.com
             </a>
-            <a href="tel:+6569081200" className="flex items-center gap-2 hover:text-ink dark:hover:text-ink-dark transition-colors">
-              <Phone size={14} className="shrink-0 text-faint dark:text-faint-dark" /> +65 6908 1200
+            <a href="tel:+6562700153" className="flex items-center gap-1.5 hover:text-ink dark:hover:text-ink-dark transition-colors">
+              <Phone size={12} className="shrink-0" /> +65 6270 0153
             </a>
           </address>
-          <span className="block text-[11px] font-mono uppercase tracking-[0.12em] text-faint dark:text-faint-dark">© 2026 Sigenic · Singapore</span>
         </div>
       </div>
 
