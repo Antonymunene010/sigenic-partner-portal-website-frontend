@@ -453,6 +453,7 @@ export interface KnowledgeArticle {
   category?: string
   tagsJson: string[]
   body?: string
+  coverImageId?: string | null
   active: boolean
   featured: boolean
   audienceType: AudienceType

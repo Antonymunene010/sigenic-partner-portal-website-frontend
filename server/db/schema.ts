@@ -313,6 +313,7 @@ CREATE TABLE IF NOT EXISTS knowledge_articles (
   category text,
   tags_json jsonb NOT NULL DEFAULT '[]'::jsonb,
   body text,
+  cover_image_id text,
   active boolean NOT NULL DEFAULT true,
   featured boolean NOT NULL DEFAULT false,
   audience_type text NOT NULL DEFAULT 'all' CHECK (audience_type IN ('all','distributor','customer','internal')),
@@ -320,6 +321,9 @@ CREATE TABLE IF NOT EXISTS knowledge_articles (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Additive columns for portals already deployed on an older knowledge_articles schema.
+ALTER TABLE knowledge_articles ADD COLUMN IF NOT EXISTS cover_image_id text;
 
 -- Binary uploads (images + files) embedded into knowledge/success-story bodies by
 -- the rich-text editor. Served back via a stable /api/attachments/:id URL.

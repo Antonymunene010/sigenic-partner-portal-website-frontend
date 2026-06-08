@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, BookOpen, ArrowUpRight } from 'lucide-react'
+import { Search, BookOpen } from 'lucide-react'
 import { useData } from '../lib/data'
 import { PageHeader } from '../components/PageHeader'
 import { Card, Spinner, EmptyState, chipClass } from '../components/ui'
 import { Badge } from '../components/Badge'
+import { CoverMedia } from '../components/CoverMedia'
 import { fmtRelative } from '../lib/format'
 import { KB_CATEGORIES } from '../lib/constants'
 import type { KnowledgeArticle } from '../lib/types'
@@ -71,24 +72,30 @@ function ArticleCard({ article }: { article: KnowledgeArticle }) {
 
   return (
     <Link to={`/app/knowledge/${article.slug ?? article.id}`} className="group block">
-      <Card className="h-full flex flex-col hover:shadow-soft transition">
-        <div className="flex items-center gap-2 mb-2">
-          {article.category && <Badge tone="accent">{article.category}</Badge>}
-          <ArrowUpRight size={15} className="ml-auto text-faint group-hover:text-ink dark:group-hover:text-ink-dark transition" />
+      <Card padded={false} className="overflow-hidden h-full flex flex-col hover:shadow-soft transition">
+        <div className="relative aspect-[16/9] w-full overflow-hidden bg-raised dark:bg-raised-dark">
+          <CoverMedia article={article} />
+          {article.category && (
+            <div className="absolute top-2 right-2">
+              <Badge tone="accent">{article.category}</Badge>
+            </div>
+          )}
         </div>
-        <div className="text-sm font-medium group-hover:text-emphasis">{article.title}</div>
-        {article.summary && (
-          <p className="mt-1 text-sm text-muted dark:text-muted-dark line-clamp-3">{article.summary}</p>
-        )}
-        {tags.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {tags.slice(0, 4).map((t) => (
-              <Badge key={t} tone="neutral">{t}</Badge>
-            ))}
+        <div className="p-4 flex flex-col flex-1">
+          <div className="text-sm font-medium group-hover:text-emphasis">{article.title}</div>
+          {article.summary && (
+            <p className="mt-1 text-sm text-muted dark:text-muted-dark line-clamp-2">{article.summary}</p>
+          )}
+          {tags.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {tags.slice(0, 4).map((t) => (
+                <Badge key={t} tone="neutral">{t}</Badge>
+              ))}
+            </div>
+          )}
+          <div className="mt-auto pt-3 border-t border-line dark:border-line-dark text-[11px] font-mono text-faint dark:text-faint-dark">
+            Reviewed {fmtRelative(reviewed)}
           </div>
-        )}
-        <div className="mt-3 pt-3 border-t border-line dark:border-line-dark text-[11px] font-mono text-faint dark:text-faint-dark">
-          Reviewed {fmtRelative(reviewed)}
         </div>
       </Card>
     </Link>

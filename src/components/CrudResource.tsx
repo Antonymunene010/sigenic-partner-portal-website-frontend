@@ -1,10 +1,10 @@
-import { lazy, Suspense, useState } from 'react'
-import { Plus, Pencil } from 'lucide-react'
+import { lazy, Suspense, useRef, useState } from 'react'
+import { Plus, Pencil, Image as ImageIcon, X } from 'lucide-react'
 import { Modal } from './Modal'
 import { DataTable, type Column } from './DataTable'
 import { Field, useToast } from './ui'
 import { uid } from '../lib/storage'
-import { createResource, updateResource, deleteResource, type ResourceName } from '../lib/api'
+import { createResource, updateResource, deleteResource, uploadAttachment, withApiBase, type ResourceName } from '../lib/api'
 
 // TipTap is heavy (~500kB); load it only when an editor actually opens so it stays
 // out of the main bundle for everyone who never edits article bodies.
@@ -13,7 +13,7 @@ const RichTextEditor = lazy(() => import('./RichTextEditor').then((m) => ({ defa
 export interface FieldSpec {
   key: string
   label: string
-  type?: 'text' | 'number' | 'textarea' | 'richtext' | 'select' | 'checkbox' | 'date'
+  type?: 'text' | 'number' | 'textarea' | 'richtext' | 'select' | 'checkbox' | 'date' | 'cover'
   options?: { value: string; label: string }[]
   required?: boolean
   placeholder?: string
@@ -92,7 +92,7 @@ export function CrudResource<T extends Row>({
       let v = form[f.key]
       if (f.type === 'number') v = v === '' || v == null ? null : Number(v)
       else if (f.type === 'checkbox') v = Boolean(v)
-      else if ((f.type === 'select' || f.type === 'text' || f.type === 'date') && v === '') v = null
+      else if ((f.type === 'select' || f.type === 'text' || f.type === 'date' || f.type === 'cover') && v === '') v = null
       out[f.key] = v
     }
     return out
@@ -245,6 +245,11 @@ export function CrudResource<T extends Row>({
                       onChange={(md) => setForm((s) => ({ ...s, [f.key]: md }))}
                     />
                   </Suspense>
+                ) : f.type === 'cover' ? (
+                  <CoverImageInput
+                    value={(form[f.key] as string) ?? ''}
+                    onChange={(id) => setForm((s) => ({ ...s, [f.key]: id }))}
+                  />
                 ) : f.type === 'textarea' ? (
                   <textarea
                     className="textarea min-h-[90px]"
@@ -280,6 +285,54 @@ export function CrudResource<T extends Row>({
           ))}
         </div>
       </Modal>
+    </div>
+  )
+}
+
+function CoverImageInput({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  const toast = useToast()
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+
+  const handle = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const res = await uploadAttachment(file)
+      onChange(res.id)
+    } catch (err) {
+      toast.push(err instanceof Error ? err.message : 'Upload failed.', 'error')
+    } finally {
+      setUploading(false)
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      {value ? (
+        <img
+          src={withApiBase(`/api/attachments/${encodeURIComponent(value)}`)}
+          alt="Cover"
+          className="w-32 h-20 object-cover rounded-md border border-line dark:border-line-dark"
+        />
+      ) : (
+        <div className="w-32 h-20 rounded-md border border-dashed border-line dark:border-line-dark bg-raised dark:bg-raised-dark flex items-center justify-center text-faint">
+          <ImageIcon size={20} />
+        </div>
+      )}
+      <div className="flex items-center gap-2">
+        <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handle} />
+        <button type="button" className="btn-outline" onClick={() => inputRef.current?.click()} disabled={uploading}>
+          {uploading ? 'Uploading…' : value ? 'Replace' : 'Upload'}
+        </button>
+        {value && (
+          <button type="button" className="btn-ghost" onClick={() => onChange('')}>
+            <X size={14} /> Remove
+          </button>
+        )}
+      </div>
     </div>
   )
 }

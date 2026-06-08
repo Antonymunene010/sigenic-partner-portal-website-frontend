@@ -32,6 +32,11 @@ export function clearToken(): void {
 export function apiBase(): string {
   return (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 }
+/** Prefix relative `/api/...` paths with apiBase() so they resolve cross-origin;
+ *  pass-through for absolute URLs (https, data:, blob:, Notion proxy, etc.). */
+export function withApiBase(url: string): string {
+  return url.startsWith('/api/') ? `${apiBase()}${url}` : url
+}
 function authHeaders(): Record<string, string> {
   const token = getToken()
   return token ? { Authorization: `Bearer ${token}` } : {}

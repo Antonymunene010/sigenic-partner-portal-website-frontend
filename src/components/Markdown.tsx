@@ -1,14 +1,8 @@
 import { Fragment, type ReactNode } from 'react'
-import { apiBase } from '../lib/api'
+import { withApiBase } from '../lib/api'
 
 // Inline spans, tried in order: [text](url) link, **bold**, `code`, *italic*.
 const INLINE_RE = /\[([^\]]+)\]\(([^)\s]+)\)|\*\*([^*]+)\*\*|`([^`]+)`|\*([^*\n]+)\*/g
-
-/** Bodies store portal/Notion assets as relative /api/... paths; prefix the API base
- *  so they resolve even when the frontend is served from another origin. */
-function withApiBase(url: string): string {
-  return url.startsWith('/api/') ? `${apiBase()}${url}` : url
-}
 
 function renderInline(text: string): ReactNode[] {
   const out: ReactNode[] = []

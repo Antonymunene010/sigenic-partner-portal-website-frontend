@@ -76,6 +76,7 @@ export default function AdminKnowledge() {
           { key: 'slug', label: 'Slug', placeholder: 'auto-generated if blank' },
           { key: 'summary', label: 'Summary', type: 'textarea' },
           { key: 'category', label: 'Category', type: 'select', options: categoryOptions },
+          { key: 'coverImageId', label: 'Cover image', type: 'cover', full: true, help: 'Optional. Shown on the knowledge-base grid; falls back to the first inline image or a generated tile.' },
           { key: 'body', label: 'Body', type: 'richtext', help: 'Drag, paste, or use the toolbar to add images and files.' },
           { key: 'audienceType', label: 'Audience', type: 'select', options: AUDIENCE_TYPES, defaultValue: 'all' },
           { key: 'featured', label: 'Featured', type: 'checkbox', placeholder: 'Feature this article' },
