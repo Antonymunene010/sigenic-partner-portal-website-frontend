@@ -38,34 +38,51 @@ let mode = 'outbox'
 
 const FROM = process.env.EMAIL_FROM || 'Sigenic Partner Portal <no-reply@sigenic.com>'
 
+/** Split `"Display Name <addr@domain>"` into the {email, name} shape MailerSend expects. */
+function parseFrom(from: string): { email: string; name?: string } {
+  const m = from.match(/^(.+?)\s*<(.+)>$/)
+  if (m) return { email: m[2].trim(), name: m[1].trim() }
+  return { email: from.trim() }
+}
+
 /**
  * Initialise email transport. Priority:
- *  1. RESEND_API_KEY set → use Resend HTTPS API (port 443). Required on PaaS
- *     like Render that block outbound SMTP ports (25/465/587). Reuses the
- *     shared resilientFetch + withRetry so a stalled Resend can't hang the
- *     request handler and 429/5xx are retried with backoff.
+ *  1. MAILERSEND_API_TOKEN set → use MailerSend HTTPS API (port 443). Required
+ *     on PaaS like Render that block outbound SMTP ports (25/465/587). Reuses
+ *     the shared resilientFetch + withRetry so a stalled provider can't hang
+ *     the request handler and 429/5xx are retried with backoff.
  *  2. SMTP_HOST set → nodemailer over SMTP (local mailpit, Gmail relay, etc).
  *  3. Otherwise → outbox-only mode, every send is recorded but not delivered.
  */
 export async function initEmail(): Promise<string> {
-  const resendKey = process.env.RESEND_API_KEY
-  if (resendKey) {
+  const mailerSendToken = process.env.MAILERSEND_API_TOKEN
+  if (mailerSendToken) {
+    const from = parseFrom(FROM)
     send = ({ to, subject, text, html }) =>
       withRetry(
         () =>
           resilientFetch(
-            'https://api.resend.com/emails',
+            'https://api.mailersend.com/v1/email',
             {
               method: 'POST',
-              headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ from: FROM, to, subject, text, html: html || undefined }),
+              headers: { Authorization: `Bearer ${mailerSendToken}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                from,
+                to: [{ email: to }],
+                subject,
+                text,
+                html: html || undefined,
+              }),
             },
-            { parseError: (payload, status) => payload?.message || `Resend ${status}` },
+            {
+              parseError: (payload, status) =>
+                payload?.message || payload?.errors?.[0]?.message || `MailerSend ${status}`,
+            },
           ),
-        { label: 'resend' },
+        { label: 'mailersend' },
       )
-    mode = 'resend-http'
-    console.log('[email] Resend HTTPS API ready (api.resend.com).')
+    mode = 'mailersend-http'
+    console.log('[email] MailerSend HTTPS API ready (api.mailersend.com).')
     return mode
   }
   const host = process.env.SMTP_HOST
