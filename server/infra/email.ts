@@ -1,6 +1,7 @@
 import { uid, nowIso } from '../util/ids'
 import { INTERNAL_MANAGE } from '../../shared/permissions'
 import { RISK_TIER_LABEL } from '../../shared/calc'
+import { resilientFetch, withRetry } from '../integration/zendesk'
 import type { CalcAdditionalInfo, RiskResult } from '../../shared/types'
 
 /** A persisted outbox record — every send (real or mocked) is recorded for audit. */
@@ -25,18 +26,48 @@ interface AdminFanoutStore extends EmailOutbox {
   list: (table: string, opts?: { where?: string; params?: unknown[] }) => Promise<any[]>
 }
 
-// nodemailer transport is loaded lazily and has no shared type here — kept as `any`.
-let transporter: any = null
+interface EmailMessage {
+  to: string
+  subject: string
+  text?: string
+  html?: string
+}
+
+let send: ((msg: EmailMessage) => Promise<void>) | null = null
 let mode = 'outbox'
 
 const FROM = process.env.EMAIL_FROM || 'Sigenic Partner Portal <no-reply@sigenic.com>'
 
 /**
- * Initialise email transport. With SMTP_HOST set we send for real (works with
- * MailHog/Mailpit locally, or any SMTP provider in prod). Without it we fall
- * back to an "outbox" that records every message so the feature stays testable.
+ * Initialise email transport. Priority:
+ *  1. RESEND_API_KEY set → use Resend HTTPS API (port 443). Required on PaaS
+ *     like Render that block outbound SMTP ports (25/465/587). Reuses the
+ *     shared resilientFetch + withRetry so a stalled Resend can't hang the
+ *     request handler and 429/5xx are retried with backoff.
+ *  2. SMTP_HOST set → nodemailer over SMTP (local mailpit, Gmail relay, etc).
+ *  3. Otherwise → outbox-only mode, every send is recorded but not delivered.
  */
 export async function initEmail(): Promise<string> {
+  const resendKey = process.env.RESEND_API_KEY
+  if (resendKey) {
+    send = ({ to, subject, text, html }) =>
+      withRetry(
+        () =>
+          resilientFetch(
+            'https://api.resend.com/emails',
+            {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ from: FROM, to, subject, text, html: html || undefined }),
+            },
+            { parseError: (payload, status) => payload?.message || `Resend ${status}` },
+          ),
+        { label: 'resend' },
+      )
+    mode = 'resend-http'
+    console.log('[email] Resend HTTPS API ready (api.resend.com).')
+    return mode
+  }
   const host = process.env.SMTP_HOST
   if (!host) {
     console.warn('[email] SMTP_HOST unset — emails will be recorded to the outbox instead of sent.')
@@ -44,7 +75,7 @@ export async function initEmail(): Promise<string> {
   }
   try {
     const { default: nodemailer } = await import('nodemailer')
-    transporter = nodemailer.createTransport({
+    const transporter = nodemailer.createTransport({
       host,
       port: Number(process.env.SMTP_PORT || 1025),
       secure: process.env.SMTP_SECURE === 'true',
@@ -52,6 +83,8 @@ export async function initEmail(): Promise<string> {
         ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
         : undefined,
     })
+    send = ({ to, subject, text, html }) =>
+      transporter.sendMail({ from: FROM, to, subject, text, html: html || undefined })
     mode = 'smtp'
     console.log(`[email] SMTP transport ready (${host}:${process.env.SMTP_PORT || 1025}).`)
   } catch (error: any) {
@@ -68,30 +101,27 @@ export function emailMode(): string {
  * Send (or record) an email and persist a copy to the store-backed outbox so
  * admins can verify delivery even without a real mailbox.
  */
-export async function sendEmail(
-  store: EmailOutbox,
-  { to, subject, text, html }: { to: string; subject: string; text?: string; html?: string },
-): Promise<EmailRecord> {
+export async function sendEmail(store: EmailOutbox, msg: EmailMessage): Promise<EmailRecord> {
   const record: EmailRecord = {
     id: uid('mail'),
-    to,
-    subject,
-    text,
+    to: msg.to,
+    subject: msg.subject,
+    text: msg.text,
     mode,
     delivered: false,
     createdAt: nowIso(),
   }
-  if (transporter) {
+  if (send) {
     try {
-      await transporter.sendMail({ from: FROM, to, subject, text, html: html || undefined })
+      await send(msg)
       record.delivered = true
     } catch (error: any) {
       record.error = error.message
-      console.warn(`[email] send failed → ${to}: ${error.message}`)
+      console.warn(`[email] send failed → ${msg.to}: ${error.message}`)
     }
   } else {
     record.note = 'No SMTP configured; recorded to outbox only.'
-    console.log(`[email:outbox] → ${to} · ${subject}`)
+    console.log(`[email:outbox] → ${msg.to} · ${msg.subject}`)
   }
   try {
     await store.appendEmail(record)
