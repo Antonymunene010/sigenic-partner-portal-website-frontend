@@ -1,15 +1,13 @@
-import { computeRisk, toCalculatorRun, toLimited } from '../../shared/calc'
+import { computeRisk, toCalculatorRun } from '../../shared/calc'
 import { badRequest } from '../http/errors'
 import { uid, nowIso } from '../util/ids'
-import { calculatorLeadEmail, notifyInternalAdmins } from '../infra/email'
+import { calculatorLeadEmail, calculatorSubmissionReceiptEmail, notifyInternalAdmins, sendEmail } from '../infra/email'
 import type { Store } from '../db/store'
 import type { AuthPayload } from '../infra/auth'
 import type {
   CalcAdditionalInfo,
-  CalcContact,
   CalcSelection,
   CompanyType,
-  LimitedRiskResult,
   RiskResult,
 } from '../../shared/types'
 
@@ -42,7 +40,7 @@ function runTypeFor(companyType: CompanyType | null | undefined): 'partner' | 'd
 
 /**
  * Pure calculation — no persistence, no email. The wizard previews the score on
- * Step 2 ("Statistical Analysis"); persistence happens on submit/publicSubmit.
+ * Step 2 ("Statistical Analysis"); persistence happens on submit().
  */
 export async function calculate(
   store: Store,
@@ -54,36 +52,25 @@ export async function calculate(
   return { result: await buildResult(store, model, selection) }
 }
 
-/** Public/limited teaser — stateless. Persistence happens on publicSubmit(). */
-export async function publicCalculate(
-  store: Store,
-  selection: CalcSelection | undefined,
-): Promise<{ result: LimitedRiskResult }> {
-  const model = await store.getActiveScoringModel()
-  if (!model) throw badRequest('No active scoring model configured.')
-  const result = await buildResult(store, model, selection ?? {})
-  return { result: toLimited(result) }
-}
-
 /**
  * Shared persistence + notification path for "Submit and Send Email". Re-runs the
- * calculation server-side (never trusts the client's stat-page numbers), inserts
- * a calculator_runs row, and fans the submission out to internal admins. The
- * admin notify is fire-and-forget — it must not gate the wizard's confirmation.
+ * calculation server-side (never trusts the client's stat-page numbers), inserts a
+ * calculator_runs row, then fans the submission out to internal admins AND emails
+ * the submitter their own confirmation receipt. Both sends are fire-and-forget —
+ * they must not gate the wizard's confirmation screen.
  */
 async function persistSubmission(
   store: Store,
   params: {
     selection: CalcSelection
-    runType: 'partner' | 'distributor' | 'internal' | 'public'
+    runType: 'partner' | 'distributor' | 'internal'
     ids: { companyId?: string | null; siteId?: string | null; userId?: string | null }
     modelId?: string
     additional?: CalcAdditionalInfo | null
-    contact?: CalcContact | null
     clientName?: string | null
     submitterName?: string | null
     submitterEmail?: string | null
-    companyName?: string | null
+    recipientName?: string | null
   },
 ): Promise<{ result: RiskResult; runId: string; submittedAt: string }> {
   const model = params.modelId ? await store.getOne('scoring_models', params.modelId) : await store.getActiveScoringModel()
@@ -99,20 +86,29 @@ async function persistSubmission(
       model,
       ids: params.ids,
       additional: params.additional ?? null,
-      contact: params.contact ?? null,
+      contact: null,
       clientName: params.clientName ?? null,
     }),
     id: runId,
     submitted_at: submittedAt,
   })
+  // Notify Sigenic admins so they can review who submitted and follow up if needed.
   notifyInternalAdmins(store, calculatorLeadEmail({
     runId,
     result,
     submitterName: params.submitterName,
     submitterEmail: params.submitterEmail,
-    companyName: params.companyName,
     additional: params.additional ?? null,
   })).catch(() => {})
+  // Email the submitter a confirmation receipt. Keyed off submitterEmail — the same
+  // field the admin notify already uses — so every submission with a known submitter
+  // gets a receipt, with no separate opt-in flag for a new call site to forget.
+  if (params.submitterEmail) {
+    sendEmail(store, {
+      to: params.submitterEmail,
+      ...calculatorSubmissionReceiptEmail({ recipientName: params.recipientName, runId, result }),
+    }).catch(() => {})
+  }
   return { result, runId, submittedAt }
 }
 
@@ -136,68 +132,10 @@ export async function submit(
     modelId: body.modelId,
     additional: body.additional ?? null,
     clientName,
+    // submitterName labels the lead on the admin notify (may be the client name);
+    // recipientName greets the submitter on their own receipt (always the account name).
     submitterName: clientName ?? auth.name,
     submitterEmail: auth.email,
+    recipientName: auth.name,
   })
-}
-
-/**
- * Unauthenticated wizard submit — requires a contact card so admins can follow up.
- * Returns the trimmed (public-safe) result + the documentation id.
- */
-export async function publicSubmit(
-  store: Store,
-  body: {
-    selection?: CalcSelection
-    additional?: CalcAdditionalInfo
-    contact?: CalcContact
-  },
-): Promise<{ result: LimitedRiskResult; runId: string; submittedAt: string }> {
-  const contact = body.contact
-  if (!contact?.clientName?.trim() || !contact?.contactEmail?.trim()) {
-    throw badRequest('Client name and contact email are required to submit.')
-  }
-  const out = await persistSubmission(store, {
-    selection: body.selection ?? {},
-    runType: 'public',
-    ids: {},
-    additional: body.additional ?? null,
-    contact,
-    submitterName: contact.contactName || contact.clientName,
-    submitterEmail: contact.contactEmail,
-    companyName: contact.companyName ?? null,
-  })
-  return { ...out, result: toLimited(out.result) }
-}
-
-/**
- * Public calculator metadata for the unauthenticated teaser: the active model's
- * departments + issue catalog + dropdown options. Wafer prices stay server-side.
- */
-export async function publicConfig(store: Store): Promise<any> {
-  const model = await store.getActiveScoringModel()
-  if (!model) return { model: null, departments: [], issues: [], occurrenceOptions: [], detectionOptions: [] }
-  const [departments, issues, occurrenceOptions, detectionOptions] = await Promise.all([
-    store.list('departments', { where: 'active = true', order: 'name ASC' }),
-    store.getIssuesForModel(model.id),
-    store.list('occurrence_options', { where: 'active = true', order: 'sort_order ASC' }),
-    store.list('detection_options', { where: 'active = true', order: 'sort_order ASC' }),
-  ])
-  return {
-    model: { id: model.id, versionName: model.versionName },
-    departments: departments.map((d: any) => ({ id: d.id, name: d.name, technology: d.technology })),
-    issues: issues
-      .filter((i: any) => i.active)
-      .map((i: any) => ({
-        id: i.id,
-        departmentId: i.departmentId,
-        label: i.label,
-        defaultSeverity: i.defaultSeverity,
-        defaultOccurrence: i.defaultOccurrence,
-        defaultDetection: i.defaultDetection,
-        sortOrder: i.sortOrder,
-      })),
-    occurrenceOptions,
-    detectionOptions,
-  }
 }

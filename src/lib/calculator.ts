@@ -2,8 +2,8 @@ import type { DetectionKey, IssueInput } from './types'
 
 /**
  * The risk-score & yield-loss engine lives in shared/calc.ts (computed
- * server-side) — the portal always calls /api/calculate (or
- * /api/public/calculate). Only the form's default inputs live client-side.
+ * server-side) — the portal always calls /api/calculate. Only the form's
+ * default inputs live client-side.
  */
 
 /** Per-issue editable inputs, keyed by issue id in the questionnaire forms. */

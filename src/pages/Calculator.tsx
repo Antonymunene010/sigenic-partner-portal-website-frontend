@@ -28,8 +28,7 @@ import type { CalcSelection, DetectionKey, IssueInput, RiskResult } from '../lib
  * (admin lead); intermediate calculations on Step 2 stay stateless.
  *
  * Shared wizard chrome (Stepper / WizardFooter / ResetButton / TierGuidanceCards /
- * Confirmation) lives in src/components/CalculatorWizard.tsx — see also
- * src/pages/PublicCalculator.tsx for the unauthenticated counterpart.
+ * Confirmation) lives in src/components/CalculatorWizard.tsx.
  */
 export default function Calculator() {
   const toast = useToast()
@@ -122,7 +121,7 @@ export default function Calculator() {
         },
       })
       setConfirmation({ runId: res.runId, submittedAt: res.submittedAt, result: res.result })
-      toast.push('Submission sent — the Sigenic team has been notified.')
+      toast.push('Submission received — a confirmation email is on its way, and the Sigenic team has been notified.')
     } catch (e) {
       toast.push(e instanceof Error ? e.message : 'Submit failed.', 'error')
     } finally {

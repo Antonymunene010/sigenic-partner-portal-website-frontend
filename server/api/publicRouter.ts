@@ -3,7 +3,6 @@ import { zendeskEnabled } from '../integration/zendesk'
 import { notionEnabled, getNotionImageUrl } from '../integration/notion'
 import { emailMode } from '../infra/email'
 import * as authService from '../services/auth.service'
-import * as calculatorService from '../services/calculator.service'
 import * as requestService from '../services/serviceRequest.service'
 import * as publicService from '../services/public.service'
 import * as attachmentService from '../services/attachment.service'
@@ -67,17 +66,6 @@ export function publicRouter(store: Store): Router {
   })
   r.post('/public/requests', async (req, res) => {
     res.status(201).json({ item: await requestService.createPublicLead(store, req.body?.request) })
-  })
-  r.get('/public/calculator-config', async (_req, res) => {
-    res.json(await calculatorService.publicConfig(store))
-  })
-  r.post('/public/calculate', async (req, res) => {
-    res.json(await calculatorService.publicCalculate(store, req.body?.selection))
-  })
-  // Final wizard step for unauthenticated users — captures a contact card so admins
-  // can follow up. Stateless /public/calculate above stays a free preview.
-  r.post('/public/calculator/submit', async (req, res) => {
-    res.status(201).json(await calculatorService.publicSubmit(store, req.body ?? {}))
   })
 
   return r

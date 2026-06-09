@@ -1,12 +1,9 @@
 import type {
   Announcement,
   CalcAdditionalInfo,
-  CalcContact,
   CalcSelection,
   HydrateBundle,
-  LimitedRiskResult,
   PublicBundle,
-  PublicCalcConfig,
   RiskResult,
   ServiceRequest,
   User,
@@ -66,24 +63,6 @@ export function submitPublicRequest(req: {
 }): Promise<{ item: { id: string; status: string } }> {
   return request('/api/public/requests', { method: 'POST', body: JSON.stringify({ request: req }) })
 }
-export function publicCalculate(selection: CalcSelection): Promise<{ result: LimitedRiskResult }> {
-  return request('/api/public/calculate', { method: 'POST', body: JSON.stringify({ selection }) })
-}
-/** Final wizard submit for unauthenticated users — captures a contact card. */
-export function publicSubmitCalculation(
-  selection: CalcSelection,
-  contact: CalcContact,
-  additional?: CalcAdditionalInfo,
-): Promise<{ result: LimitedRiskResult; runId: string; submittedAt: string }> {
-  return request('/api/public/calculator/submit', {
-    method: 'POST',
-    body: JSON.stringify({ selection, contact, additional }),
-  })
-}
-export function getPublicCalculatorConfig(): Promise<PublicCalcConfig> {
-  return request<PublicCalcConfig>('/api/public/calculator-config')
-}
-
 /* ---------- auth ---------- */
 export function loginWithApi(email: string, password: string): Promise<{ user: User; token: string }> {
   return request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) })

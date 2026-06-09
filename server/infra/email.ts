@@ -344,6 +344,37 @@ export function calculatorLeadEmail(params: {
   }
 }
 
+/**
+ * Receipt emailed to the submitter themselves right after they submit an
+ * assessment. The client asked for an explicit "we got it" confirmation so the
+ * submitter knows it landed and that the Sigenic team may follow up.
+ */
+export function calculatorSubmissionReceiptEmail(params: {
+  recipientName?: string | null
+  runId: string
+  result: RiskResult
+}): { subject: string; text: string } {
+  const tierLabel = RISK_TIER_LABEL[params.result.overallTier] ?? params.result.overallTier
+  return {
+    subject: 'We received your risk & yield-loss assessment',
+    text: [
+      `Hi ${params.recipientName || 'there'},`,
+      '',
+      'Thanks for submitting your risk and yield-loss assessment on the Sigenic Partner Portal.',
+      'This email confirms we have received it.',
+      '',
+      `Reference: ${params.runId}`,
+      `Overall risk: ${params.result.overallRiskScore} / 15 (${tierLabel})`,
+      `Estimated annual yield-loss at stake: ${params.result.currency} ${params.result.totalAnnualValueLoss.toLocaleString()}`,
+      '',
+      'The Sigenic team can see your submission and may reach out if any follow-up is needed.',
+      'You can review this assessment anytime by signing in to the partner portal.',
+      '',
+      '— Sigenic Partner Portal',
+    ].join('\n'),
+  }
+}
+
 /** Sent to a user whose account has just been deleted. */
 export function accountRemovedEmail(params: { fullName: string; companyName?: string | null }): { subject: string; text: string } {
   return {

@@ -7,12 +7,9 @@ import { fmtDateTime, fmtUSD } from '../lib/format'
 import type { RiskTier } from '../lib/types'
 
 /**
- * Shared widgets for the authenticated + public risk calculator wizards
- * (src/pages/Calculator.tsx, src/pages/PublicCalculator.tsx). The two flows
- * differ in body content (auth has machine/wafer-value pickers and shows full
- * per-issue results; public has a contact card and a teaser-shaped summary),
- * but step navigation, tier guidance, and the post-submit confirmation card
- * are identical — they live here.
+ * Shared widgets for the risk-calculator wizard (src/pages/Calculator.tsx):
+ * step navigation, tier guidance, and the post-submit confirmation card. Kept
+ * as standalone pieces so the page file stays focused on form state.
  */
 
 export type WizardStep = 0 | 1 | 2

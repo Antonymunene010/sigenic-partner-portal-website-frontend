@@ -4,7 +4,7 @@ import { createAnnouncement } from '../../../server/services/announcement.servic
 import { createUser, deleteUser } from '../../../server/services/user.service'
 import { createServiceRequest, updateServiceRequest } from '../../../server/services/serviceRequest.service'
 import { activateScoringModel } from '../../../server/services/admin.service'
-import { calculate, submit, publicSubmit } from '../../../server/services/calculator.service'
+import { calculate, submit } from '../../../server/services/calculator.service'
 import type { Store } from '../../../server/db/store'
 import type { AuthPayload } from '../../../server/infra/auth'
 
@@ -131,35 +131,14 @@ test('calculator.submit — persists the run as a lead and notifies internal adm
   assert.ok(run.data.submitted_at, 'submitted_at is stamped')
   assert.equal(runId, run.data.id)
   assert.ok(result)
-  assert.equal(emails.length, 1, 'a notification email is fanned out to the one active admin')
-  assert.equal(emails[0].to, 'admin@sigenic')
-})
-
-test('calculator.publicSubmit — requires a contact card, stamps run_type=public', async () => {
-  const inserts: any[] = []
-  const store = {
-    getActiveScoringModel: mock.fn(async () => ({ id: 'sm-1', versionName: 'v1' })),
-    getOne: mock.fn(async () => null),
-    getIssuesForModel: mock.fn(async () => []),
-    list: mock.fn(async () => []),
-    insert: mock.fn(async (table: string, data: any) => { inserts.push({ table, data }); return { id: data.id, ...data } }),
-    appendEmail: mock.fn(async () => {}),
-  } as unknown as Store
-  await assert.rejects(
-    () => publicSubmit(store, { selection: { issues: [] }, contact: { clientName: '', contactEmail: '' } }),
-    /Client name and contact email/,
-  )
-  const { runId } = await publicSubmit(store, {
-    selection: { issues: [] },
-    contact: { clientName: 'Aisha', contactEmail: 'a@x', contactName: 'Aisha Rahman', companyName: 'Lumen' },
-    additional: { preventiveMeasures: 'none' },
-  })
-  const run = inserts.find((i) => i.table === 'calculator_runs')
-  assert.ok(run)
-  assert.equal(run.data.run_type, 'public')
-  assert.equal(run.data.contact_email, 'a@x')
-  assert.equal(run.data.client_name, 'Aisha')
-  assert.equal(runId, run.data.id)
+  // Two emails go out (fire-and-forget): the internal-admin lead notification AND
+  // the submitter's own confirmation receipt — the client asked for the latter.
+  await new Promise((resolve) => setImmediate(resolve)) // flush the fire-and-forget sends
+  assert.equal(emails.length, 2, 'admin lead notification + submitter confirmation receipt')
+  assert.ok(emails.some((e) => e.to === 'admin@sigenic'), 'the active internal admin is notified of the lead')
+  const receipt = emails.find((e) => e.to === 'c@x')
+  assert.ok(receipt, 'the submitter receives a confirmation at their own account email')
+  assert.match(receipt.subject, /received your risk/i)
 })
 
 test('user.createUser — emails a single-use invite link to the new user', async () => {

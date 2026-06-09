@@ -20,7 +20,7 @@
  * — the spreadsheet's "Configuration" tab — NOT hard-coded magic numbers.
  *
  * This is the single source of truth: the portal always computes server-side
- * (/api/calculate, /api/public/calculate); the client only seeds default inputs.
+ * (/api/calculate); the client only seeds default inputs.
  */
 import type { CalcAdditionalInfo, CalcContact, CalcSelection, DetectionKey, IssueResult, LimitedRiskResult, RiskResult, RiskTier } from './types'
 

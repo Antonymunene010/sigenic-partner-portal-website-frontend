@@ -14,7 +14,6 @@ import ResetPassword from './pages/ResetPassword'
 import PublicStories from './pages/PublicStories'
 import StoryDetail from './pages/StoryDetail'
 import Contact from './pages/Contact'
-import PublicCalculator from './pages/PublicCalculator'
 
 import Dashboard from './pages/Dashboard'
 import Calculator from './pages/Calculator'
@@ -59,7 +58,6 @@ export default function App() {
                   <Route path="/stories" element={<PublicStories />} />
                   <Route path="/stories/:slug" element={<StoryDetail />} />
                   <Route path="/contact" element={<Contact />} />
-                  <Route path="/calculator" element={<PublicCalculator />} />
                 </Route>
 
                 <Route path="/login" element={<Login />} />
