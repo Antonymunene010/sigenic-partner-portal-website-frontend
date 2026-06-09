@@ -58,6 +58,13 @@ export default function AdminStories() {
           { key: 'industry', label: 'Industry' },
           { key: 'region', label: 'Region' },
           { key: 'theme', label: 'Theme' },
+          {
+            key: 'coverImageId',
+            label: 'Cover image',
+            type: 'cover',
+            full: true,
+            help: 'Optional. Shown as the thumbnail on the success-stories grid; falls back to the first inline image or a generated tile.',
+          },
           { key: 'body', label: 'Body', type: 'richtext', help: 'Drag, paste, or use the toolbar to add images and files.' },
           {
             key: 'status',

@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, BookOpen, ArrowUpRight, ArrowLeft, ArrowRight } from 'lucide-react'
+import { Search, BookOpen, ArrowLeft, ArrowRight } from 'lucide-react'
 import { Card, StatCard, EmptyState } from './ui'
 import { Badge } from './Badge'
 import { Markdown } from './Markdown'
+import { CoverMedia } from './CoverMedia'
 import type { SuccessStory } from '../lib/types'
 
 const ALL = '__all__'
@@ -105,35 +106,44 @@ export function StoriesExplorer({ stories, basePath }: { stories: SuccessStory[]
 function StoryCard({ story, featured, basePath }: { story: SuccessStory; featured: boolean; basePath: string }) {
   const meta = [story.partner, story.industry, story.region].filter(Boolean).join(' · ')
   return (
-    <Link
-      to={`${basePath}/${story.slug}`}
-      className={`card group flex flex-col p-5 transition hover:shadow-lift hover:-translate-y-0.5 ${
-        featured ? 'md:col-span-2 lg:col-span-2' : ''
-      }`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        {featured ? <Badge tone="accent">Featured</Badge> : <span className="eyebrow">Case study</span>}
-        <ArrowUpRight size={16} className="text-faint dark:text-faint-dark transition group-hover:text-emphasis shrink-0" />
-      </div>
-
-      <h2 className={`mt-3 font-semibold tracking-tight ${featured ? 'text-xl' : 'text-[17px]'}`}>{story.title}</h2>
-
-      {story.summary && (
-        <p className={`mt-2 text-sm text-muted dark:text-muted-dark ${featured ? '' : 'line-clamp-3'}`}>{story.summary}</p>
-      )}
-
-      {meta && <p className="mt-3 text-xs font-medium text-faint dark:text-faint-dark">{meta}</p>}
-
-      {story.metricsJson.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-line dark:border-line-dark flex flex-wrap gap-2">
-          {story.metricsJson.slice(0, featured ? 4 : 3).map((m, i) => (
-            <span key={i} className="inline-flex items-baseline gap-1.5 rounded-md bg-raised dark:bg-raised-dark px-2.5 py-1 text-xs">
-              <span className="text-muted dark:text-muted-dark">{m.label}</span>
-              <span className="num font-semibold text-emphasis">{m.value}</span>
-            </span>
-          ))}
+    <Link to={`${basePath}/${story.slug}`} className={`group block ${featured ? 'md:col-span-2 lg:col-span-2' : ''}`}>
+      <Card padded={false} className="overflow-hidden h-full flex flex-col transition hover:shadow-lift hover:-translate-y-0.5">
+        <div className="relative aspect-[16/9] w-full overflow-hidden bg-raised dark:bg-raised-dark">
+          <CoverMedia article={story} />
+          <div className="absolute top-2 left-2">
+            {featured ? (
+              <Badge tone="accent">Featured</Badge>
+            ) : (
+              <span className="rounded-md bg-surface/85 dark:bg-surface-dark/85 px-2 py-0.5 text-[11px] font-medium text-muted dark:text-muted-dark backdrop-blur">
+                Case study
+              </span>
+            )}
+          </div>
         </div>
-      )}
+
+        <div className="p-5 flex flex-col flex-1">
+          <h2 className={`font-semibold tracking-tight group-hover:text-emphasis ${featured ? 'text-xl' : 'text-[17px]'}`}>
+            {story.title}
+          </h2>
+
+          {story.summary && (
+            <p className={`mt-2 text-sm text-muted dark:text-muted-dark ${featured ? '' : 'line-clamp-3'}`}>{story.summary}</p>
+          )}
+
+          {meta && <p className="mt-3 text-xs font-medium text-faint dark:text-faint-dark">{meta}</p>}
+
+          {story.metricsJson.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-line dark:border-line-dark flex flex-wrap gap-2">
+              {story.metricsJson.slice(0, featured ? 4 : 3).map((m, i) => (
+                <span key={i} className="inline-flex items-baseline gap-1.5 rounded-md bg-raised dark:bg-raised-dark px-2.5 py-1 text-xs">
+                  <span className="text-muted dark:text-muted-dark">{m.label}</span>
+                  <span className="num font-semibold text-emphasis">{m.value}</span>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </Card>
     </Link>
   )
 }

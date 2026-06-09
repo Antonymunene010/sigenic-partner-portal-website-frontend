@@ -1,6 +1,5 @@
 import { AlertTriangle, BookOpen, HelpCircle, ListChecks, Sparkles, Wrench, type LucideIcon } from 'lucide-react'
 import { withApiBase } from '../lib/api'
-import type { KnowledgeArticle } from '../lib/types'
 
 const CATEGORY_ICON: Record<string, LucideIcon> = {
   FAQs: HelpCircle,
@@ -26,16 +25,24 @@ function hueFromString(str: string): number {
   return h % 360
 }
 
-type ArticleCoverInput = Pick<KnowledgeArticle, 'title' | 'category' | 'body' | 'coverImageId'>
+// Structural shape shared by knowledge articles and success stories — both carry
+// a title, an optional markdown body, and an optional admin-picked cover. `category`
+// is article-only (stories pass none and fall back to the default icon).
+interface CoverInput {
+  title: string
+  category?: string
+  body?: string
+  coverImageId?: string | null
+}
 
 /**
- * Cover image for a knowledge article. Resolves in three steps:
+ * Cover image for a knowledge article or success story. Resolves in three steps:
  *  1. admin-picked `coverImageId` → /api/attachments/:id
  *  2. first `![](url)` found in the markdown body (incl. Notion proxy urls)
  *  3. generated tile (title-hashed gradient + category icon) so the grid never
  *     has bald white cards even when authors skip the cover slot.
  */
-export function CoverMedia({ article, className = '' }: { article: ArticleCoverInput; className?: string }) {
+export function CoverMedia({ article, className = '' }: { article: CoverInput; className?: string }) {
   const src = article.coverImageId
     ? `/api/attachments/${encodeURIComponent(article.coverImageId)}`
     : firstBodyImage(article.body)

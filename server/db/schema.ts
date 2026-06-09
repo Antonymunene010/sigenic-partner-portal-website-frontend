@@ -350,6 +350,7 @@ CREATE TABLE IF NOT EXISTS success_stories (
   before_json jsonb NOT NULL DEFAULT '[]'::jsonb,
   after_json jsonb NOT NULL DEFAULT '[]'::jsonb,
   body text,
+  cover_image_id text,
   status text NOT NULL DEFAULT 'published' CHECK (status IN ('draft','published')),
   featured boolean NOT NULL DEFAULT false,
   visibility text NOT NULL DEFAULT 'public' CHECK (visibility IN ('public','partners','internal')),
@@ -357,6 +358,9 @@ CREATE TABLE IF NOT EXISTS success_stories (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Additive column for portals already deployed on an older success_stories schema.
+ALTER TABLE success_stories ADD COLUMN IF NOT EXISTS cover_image_id text;
 
 CREATE TABLE IF NOT EXISTS announcements (
   id text PRIMARY KEY,

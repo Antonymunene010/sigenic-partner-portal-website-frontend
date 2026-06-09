@@ -475,6 +475,7 @@ export interface SuccessStory {
   beforeJson: Metric[]
   afterJson: Metric[]
   body?: string
+  coverImageId?: string | null
   status: StoryStatus
   featured: boolean
   visibility: Visibility
