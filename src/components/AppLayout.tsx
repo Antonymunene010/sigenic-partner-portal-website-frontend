@@ -27,11 +27,11 @@ interface NavItem {
 
 const PORTAL_NAV: NavItem[] = [
   { to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/app/calculator', label: 'Risk calculator', icon: Calculator, cap: 'use_full_calculator' },
-  { to: '/app/knowledge', label: 'Knowledge base', icon: BookOpen, cap: 'access_knowledge_base' },
-  { to: '/app/stories', label: 'Success stories', icon: Sparkles, cap: 'view_success_stories' },
+  { to: '/app/calculator', label: 'Risk Calculator', icon: Calculator, cap: 'use_full_calculator' },
+  { to: '/app/knowledge', label: 'Knowledge Base', icon: BookOpen, cap: 'access_knowledge_base' },
+  { to: '/app/stories', label: 'Success Stories', icon: Sparkles, cap: 'view_success_stories' },
   { to: '/app/requests', label: 'Requests', icon: Inbox, cap: 'view_request_list' },
-  { to: '/app/company', label: 'Company profile', icon: Building2, cap: 'view_company_profile' },
+  { to: '/app/company', label: 'Company Profile', icon: Building2, cap: 'view_company_profile' },
   { to: '/app/users', label: 'Team', icon: Users, cap: 'manage_company_users' },
   { to: '/app/billing', label: 'Billing', icon: CreditCard, show: (u) => u.userType === 'customer' },
 ]
@@ -39,20 +39,20 @@ const PORTAL_NAV: NavItem[] = [
 const ADMIN_NAV: NavItem[] = [
   { to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/app/admin/companies', label: 'Partners', icon: Building2, cap: 'view_all_companies' },
-  { to: '/app/admin/users', label: 'Internal users', icon: Users, cap: 'manage_internal_users' },
-  { to: '/app/admin/calculator-config', label: 'Calculator config', icon: SlidersHorizontal, cap: 'manage_scoring' },
-  { to: '/app/admin/calculator-runs', label: 'Calculator leads', icon: Flame, cap: 'view_calculator_runs' },
-  { to: '/app/admin/request-config', label: 'Request config', icon: ListChecks, cap: 'manage_request_config' },
-  { to: '/app/admin/requests', label: 'Request oversight', icon: Inbox, cap: 'view_ticket_oversight' },
+  { to: '/app/admin/users', label: 'Internal Users', icon: Users, cap: 'manage_internal_users' },
+  { to: '/app/admin/calculator-config', label: 'Calculator Config', icon: SlidersHorizontal, cap: 'manage_scoring' },
+  { to: '/app/admin/calculator-runs', label: 'Calculator Leads', icon: Flame, cap: 'view_calculator_runs' },
+  { to: '/app/admin/request-config', label: 'Request Config', icon: ListChecks, cap: 'manage_request_config' },
+  { to: '/app/admin/requests', label: 'Request Oversight', icon: Inbox, cap: 'view_ticket_oversight' },
   { to: '/app/admin/knowledge', label: 'Knowledge', icon: BookOpen, cap: 'manage_knowledge' },
-  { to: '/app/admin/stories', label: 'Success stories', icon: Sparkles, cap: 'manage_success_stories' },
+  { to: '/app/admin/stories', label: 'Success Stories', icon: Sparkles, cap: 'manage_success_stories' },
   // Internal oversight roles (e.g. support engineers) can't manage stories but still
   // browse them via the read-only page; managers reach the same content above.
-  { to: '/app/stories', label: 'Success stories', icon: Sparkles, cap: 'view_success_stories', show: (u) => !can(u, 'manage_success_stories') },
+  { to: '/app/stories', label: 'Success Stories', icon: Sparkles, cap: 'view_success_stories', show: (u) => !can(u, 'manage_success_stories') },
   { to: '/app/admin/announcements', label: 'Announcements', icon: Megaphone, cap: 'manage_announcements' },
-  { to: '/app/admin/audit', label: 'Audit log', icon: ScrollText, cap: 'view_audit_logs' },
+  { to: '/app/admin/audit', label: 'Audit Log', icon: ScrollText, cap: 'view_audit_logs' },
   { to: '/app/admin/analytics', label: 'Analytics', icon: BarChart3, cap: 'view_analytics' },
-  { to: '/app/calculator', label: 'Risk calculator', icon: Calculator, cap: 'use_full_calculator' },
+  { to: '/app/calculator', label: 'Risk Calculator', icon: Calculator, cap: 'use_full_calculator' },
 ]
 
 function navFor(user: User): NavItem[] {

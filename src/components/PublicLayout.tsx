@@ -4,8 +4,8 @@ import { ThemeToggle } from './ThemeToggle'
 import { useAuth } from '../lib/auth'
 
 const NAV = [
-  { to: '/stories', label: 'Success stories' },
-  { to: '/calculator', label: 'Risk calculator' },
+  { to: '/stories', label: 'Success Stories' },
+  { to: '/calculator', label: 'Risk Calculator' },
   { to: '/contact', label: 'Contact' },
 ]
 
