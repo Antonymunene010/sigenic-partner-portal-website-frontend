@@ -4,7 +4,9 @@ import {
   ROLES,
   can,
   isInternal,
+  isCompanyAdmin,
   canSeeCompany,
+  canSeeSubmission,
   assignableRoles,
   canManageUser,
   audienceMatches,
@@ -78,6 +80,39 @@ test('can — support_engineer has oversight but cannot manage config', () => {
 test('can — view_calculator_runs (calculator leads) is internal-oversight, like analytics', () => {
   for (const role of ['super_admin', 'admin', 'support_engineer'] as Role[]) assert.equal(can({ role }, 'view_calculator_runs'), true, role)
   for (const role of ['distributor_admin', 'distributor_user', 'customer_admin', 'customer_user'] as Role[]) assert.equal(can({ role }, 'view_calculator_runs'), false, role)
+})
+
+test('can — view_calculator_history is external-only (internal staff use calculator leads)', () => {
+  for (const role of ['distributor_admin', 'distributor_user', 'customer_admin', 'customer_user'] as Role[]) {
+    assert.equal(can({ role }, 'view_calculator_history'), true, role)
+  }
+  for (const role of ['super_admin', 'admin', 'support_engineer'] as Role[]) {
+    assert.equal(can({ role }, 'view_calculator_history'), false, role)
+  }
+})
+
+test('canSeeSubmission — internal any; company admins their company; plain users own only', () => {
+  const mine = { companyId: 'co-x', userId: 'u-me' }
+  const colleague = { companyId: 'co-x', userId: 'u-mate' }
+  const elsewhere = { companyId: 'co-y', userId: 'u-far' }
+  // Internal staff see everything.
+  assert.equal(canSeeSubmission({ role: 'admin', companyId: 'co-sigenic' }, 'u-staff', elsewhere), true)
+  // A company admin sees the whole company, but never another tenant.
+  assert.equal(canSeeSubmission({ role: 'customer_admin', companyId: 'co-x' }, 'u-adm', colleague), true)
+  assert.equal(canSeeSubmission({ role: 'customer_admin', companyId: 'co-x' }, 'u-adm', elsewhere), false)
+  // A plain external user sees only their own submissions — not a colleague's.
+  assert.equal(canSeeSubmission({ role: 'customer_user', companyId: 'co-x' }, 'u-me', mine), true)
+  assert.equal(canSeeSubmission({ role: 'customer_user', companyId: 'co-x' }, 'u-me', colleague), false)
+  assert.equal(canSeeSubmission(null, 'u-me', mine), false)
+})
+
+test('isCompanyAdmin — companyAdmin roles only', () => {
+  assert.equal(isCompanyAdmin({ role: 'customer_admin' }), true)
+  assert.equal(isCompanyAdmin({ role: 'distributor_admin' }), true)
+  assert.equal(isCompanyAdmin({ role: 'super_admin' }), true) // Sigenic's own company admin
+  assert.equal(isCompanyAdmin({ role: 'customer_user' }), false)
+  assert.equal(isCompanyAdmin({ role: 'admin' }), false)
+  assert.equal(isCompanyAdmin(null), false)
 })
 
 test('can — every authenticated role may view success stories', () => {

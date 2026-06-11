@@ -7,10 +7,10 @@ import { Badge } from '../../components/Badge'
 import { Modal } from '../../components/Modal'
 import { MultiSelect } from '../../components/MultiSelect'
 import { DescRow } from '../../components/DescRow'
-import { RiskBreakdownTable } from '../../components/RiskBreakdownTable'
+import { RunResultSummary, runColumns } from '../../components/RunResultSummary'
 import { StatCard, Spinner } from '../../components/ui'
-import { fmtRelative, fmtUSD, fmtDateTime, fmtNumber } from '../../lib/format'
-import { RISK_TIERS, RISK_TIER_TONE, RISK_TIER_LABEL, type Tone } from '../../lib/constants'
+import { fmtUSD, fmtDateTime } from '../../lib/format'
+import { RISK_TIERS, type Tone } from '../../lib/constants'
 import type { CalculatorRun, RiskTier } from '../../lib/types'
 
 type RunType = CalculatorRun['runType']
@@ -100,53 +100,7 @@ export default function AdminCalculatorRuns() {
       sortAccessor: (r) => r.runType,
       render: (r) => <Badge tone={RUN_TYPE_TONE[r.runType]}>{RUN_TYPE_LABEL[r.runType]}</Badge>,
     },
-    {
-      key: 'scope',
-      header: 'Department / machine',
-      sortAccessor: (r) => departmentName(r.departmentId).toLowerCase(),
-      render: (r) => (
-        <div className="min-w-0">
-          <div className="truncate">{departmentName(r.departmentId)}</div>
-          {r.machineId && (
-            <div className="text-xs text-muted dark:text-muted-dark truncate">{machineName(r.machineId)}</div>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'risk',
-      header: 'Risk',
-      className: 'text-right',
-      sortAccessor: (r) => r.overallRiskScore ?? -1,
-      render: (r) =>
-        r.overallTier && r.overallTier !== 'none' ? (
-          <div className="flex items-center justify-end gap-2">
-            <span className="num font-medium">{r.overallRiskScore ?? '—'}</span>
-            <Badge tone={RISK_TIER_TONE[r.overallTier]}>{RISK_TIER_LABEL[r.overallTier]}</Badge>
-          </div>
-        ) : (
-          <span className="text-faint dark:text-faint-dark">—</span>
-        ),
-    },
-    {
-      key: 'loss',
-      header: 'Annual yield loss',
-      className: 'text-right',
-      sortAccessor: (r) => r.totalAnnualValueLoss ?? -1,
-      render: (r) =>
-        r.totalAnnualValueLoss != null ? (
-          <span className="num">{fmtUSD(r.totalAnnualValueLoss)}</span>
-        ) : (
-          <span className="text-faint dark:text-faint-dark">—</span>
-        ),
-    },
-    {
-      key: 'when',
-      header: 'When',
-      className: 'text-right',
-      sortAccessor: (r) => r.createdAt,
-      render: (r) => <span className="text-xs text-faint dark:text-faint-dark">{fmtRelative(r.createdAt)}</span>,
-    },
+    ...runColumns({ departmentName, machineName }),
   ]
 
   return (
@@ -197,7 +151,6 @@ export default function AdminCalculatorRuns() {
 function RunDetailModal({ run, onClose }: { run: CalculatorRun | null; onClose: () => void }) {
   const { companyName, userName, userEmail, departmentName, machineName, siteName, scoringModelName } = useLookups()
   if (!run) return null
-  const output = run.outputSummaryJson
   // Public runs carry contactEmail on the row itself; authenticated runs look it up by userId.
   const email = run.runType === 'public' ? run.contactEmail ?? null : userEmail(run.userId)
   const submitter = run.runType === 'public' ? run.contactName ?? run.clientName ?? null : userName(run.userId)
@@ -232,47 +185,7 @@ function RunDetailModal({ run, onClose }: { run: CalculatorRun | null; onClose: 
         <DescRow k="Submitted at" v={fmtDateTime(run.submittedAt ?? run.createdAt)} />
       </dl>
 
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <StatCard
-          label="Overall risk"
-          value={run.overallRiskScore != null ? `${run.overallRiskScore} / 15` : '—'}
-          sub={run.overallTier && run.overallTier !== 'none' ? <Badge tone={RISK_TIER_TONE[run.overallTier]}>{RISK_TIER_LABEL[run.overallTier]}</Badge> : null}
-          accent
-        />
-        <StatCard
-          label="Annual yield loss"
-          value={run.totalAnnualValueLoss != null ? fmtUSD(run.totalAnnualValueLoss) : '—'}
-          sub="savings opportunity"
-          accent
-        />
-        <StatCard
-          label="Wafers at risk / yr"
-          value={run.totalAnnualWaferLoss != null ? fmtNumber(run.totalAnnualWaferLoss) : '—'}
-        />
-      </div>
-
-      {output?.issues && output.issues.length > 0 ? (
-        <RiskBreakdownTable issues={output.issues} />
-      ) : (
-        <p className="text-sm text-muted dark:text-muted-dark">No per-issue breakdown captured for this run.</p>
-      )}
-
-      {(run.preventiveMeasures || run.costsIncurred) && (
-        <div className="mt-5 grid sm:grid-cols-2 gap-4">
-          {run.preventiveMeasures && (
-            <div className="rounded-md border border-line dark:border-line-dark p-3">
-              <div className="stat-label mb-1">Preventive measures already implemented</div>
-              <p className="text-sm whitespace-pre-wrap">{run.preventiveMeasures}</p>
-            </div>
-          )}
-          {run.costsIncurred && (
-            <div className="rounded-md border border-line dark:border-line-dark p-3">
-              <div className="stat-label mb-1">Associated costs incurred</div>
-              <p className="text-sm whitespace-pre-wrap">{run.costsIncurred}</p>
-            </div>
-          )}
-        </div>
-      )}
+      <RunResultSummary run={run} />
     </Modal>
   )
 }

@@ -1,6 +1,6 @@
 import { createZendeskTicket, addZendeskComment, syncZendeskTicket, zendeskEnabled } from '../integration/zendesk'
 import { sendEmail, ticketCreatedEmail, ticketUpdatedEmail } from '../infra/email'
-import { isInternal, can, canSeeCompany } from '../../shared/permissions'
+import { isInternal, can, canSeeSubmission } from '../../shared/permissions'
 import { badRequest, forbidden, notFound } from '../http/errors'
 import { audit } from './audit'
 import { uid, nowIso } from '../util/ids'
@@ -130,7 +130,8 @@ export async function addServiceRequestMessage(store: Store, auth: AuthPayload, 
   if (!rawBody?.trim()) throw badRequest('Message body is required.')
   const current = await store.getOne('service_requests', id)
   if (!current) throw notFound('Request not found.')
-  if (!isInternal(auth) && !canSeeCompany(auth, current.companyId)) throw forbidden()
+  // Mirrors the hydrate read scope: own request, or company-wide for company admins.
+  if (!canSeeSubmission(auth, auth.sub, current)) throw forbidden()
   const message = { id: uid('m'), author: auth.name, authorRole: isInternal(auth) ? 'agent' : 'you', body: rawBody.trim(), createdAt: nowIso() }
   const reopen = current.status === 'closed'
   const updated = await store.addServiceRequestMessage(id, message, reopen ? 'open' : current.status)

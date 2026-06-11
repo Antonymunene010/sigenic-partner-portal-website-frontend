@@ -17,6 +17,7 @@ import Contact from './pages/Contact'
 
 import Dashboard from './pages/Dashboard'
 import Calculator from './pages/Calculator'
+import CalculatorHistory from './pages/CalculatorHistory'
 import KnowledgeBase from './pages/KnowledgeBase'
 import ArticleDetail from './pages/ArticleDetail'
 import Stories from './pages/Stories'
@@ -75,6 +76,7 @@ export default function App() {
                 >
                   <Route index element={<Dashboard />} />
                   <Route path="calculator" element={<ProtectedRoute cap="use_full_calculator"><Calculator /></ProtectedRoute>} />
+                  <Route path="calculator-history" element={<ProtectedRoute cap="view_calculator_history"><CalculatorHistory /></ProtectedRoute>} />
                   <Route path="knowledge" element={<ProtectedRoute cap="access_knowledge_base"><KnowledgeBase /></ProtectedRoute>} />
                   <Route path="knowledge/:slug" element={<ProtectedRoute cap="access_knowledge_base"><ArticleDetail /></ProtectedRoute>} />
                   <Route path="stories" element={<ProtectedRoute cap="view_success_stories"><Stories /></ProtectedRoute>} />

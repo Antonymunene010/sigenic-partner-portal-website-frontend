@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { Calculator, Inbox, BookOpen, Building2, Users, ArrowUpRight, Megaphone, TrendingUp } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { useData, useLookups } from '../lib/data'
-import { isInternal } from '../lib/permissions'
+import { can, isInternal } from '../lib/permissions'
 import { PageHeader } from '../components/PageHeader'
 import { Card, StatCard, Spinner, EmptyState } from '../components/ui'
 import { Badge } from '../components/Badge'
@@ -38,7 +38,7 @@ function AnnouncementList() {
 
 function PortalDashboard() {
   const { user } = useAuth()
-  const { company, serviceRequests } = useData()
+  const { company, serviceRequests, calculatorRuns } = useData()
   const { requestTypeLabel } = useLookups()
   const openReqs = serviceRequests.filter((r) => r.status !== 'closed')
 
@@ -55,8 +55,11 @@ function PortalDashboard() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
         <StatCard label="Open requests" value={openReqs.length} icon={<Inbox size={15} />} />
+        {can(user, 'view_calculator_history') && (
+          <StatCard label="Calculator submissions" value={calculatorRuns.length} icon={<Calculator size={15} />} />
+        )}
         <StatCard label="Onboarding" value={company ? ONBOARDING_STATUS_LABEL[company.onboardingStatus] : '—'} icon={<Building2 size={15} />} />
       </div>
 

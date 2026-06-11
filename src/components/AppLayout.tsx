@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Calculator, BookOpen, Inbox, Building2, Users, CreditCard,
   SlidersHorizontal, ListChecks, Megaphone, ScrollText, BarChart3,
-  Sparkles, ChevronDown, LogOut, UserCircle, Menu, X, ExternalLink, CalendarClock, Flame,
+  Sparkles, ChevronDown, LogOut, UserCircle, Menu, X, ExternalLink, CalendarClock, Flame, History,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { WordMark } from './Logo'
@@ -28,6 +28,7 @@ interface NavItem {
 const PORTAL_NAV: NavItem[] = [
   { to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/app/calculator', label: 'Risk Calculator', icon: Calculator, cap: 'use_full_calculator' },
+  { to: '/app/calculator-history', label: 'Calc History', icon: History, cap: 'view_calculator_history' },
   { to: '/app/knowledge', label: 'Knowledge Base', icon: BookOpen, cap: 'access_knowledge_base' },
   { to: '/app/stories', label: 'Success Stories', icon: Sparkles, cap: 'view_success_stories' },
   { to: '/app/requests', label: 'Requests', icon: Inbox, cap: 'view_request_list' },

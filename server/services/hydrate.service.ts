@@ -1,4 +1,4 @@
-import { isInternal, audienceMatches, can } from '../../shared/permissions'
+import { isInternal, submissionVisibility, audienceMatches, can } from '../../shared/permissions'
 import type { Store } from '../db/store'
 import type { AuthPayload } from '../infra/auth'
 import type { HydrateBundle } from '../../shared/types'
@@ -13,6 +13,13 @@ export async function hydrate(store: Store, auth: AuthPayload): Promise<HydrateB
   const internal = isInternal(me)
   const companyId = me?.companyId ?? null
   const scoped = { where: 'company_id = $1', params: [companyId] }
+  // Submissions (requests, calculator runs): SQL projection of submissionVisibility —
+  // internal staff see everything, company admins the whole company's, plain users their own.
+  const submissionScope = {
+    all: {},
+    company: scoped,
+    own: { where: 'user_id = $1', params: [auth.sub] },
+  }[submissionVisibility(me)]
 
   const [
     company,
@@ -52,8 +59,8 @@ export async function hydrate(store: Store, auth: AuthPayload): Promise<HydrateB
     store.list('occurrence_options', { order: 'sort_order ASC' }),
     store.list('detection_options', { order: 'sort_order ASC' }),
     store.list('technology_prices', { order: 'technology ASC' }),
-    internal ? store.list('calculator_runs', { order: 'created_at DESC' }) : Promise.resolve([]),
-    internal ? store.list('service_requests', { order: 'updated_at DESC' }) : store.list('service_requests', { ...scoped, order: 'updated_at DESC' }),
+    store.list('calculator_runs', { ...submissionScope, order: 'created_at DESC' }),
+    store.list('service_requests', { ...submissionScope, order: 'updated_at DESC' }),
     store.list('request_types', { order: 'sort_order ASC' }),
     store.list('request_departments', { order: 'sort_order ASC' }),
     store.list('request_processes', { order: 'sort_order ASC' }),

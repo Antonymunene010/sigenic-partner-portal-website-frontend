@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Plus, Search } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { useData, useLookups } from '../lib/data'
-import { isInternal } from '../lib/permissions'
+import { isCompanyAdmin, isInternal } from '../lib/permissions'
 import { PageHeader } from '../components/PageHeader'
 import { DataTable, type Column } from '../components/DataTable'
 import { Badge } from '../components/Badge'
@@ -47,7 +47,11 @@ export default function RequestList() {
       <PageHeader
         eyebrow={internal ? 'Request oversight' : 'Your requests'}
         title="Requests"
-        description={internal ? 'All structured requests across partners.' : 'Support, demo, consultation and other requests for your company.'}
+        description={
+          internal
+            ? 'All structured requests across partners.'
+            : `Support, demo, consultation and other requests ${isCompanyAdmin(user) ? 'from your company' : 'you have submitted'}.`
+        }
         actions={<Link to="/app/requests/new" className="btn-accent"><Plus size={15} /> New request</Link>}
       />
 

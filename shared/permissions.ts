@@ -4,7 +4,9 @@
  *  1. No multi-customer distributor switching.
  *  2. External users may not manage scoring logic.
  *  3. Ticket execution stays in Zendesk.
- *  4. Company-level visibility by default.
+ *  4. Company-level visibility is a company-admin privilege; plain external users
+ *     see only their own submissions (client feedback 2026-06, supersedes the
+ *     original "company-level visibility by default" rule).
  *  5. Only internal users manage companies / master data / scoring / announcements.
  *
  * The server re-checks every mutation against `can`/`canManageUser`; the client
@@ -36,6 +38,7 @@ export type Capability =
   | 'view_audit_logs'
   | 'view_analytics'
   | 'view_calculator_runs'
+  | 'view_calculator_history'
   | 'manage_billing'
 
 export const ROLES: Role[] = [
@@ -59,6 +62,7 @@ export const ROLE_META: Record<Role, { userType: UserType; internal: boolean; co
 }
 
 const ALL_AUTH = ROLES
+const EXTERNAL: Role[] = ROLES.filter((r) => !ROLE_META[r].internal)
 const INTERNAL_OVERSIGHT: Role[] = ['support_engineer', 'admin', 'super_admin']
 export const INTERNAL_MANAGE: Role[] = ['admin', 'super_admin']
 
@@ -106,6 +110,11 @@ const CAPABILITIES: Record<Capability, Role[]> = {
   // risk, yield-loss opportunity) so internal sales can follow up. Same oversight set
   // as analytics; the run itself is persisted server-side on every authenticated calc.
   view_calculator_runs: INTERNAL_OVERSIGHT,
+  // Calculator submission history for external users (client feedback 2026-06):
+  // company admins see every run from their company, plain users only their own —
+  // the data scope is applied in hydrate. Internal staff use the company-wide
+  // "Calculator leads" view (view_calculator_runs) instead.
+  view_calculator_history: EXTERNAL,
   manage_billing: INTERNAL_MANAGE,
 }
 
@@ -133,6 +142,42 @@ export function canSeeCompany(user: Pick<User, 'role' | 'companyId'> | null | un
   return Boolean(companyId) && companyId === user?.companyId
 }
 
+/** True for roles that administer their own company (incl. super_admin for Sigenic). */
+export function isCompanyAdmin(user: Pick<User, 'role'> | null | undefined): boolean {
+  return Boolean(user && ROLE_META[user.role]?.companyAdmin)
+}
+
+export type SubmissionScope = 'all' | 'company' | 'own'
+
+/**
+ * Visibility scope for company-scoped submissions (service requests, calculator
+ * runs) — the single decision point behind both the hydrate SQL filter and the
+ * by-id guard below. Internal staff: everything. External company admins: their
+ * company's. Plain external users: only their own — company-wide visibility is
+ * an admin privilege (client feedback 2026-06).
+ */
+export function submissionVisibility(user: Pick<User, 'role'> | null | undefined): SubmissionScope {
+  if (isInternal(user)) return 'all'
+  return isCompanyAdmin(user) ? 'company' : 'own'
+}
+
+/** Can this user see / interact with a specific submission? By-id projection of submissionVisibility. */
+export function canSeeSubmission(
+  user: Pick<User, 'role' | 'companyId'> | null | undefined,
+  selfUserId: string | null | undefined,
+  record: { companyId?: string | null; userId?: string | null },
+): boolean {
+  if (!user) return false
+  switch (submissionVisibility(user)) {
+    case 'all':
+      return true
+    case 'company':
+      return canSeeCompany(user, record.companyId)
+    case 'own':
+      return Boolean(record.userId && selfUserId) && record.userId === selfUserId
+  }
+}
+
 /** Roles an actor may assign to others (PRD: external admins restricted to own org type). */
 export function assignableRoles(user: Pick<User, 'role'> | null | undefined): Role[] {
   if (!user) return []
@@ -142,7 +187,7 @@ export function assignableRoles(user: Pick<User, 'role'> | null | undefined): Ro
     case 'admin':
       // PRD §5.1 "Assign partner/customer roles": admin assigns external roles
       // only. Internal Sigenic staff roles are super_admin's to assign.
-      return ['distributor_admin', 'distributor_user', 'customer_admin', 'customer_user']
+      return [...EXTERNAL]
     case 'distributor_admin':
       return ['distributor_admin', 'distributor_user']
     case 'customer_admin':
@@ -164,8 +209,7 @@ export function canManageUser(
   // internal Sigenic staff is super_admin-only ("Manage own company users": admin ❌).
   if (actor.role === 'admin') return ROLE_META[targetRole]?.internal === false
   // External company admins: only their own company + their own org's roles.
-  const meta = ROLE_META[actor.role]
-  if (!meta?.companyAdmin) return false
+  if (!isCompanyAdmin(actor)) return false
   if (targetCompanyId && targetCompanyId !== actor.companyId) return false
   return assignableRoles(actor).includes(targetRole)
 }

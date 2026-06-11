@@ -2,7 +2,8 @@ import { test, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import { createAnnouncement } from '../../../server/services/announcement.service'
 import { createUser, deleteUser } from '../../../server/services/user.service'
-import { createServiceRequest, updateServiceRequest } from '../../../server/services/serviceRequest.service'
+import { createServiceRequest, updateServiceRequest, addServiceRequestMessage } from '../../../server/services/serviceRequest.service'
+import { hydrate } from '../../../server/services/hydrate.service'
 import { activateScoringModel } from '../../../server/services/admin.service'
 import { calculate, submit } from '../../../server/services/calculator.service'
 import type { Store } from '../../../server/db/store'
@@ -234,6 +235,66 @@ test('serviceRequest.updateServiceRequest — non-super_admin oversight cannot r
   // Support engineers keep status/owner triage, but type/taxonomy is super_admin-only.
   await assert.rejects(() => updateServiceRequest(store, supportEngineer, 'sr-11', { requestType: 'demo' }), /super admin/i)
   assert.equal((store.update as any).mock.callCount(), 0)
+})
+
+test('serviceRequest.addServiceRequestMessage — plain external users reply only on their OWN requests', async () => {
+  const colleagues = { id: 'sr-m', status: 'open', companyId: 'co-c', userId: 'u-other', contactEmail: 'o@x', title: 'T' }
+  const store = {
+    getOne: mock.fn(async () => colleagues),
+    addServiceRequestMessage: mock.fn(async (_id: string, msg: any, status: string) => ({ ...colleagues, status, messages: [msg] })),
+    appendEmail: mock.fn(async () => {}),
+  } as unknown as Store
+  const plain: AuthPayload = { sub: 'u-c', role: 'customer_user', userType: 'customer', companyId: 'co-c', companyType: 'customer', email: 'c@x', name: 'Cust' }
+  // A colleague's request in the same company: company-wide replies are an admin privilege.
+  await assert.rejects(() => addServiceRequestMessage(store, plain, 'sr-m', 'hello'))
+  assert.equal((store.addServiceRequestMessage as any).mock.callCount(), 0)
+  // The company admin may reply on any of the company's requests.
+  const companyAdmin: AuthPayload = { ...plain, sub: 'u-ca', role: 'customer_admin' }
+  await addServiceRequestMessage(store, companyAdmin, 'sr-m', 'hello')
+  assert.equal((store.addServiceRequestMessage as any).mock.callCount(), 1)
+})
+
+test('serviceRequest.addServiceRequestMessage — the requester themselves may always reply', async () => {
+  const own = { id: 'sr-own', status: 'open', companyId: 'co-c', userId: 'u-c', contactEmail: 'c@x', title: 'T' }
+  const store = {
+    getOne: mock.fn(async () => own),
+    addServiceRequestMessage: mock.fn(async (_id: string, msg: any, status: string) => ({ ...own, status, messages: [msg] })),
+    appendEmail: mock.fn(async () => {}),
+  } as unknown as Store
+  const plain: AuthPayload = { sub: 'u-c', role: 'customer_user', userType: 'customer', companyId: 'co-c', companyType: 'customer', email: 'c@x', name: 'Cust' }
+  const updated = await addServiceRequestMessage(store, plain, 'sr-own', 'any update?')
+  assert.equal(updated.messages[0].body, 'any update?')
+})
+
+test('hydrate — plain external users get only their OWN submissions; company admins the whole company\'s', async () => {
+  const hydrateStore = (me: any) =>
+    ({
+      getUserById: mock.fn(async () => me),
+      getOne: mock.fn(async () => null),
+      getActiveScoringModel: mock.fn(async () => null),
+      list: mock.fn(async () => []),
+    }) as unknown as Store
+  // The where/params each submission table was listed with (mock.fn records the calls).
+  const assertScope = (store: Store, expected: { where?: string; params?: any[] }) => {
+    for (const table of ['calculator_runs', 'service_requests']) {
+      const opts = (store.list as any).mock.calls.find((c: any) => c.arguments[0] === table)?.arguments[1]
+      assert.equal(opts?.where, expected.where, table)
+      assert.deepEqual(opts?.params, expected.params, table)
+    }
+  }
+  const plainAuth: AuthPayload = { sub: 'u-c', role: 'customer_user', userType: 'customer', companyId: 'co-c', companyType: 'customer', email: 'c@x', name: 'Cust' }
+
+  const plain = hydrateStore({ id: 'u-c', role: 'customer_user', userType: 'customer', companyId: 'co-c' })
+  await hydrate(plain, plainAuth)
+  assertScope(plain, { where: 'user_id = $1', params: ['u-c'] })
+
+  const admin = hydrateStore({ id: 'u-ca', role: 'customer_admin', userType: 'customer', companyId: 'co-c' })
+  await hydrate(admin, { ...plainAuth, sub: 'u-ca', role: 'customer_admin' })
+  assertScope(admin, { where: 'company_id = $1', params: ['co-c'] })
+
+  const internal = hydrateStore({ id: 'u-1', role: 'super_admin', userType: 'internal', companyId: 'co-sigenic' })
+  await hydrate(internal, superAdmin)
+  assertScope(internal, {}) // internal: unscoped
 })
 
 test('user.createUser — emails the active internal admins that a new user joined', async () => {
