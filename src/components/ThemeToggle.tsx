@@ -1,9 +1,9 @@
-import { Monitor, Moon, Sun } from 'lucide-react'
+import { Moon, Sun, SunMoon } from 'lucide-react'
 import { useTheme, nextPreference } from '../lib/theme'
 import type { ThemePreference } from '../lib/theme'
 
-const ICON = { light: Sun, dark: Moon, system: Monitor }
-const LABEL: Record<ThemePreference, string> = { light: 'Light', dark: 'Dark', system: 'System' }
+const ICON = { light: Sun, dark: Moon, system: SunMoon }
+const LABEL: Record<ThemePreference, string> = { light: 'Light', dark: 'Dark', system: 'Auto' }
 
 export function ThemeToggle() {
   const { preference, cycle } = useTheme()

@@ -12,14 +12,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
     <script>
       // Flash-free theme init. Stored value is JSON (e.g. "dark"); default is "system".
-      // Mirrors src/lib/theme.tsx (MEDIA query + default) — keep the two in sync.
+      // Mirrors src/lib/theme.tsx (day window + default) — keep the two in sync.
       (function () {
         try {
           var raw = localStorage.getItem('pp.theme');
           var pref = raw ? JSON.parse(raw) : 'system';
-          var dark =
-            pref === 'dark' ||
-            (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          var h = new Date().getHours();
+          var dark = pref === 'dark' || (pref === 'system' && (h < 7 || h >= 19));
           if (dark) document.documentElement.classList.add('dark');
         } catch (e) {}
       })();

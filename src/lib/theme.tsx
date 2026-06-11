@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { load, save } from './storage'
 
-// What the user picked. 'system' follows the OS color-scheme and is the default.
+// What the user picked. 'system' switches by local time of day and is the default.
 export type ThemePreference = 'light' | 'dark' | 'system'
 // What is actually applied to the document (system is resolved against the OS).
 type ResolvedTheme = 'light' | 'dark'
@@ -21,27 +21,51 @@ interface ThemeCtx {
 
 const Ctx = createContext<ThemeCtx | null>(null)
 
-const MEDIA = '(prefers-color-scheme: dark)'
+// Daytime window for the 'system' preference: light within [start, end), dark outside.
+const DAY_START_HOUR = 7
+const DAY_END_HOUR = 19
 
-function systemTheme(): ResolvedTheme {
-  return typeof window !== 'undefined' && window.matchMedia(MEDIA).matches ? 'dark' : 'light'
+function timeTheme(now = new Date()): ResolvedTheme {
+  const h = now.getHours()
+  return h >= DAY_START_HOUR && h < DAY_END_HOUR ? 'light' : 'dark'
+}
+
+function msUntilNextBoundary(now = new Date()): number {
+  const next = new Date(now)
+  const h = now.getHours()
+  if (h >= DAY_END_HOUR) next.setDate(next.getDate() + 1)
+  next.setHours(h >= DAY_START_HOUR && h < DAY_END_HOUR ? DAY_END_HOUR : DAY_START_HOUR, 0, 0, 0)
+  return next.getTime() - now.getTime()
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [preference, setPreference] = useState<ThemePreference>(() =>
     load<ThemePreference>('theme', 'system'),
   )
-  const [systemPref, setSystemPref] = useState<ResolvedTheme>(systemTheme)
+  const [autoTheme, setAutoTheme] = useState<ResolvedTheme>(() => timeTheme())
 
-  // Keep up with the OS preference; only matters while preference === 'system'.
+  // Flip at the next day/night boundary; only matters while preference === 'system'.
+  // Timers are unreliable in backgrounded tabs, so also re-check on visibility.
   useEffect(() => {
-    const mq = window.matchMedia(MEDIA)
-    const onChange = () => setSystemPref(mq.matches ? 'dark' : 'light')
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
+    let timer: number
+    const arm = () => {
+      timer = window.setTimeout(() => {
+        setAutoTheme(timeTheme())
+        arm()
+      }, msUntilNextBoundary())
+    }
+    arm()
+    const onVisible = () => {
+      if (!document.hidden) setAutoTheme(timeTheme())
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [])
 
-  const theme: ResolvedTheme = preference === 'system' ? systemPref : preference
+  const theme: ResolvedTheme = preference === 'system' ? autoTheme : preference
 
   useEffect(() => {
     const root = document.documentElement
