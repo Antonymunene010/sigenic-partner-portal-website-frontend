@@ -1,0 +1,58 @@
+# Production stack for a single VPS: postgres + app, fronted by a host-level
+# reverse proxy (Caddy/nginx) that terminates TLS. Differences from the dev
+# compose file: no mailpit (real SMTP via .env), ports bound to localhost only,
+# restart policies, and required secrets fail fast via ${VAR:?...}.
+# Usage: docker compose -f docker-compose.prod.yml up -d --build
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: partner_portal
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set a strong password in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d partner_portal"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 8787
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:?set a strong password in .env}@postgres:5432/partner_portal
+      DATABASE_SSL: "false"
+      AUTH_SECRET: ${AUTH_SECRET:?generate with `openssl rand -hex 32`}
+      SEED_DEFAULT_PASSWORD: ${SEED_DEFAULT_PASSWORD:?set a strong password in .env}
+      # Base URL embedded in invite / password-reset links.
+      APP_BASE_URL: ${APP_BASE_URL:?set to the public https URL}
+      # Real SMTP (e.g. Gmail: smtp.gmail.com:465 + app password). MailerSend is
+      # intentionally not wired here so the SMTP branch always wins on the VPS.
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_SECURE: ${SMTP_SECURE:-true}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      EMAIL_FROM: ${EMAIL_FROM:-Sigenic Partner Portal <no-reply@sigenic.com>}
+      ZENDESK_SUBDOMAIN: ${ZENDESK_SUBDOMAIN:-}
+      ZENDESK_EMAIL: ${ZENDESK_EMAIL:-}
+      ZENDESK_API_TOKEN: ${ZENDESK_API_TOKEN:-}
+      ZENDESK_SYNC_INTERVAL_MS: ${ZENDESK_SYNC_INTERVAL_MS:-60000}
+      NOTION_TOKEN: ${NOTION_TOKEN:-}
+      NOTION_KB_DATABASE_ID: ${NOTION_KB_DATABASE_ID:-}
+      NOTION_SYNC_INTERVAL_MS: ${NOTION_SYNC_INTERVAL_MS:-300000}
+      NOTION_VERSION: ${NOTION_VERSION:-2022-06-28}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+    ports:
+      # Localhost only — the reverse proxy is the sole public entry point.
+      - "127.0.0.1:8787:8787"
+
+volumes:
+  postgres_data:
