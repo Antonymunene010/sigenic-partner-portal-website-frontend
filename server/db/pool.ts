@@ -8,6 +8,9 @@ export function dbConfig(): PoolConfig {
   return {
     connectionString,
     ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+    // Fail loudly instead of hanging forever when the DB host is unreachable
+    // (e.g. a PaaS that blocks outbound port 5432) — pg has no timeout by default.
+    connectionTimeoutMillis: Number(process.env.DATABASE_CONNECT_TIMEOUT_MS || 15000),
   }
 }
 
