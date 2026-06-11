@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
-import { Calculator as CalcIcon, Send, Sparkles } from 'lucide-react'
+import { Calculator as CalcIcon, FlaskConical, Send, Sparkles } from 'lucide-react'
 import { useAuth } from '../lib/auth'
+import { INTERNAL_MANAGE } from '../lib/permissions'
 import { useData } from '../lib/data'
 import { calculate, submitCalculation } from '../lib/api'
 import { PageHeader } from '../components/PageHeader'
@@ -152,6 +153,17 @@ export default function Calculator() {
         title="Estimate your risk & yield loss"
         description="A 3-step assessment: enter your line's basic info and score each known issue, review the calculated risk band and yield-loss exposure, then add any preventive measures or costs before submitting to Sigenic."
       />
+
+      {user && INTERNAL_MANAGE.includes(user.role) && (
+        <div className="mb-5 flex items-start gap-3 rounded-lg border border-warn/30 bg-warn/5 px-4 py-3 text-sm text-warn">
+          <FlaskConical size={16} className="mt-0.5 shrink-0" />
+          <div>
+            <span className="font-semibold">Simulation &amp; testing only.</span>{' '}
+            You're signed in with a Sigenic admin account — this calculator is intended for partners. Anything you
+            submit here will be recorded as a test run, not a real partner enquiry.
+          </div>
+        </div>
+      )}
 
       {confirmation ? (
         <Confirmation
