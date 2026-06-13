@@ -25,95 +25,40 @@ interface NavItem {
   show?: (u: User) => boolean
 }
 
-interface NavSection {
-  label?: string
-  items: NavItem[]
-}
-
-const PORTAL_NAV: NavSection[] = [
-  { items: [{ to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true }] },
-  {
-    label: 'Calculator',
-    items: [
-      { to: '/app/calculator', label: 'Risk Calculator', icon: Calculator, cap: 'use_full_calculator' },
-      { to: '/app/calculator-history', label: 'Calc History', icon: History, cap: 'view_calculator_history' },
-    ],
-  },
-  {
-    label: 'Resources',
-    items: [
-      { to: '/app/knowledge', label: 'Knowledge Base', icon: BookOpen, cap: 'access_knowledge_base' },
-      { to: '/app/stories', label: 'Success Stories', icon: Sparkles, cap: 'view_success_stories' },
-    ],
-  },
-  {
-    label: 'Support',
-    items: [
-      { to: '/app/requests', label: 'Requests', icon: Inbox, cap: 'view_request_list' },
-    ],
-  },
-  {
-    label: 'Account',
-    items: [
-      { to: '/app/company', label: 'Company Profile', icon: Building2, cap: 'view_company_profile' },
-      { to: '/app/users', label: 'Team', icon: Users, cap: 'manage_company_users' },
-      { to: '/app/billing', label: 'Billing', icon: CreditCard, show: (u) => u.userType === 'customer' },
-    ],
-  },
+const PORTAL_NAV: NavItem[] = [
+  { to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/app/calculator', label: 'Risk Calculator', icon: Calculator, cap: 'use_full_calculator' },
+  { to: '/app/calculator-history', label: 'Calc History', icon: History, cap: 'view_calculator_history' },
+  { to: '/app/knowledge', label: 'Knowledge Base', icon: BookOpen, cap: 'access_knowledge_base' },
+  { to: '/app/stories', label: 'Success Stories', icon: Sparkles, cap: 'view_success_stories' },
+  { to: '/app/requests', label: 'Requests', icon: Inbox, cap: 'view_request_list' },
+  { to: '/app/company', label: 'Company Profile', icon: Building2, cap: 'view_company_profile' },
+  { to: '/app/users', label: 'Team', icon: Users, cap: 'manage_company_users' },
+  { to: '/app/billing', label: 'Billing', icon: CreditCard, show: (u) => u.userType === 'customer' },
 ]
 
-const ADMIN_NAV: NavSection[] = [
-  { items: [{ to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true }] },
-  {
-    label: 'Partners & Users',
-    items: [
-      { to: '/app/admin/companies', label: 'Partners', icon: Building2, cap: 'view_all_companies' },
-      { to: '/app/admin/users', label: 'Internal Users', icon: Users, cap: 'manage_internal_users' },
-    ],
-  },
-  {
-    label: 'Calculator',
-    items: [
-      { to: '/app/admin/calculator-config', label: 'Calculator Config', icon: SlidersHorizontal, cap: 'manage_scoring' },
-      { to: '/app/admin/calculator-runs', label: 'Calculator Leads', icon: Flame, cap: 'view_calculator_runs' },
-      { to: '/app/calculator', label: 'Risk Calculator', icon: Calculator, cap: 'use_full_calculator' },
-    ],
-  },
-  {
-    label: 'Requests',
-    items: [
-      { to: '/app/admin/request-config', label: 'Request Config', icon: ListChecks, cap: 'manage_request_config' },
-      { to: '/app/admin/requests', label: 'Request Oversight', icon: Inbox, cap: 'view_ticket_oversight' },
-    ],
-  },
-  {
-    label: 'Content',
-    items: [
-      { to: '/app/admin/knowledge', label: 'Knowledge', icon: BookOpen, cap: 'manage_knowledge' },
-      { to: '/app/admin/stories', label: 'Success Stories', icon: Sparkles, cap: 'manage_success_stories' },
-      // Internal oversight roles (e.g. support engineers) can't manage stories but still
-      // browse them via the read-only page; managers reach the same content above.
-      { to: '/app/stories', label: 'Success Stories', icon: Sparkles, cap: 'view_success_stories', show: (u) => !can(u, 'manage_success_stories') },
-      { to: '/app/admin/announcements', label: 'Announcements', icon: Megaphone, cap: 'manage_announcements' },
-    ],
-  },
-  {
-    label: 'Insights',
-    items: [
-      { to: '/app/admin/audit', label: 'Audit Log', icon: ScrollText, cap: 'view_audit_logs' },
-      { to: '/app/admin/analytics', label: 'Analytics', icon: BarChart3, cap: 'view_analytics' },
-    ],
-  },
+const ADMIN_NAV: NavItem[] = [
+  { to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/app/admin/companies', label: 'Partners', icon: Building2, cap: 'view_all_companies' },
+  { to: '/app/admin/users', label: 'Internal Users', icon: Users, cap: 'manage_internal_users' },
+  { to: '/app/admin/calculator-config', label: 'Calculator Config', icon: SlidersHorizontal, cap: 'manage_scoring' },
+  { to: '/app/admin/calculator-runs', label: 'Calculator Leads', icon: Flame, cap: 'view_calculator_runs' },
+  { to: '/app/admin/request-config', label: 'Request Config', icon: ListChecks, cap: 'manage_request_config' },
+  { to: '/app/admin/requests', label: 'Request Oversight', icon: Inbox, cap: 'view_ticket_oversight' },
+  { to: '/app/admin/knowledge', label: 'Knowledge', icon: BookOpen, cap: 'manage_knowledge' },
+  { to: '/app/admin/stories', label: 'Success Stories', icon: Sparkles, cap: 'manage_success_stories' },
+  // Internal oversight roles (e.g. support engineers) can't manage stories but still
+  // browse them via the read-only page; managers reach the same content above.
+  { to: '/app/stories', label: 'Success Stories', icon: Sparkles, cap: 'view_success_stories', show: (u) => !can(u, 'manage_success_stories') },
+  { to: '/app/admin/announcements', label: 'Announcements', icon: Megaphone, cap: 'manage_announcements' },
+  { to: '/app/admin/audit', label: 'Audit Log', icon: ScrollText, cap: 'view_audit_logs' },
+  { to: '/app/admin/analytics', label: 'Analytics', icon: BarChart3, cap: 'view_analytics' },
+  { to: '/app/calculator', label: 'Risk Calculator', icon: Calculator, cap: 'use_full_calculator' },
 ]
 
-function navFor(user: User): NavSection[] {
-  const sections = isInternal(user) ? ADMIN_NAV : PORTAL_NAV
-  return sections
-    .map((section) => ({
-      ...section,
-      items: section.items.filter((i) => (i.cap ? can(user, i.cap) : true) && (i.show ? i.show(user) : true)),
-    }))
-    .filter((section) => section.items.length > 0)
+function navFor(user: User): NavItem[] {
+  const items = isInternal(user) ? ADMIN_NAV : PORTAL_NAV
+  return items.filter((i) => (i.cap ? can(user, i.cap) : true) && (i.show ? i.show(user) : true))
 }
 
 export function AppLayout() {
@@ -121,78 +66,30 @@ export function AppLayout() {
   const { company, error, refresh } = useData()
   const [mobileOpen, setMobileOpen] = useState(false)
   if (!user) return null
-  const sections = navFor(user)
+  const items = navFor(user)
 
   const SidebarContent = (
-    <nav className="flex flex-col px-3 py-4">
-      {sections.map((section, idx) => {
-        // Layered rhythm rather than a wall of headers: the unlabelled Dashboard entry
-        // sits up top, set off by a hairline; the functional clusters that follow lean on
-        // whitespace for separation. A cluster only shows its tiny label when it holds more
-        // than one item — a lone item reads as itself, a header over it is just noise.
-        const isOverview = !section.label
-        const showLabel = !!section.label && section.items.length > 1
-        // Derive the divider from the data, not the index: the *first* labelled cluster gets
-        // the hairline that closes off the overview; later clusters just breathe. Keying off
-        // label presence stays correct if the overview grows, shrinks, or moves.
-        const firstLabelled = !isOverview && !sections.slice(0, idx).some((s) => s.label)
+    <nav className="flex flex-col gap-0.5 p-3">
+      {items.map((item) => {
+        const Icon = item.icon
         return (
-          <div
-            key={section.label ?? 'overview'}
-            className={clsx(
-              'flex flex-col gap-0.5',
-              firstLabelled && 'mt-3 pt-3 border-t border-line dark:border-line-dark',
-              !isOverview && !firstLabelled && 'mt-4',
-            )}
-          >
-            {showLabel && (
-              <div className="px-3 mb-1 text-2xs font-semibold uppercase tracking-[0.14em] text-faint dark:text-faint-dark select-none">
-                {section.label}
-              </div>
-            )}
-            {section.items.map((item) => {
-              const Icon = item.icon
-              return (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.end}
-                  onClick={() => setMobileOpen(false)}
-                  className={({ isActive }) =>
-                    clsx(
-                      'group relative flex items-center gap-2.5 px-3 rounded-md text-sm transition-colors',
-                      // The overview row sits a touch taller to read as the primary entry.
-                      isOverview ? 'h-10' : 'h-9',
-                      isActive
-                        ? 'bg-accent/10 text-emphasis font-medium'
-                        : 'text-muted dark:text-muted-dark hover:text-ink dark:hover:text-ink-dark hover:bg-raised dark:hover:bg-raised-dark',
-                    )
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      {/* Gold marker on the active row — accent reserved for selected state (PRD §11 Rule 2). */}
-                      <span
-                        className={clsx(
-                          'absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-accent transition-opacity',
-                          isActive ? 'opacity-100' : 'opacity-0',
-                        )}
-                        aria-hidden
-                      />
-                      <Icon
-                        size={isOverview ? 17 : 15}
-                        className={clsx(
-                          'shrink-0 transition-colors',
-                          isActive ? 'text-accent' : 'text-faint dark:text-faint-dark group-hover:text-ink dark:group-hover:text-ink-dark',
-                        )}
-                      />
-                      <span className="truncate">{item.label}</span>
-                    </>
-                  )}
-                </NavLink>
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            onClick={() => setMobileOpen(false)}
+            className={({ isActive }) =>
+              clsx(
+                'flex items-center gap-2.5 px-3 h-9 rounded-md text-sm transition',
+                isActive
+                  ? 'bg-accent/12 text-emphasis font-medium'
+                  : 'text-muted dark:text-muted-dark hover:text-ink dark:hover:text-ink-dark hover:bg-raised dark:hover:bg-raised-dark',
               )
-            })}
-          </div>
+            }
+          >
+            <Icon size={15} />
+            {item.label}
+          </NavLink>
         )
       })}
     </nav>
