@@ -7,6 +7,11 @@ import { RISK_TIER_TONE, RISK_TIER_LABEL } from '../lib/constants'
 import type { useLookups } from '../lib/data'
 import type { CalculatorRun } from '../lib/types'
 
+// Shared widths for the risk column's two aligned slots — kept in one place so the
+// header spacer and the cell stay in lockstep. The tier slot is a min-width floor.
+const RISK_SCORE_SLOT = 'w-9'
+const RISK_TIER_SLOT = 'min-w-[6.25rem]'
+
 /**
  * The run-table columns shared by every calculator-run list (internal "Calculator
  * leads" + external "Calculator history"): department/machine, risk band, annual
@@ -32,14 +37,20 @@ export function runColumns({
     },
     {
       key: 'risk',
-      header: 'Risk',
+      // Score and tier badge each get their own slot so that, row over row, the numbers
+      // align on their right edge (fixed narrow slot + tabular-nums) and the tier labels
+      // align on their left edge. The badge slot is a min-width, not a fixed width, so a
+      // longer label (new tier / renamed / translated) grows the slot instead of overflowing.
+      header: <span className="inline-flex items-center"><span className={`${RISK_SCORE_SLOT} text-right`}>Risk</span><span className={RISK_TIER_SLOT} /></span>,
       className: 'text-right',
       sortAccessor: (r) => r.overallRiskScore ?? -1,
       render: (r) =>
         r.overallTier && r.overallTier !== 'none' ? (
-          <div className="flex items-center justify-end gap-2">
-            <span className="num font-medium">{r.overallRiskScore ?? '—'}</span>
-            <Badge tone={RISK_TIER_TONE[r.overallTier]}>{RISK_TIER_LABEL[r.overallTier]}</Badge>
+          <div className="inline-flex items-center gap-2">
+            <span className={`num font-medium text-right tabular-nums ${RISK_SCORE_SLOT}`}>{r.overallRiskScore ?? '—'}</span>
+            <span className={`text-left ${RISK_TIER_SLOT}`}>
+              <Badge tone={RISK_TIER_TONE[r.overallTier]}>{RISK_TIER_LABEL[r.overallTier]}</Badge>
+            </span>
           </div>
         ) : (
           <span className="text-faint dark:text-faint-dark">—</span>

@@ -10,6 +10,7 @@ import { DescRow } from '../../components/DescRow'
 import { RunResultSummary, runColumns } from '../../components/RunResultSummary'
 import { StatCard, Spinner } from '../../components/ui'
 import { fmtUSD, fmtDateTime } from '../../lib/format'
+import { runSubmitterName, runSubmitterEmail } from '../../lib/calculatorRun'
 import { RISK_TIERS, type Tone } from '../../lib/constants'
 import type { CalculatorRun, RiskTier } from '../../lib/types'
 
@@ -151,9 +152,8 @@ export default function AdminCalculatorRuns() {
 function RunDetailModal({ run, onClose }: { run: CalculatorRun | null; onClose: () => void }) {
   const { companyName, userName, userEmail, departmentName, machineName, siteName, scoringModelName } = useLookups()
   if (!run) return null
-  // Public runs carry contactEmail on the row itself; authenticated runs look it up by userId.
-  const email = run.runType === 'public' ? run.contactEmail ?? null : userEmail(run.userId)
-  const submitter = run.runType === 'public' ? run.contactName ?? run.clientName ?? null : userName(run.userId)
+  const email = runSubmitterEmail(run, userEmail)
+  const submitter = runSubmitterName(run, userName)
 
   return (
     <Modal
@@ -168,7 +168,7 @@ function RunDetailModal({ run, onClose }: { run: CalculatorRun | null; onClose: 
       }
     >
       <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-2 text-sm mb-5">
-        <DescRow k="Lead" v={submitter ?? 'Anonymous (public calc)'} />
+        <DescRow k="Lead" v={submitter} />
         <DescRow
           k="Email"
           v={email ? <a href={`mailto:${email}`} className="hover:text-accent-ink hover:underline">{email}</a> : '—'}

@@ -11,7 +11,17 @@ import { DescRow } from '../components/DescRow'
 import { RunResultSummary, runColumns } from '../components/RunResultSummary'
 import { Spinner, EmptyState } from '../components/ui'
 import { fmtDateTime } from '../lib/format'
+import { runSubmitterName, runSubmitterEmail } from '../lib/calculatorRun'
 import type { CalculatorRun } from '../lib/types'
+
+const mailto = (email: string | null) =>
+  email ? (
+    <a href={`mailto:${email}`} className="hover:text-accent-ink hover:underline">
+      {email}
+    </a>
+  ) : (
+    '—'
+  )
 
 /**
  * External calculator-submission history (client feedback 2026-06): company admins
@@ -21,17 +31,28 @@ import type { CalculatorRun } from '../lib/types'
 export default function CalculatorHistory() {
   const { user } = useAuth()
   const { calculatorRuns, company, ready } = useData()
-  const { userName, departmentName, machineName } = useLookups()
+  const { userName, userEmail, departmentName, machineName } = useLookups()
   const [selected, setSelected] = useState<CalculatorRun | null>(null)
   const companyAdmin = isCompanyAdmin(user)
 
   if (!ready) return <Spinner />
 
+  const submitterName = (r: CalculatorRun) => runSubmitterName(r, userName)
+  const submitterEmail = (r: CalculatorRun) => runSubmitterEmail(r, userEmail)
+
   const whoColumn: Column<CalculatorRun> = {
     key: 'who',
     header: 'Submitted by',
-    sortAccessor: (r) => userName(r.userId).toLowerCase(),
-    render: (r) => <span className="font-medium truncate">{userName(r.userId)}</span>,
+    sortAccessor: (r) => submitterName(r).toLowerCase(),
+    render: (r) => {
+      const email = submitterEmail(r)
+      return (
+        <div className="min-w-0">
+          <div className="font-medium truncate">{submitterName(r)}</div>
+          {email && <div className="text-xs text-muted dark:text-muted-dark truncate">{email}</div>}
+        </div>
+      )
+    },
   }
   const shared = runColumns({ departmentName, machineName })
   const columns = companyAdmin ? [whoColumn, ...shared] : shared
@@ -71,7 +92,8 @@ export default function CalculatorHistory() {
         {selected && (
           <>
             <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-2 text-sm mb-5">
-              {companyAdmin && <DescRow k="Submitted by" v={userName(selected.userId)} />}
+              {companyAdmin && <DescRow k="Submitted by" v={submitterName(selected)} />}
+              {companyAdmin && <DescRow k="Email" v={mailto(submitterEmail(selected))} />}
               <DescRow k="Department" v={departmentName(selected.departmentId)} />
               <DescRow k="Machine" v={selected.machineId ? machineName(selected.machineId) : '—'} />
               <DescRow k="Technology" v={selected.technology ?? '—'} />
