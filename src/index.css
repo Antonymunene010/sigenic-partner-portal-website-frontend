@@ -91,6 +91,10 @@
   .btn-danger {
     @apply btn bg-danger/10 text-danger border border-danger/20 hover:bg-danger/15;
   }
+  /* Compact icon button for header utilities (theme, notifications). */
+  .btn-icon {
+    @apply h-8 px-2 inline-flex items-center justify-center gap-1.5 rounded-md border border-line dark:border-line-dark text-muted dark:text-muted-dark hover:text-ink dark:hover:text-ink-dark hover:bg-raised dark:hover:bg-raised-dark transition;
+  }
   .input {
     @apply w-full h-10 px-3 text-sm bg-surface dark:bg-surface-dark border border-line dark:border-line-dark rounded-md text-ink dark:text-ink-dark placeholder:text-faint dark:placeholder:text-faint-dark transition-colors;
   }
