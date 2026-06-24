@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { ArrowRight, MapPin, Mail, Phone, Eye, EyeOff } from 'lucide-react'
-import { useAuth } from '../lib/auth'
+import { useAuth, takeSessionExpired } from '../lib/auth'
 import { WordMark } from '../components/Logo'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { Field } from '../components/ui'
@@ -23,6 +23,12 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  // Consume the one-shot expiry flag exactly once: useState's initializer runs only
+  // on mount, so re-renders don't re-read (and re-clear) sessionStorage. The notice
+  // is never updated after mount, so we don't keep the setter.
+  const [notice] = useState<string | null>(() =>
+    takeSessionExpired() ? 'Your session has expired. Please sign in again.' : null,
+  )
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -114,6 +120,7 @@ export default function Login() {
                   Forgot password?
                 </Link>
               </div>
+              {notice && !error && <p className="text-sm text-muted dark:text-muted-dark">{notice}</p>}
               {error && <p className="text-sm text-danger">{error}</p>}
               <button className="btn-accent w-full" disabled={busy}>
                 {busy ? 'Signing in…' : 'Sign in'} <ArrowRight size={15} />

@@ -1,6 +1,27 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { User } from './types'
-import { loginWithApi, getMe, setToken, clearToken, getToken } from './api'
+import { loginWithApi, getMe, setToken, clearToken, getToken, onAuthExpired } from './api'
+
+// One-shot flag the Login page reads to explain *why* the user landed back there
+// (an expired session, not a fresh visit). It's sessionStorage, not the localStorage
+// `storage` helpers, on purpose: the signal is tab-scoped and must not outlive it.
+const EXPIRED_FLAG = 'pp.sessionExpired'
+function flagSessionExpired(): void {
+  try {
+    sessionStorage.setItem(EXPIRED_FLAG, '1')
+  } catch {
+    /* ignore: best-effort UX hint */
+  }
+}
+export function takeSessionExpired(): boolean {
+  try {
+    const expired = sessionStorage.getItem(EXPIRED_FLAG) != null
+    if (expired) sessionStorage.removeItem(EXPIRED_FLAG)
+    return expired
+  } catch {
+    return false
+  }
+}
 
 interface AuthCtx {
   user: User | null
@@ -51,6 +72,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       setReady(true)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // When any API call gets a 401 mid-session (the token expired/was revoked while
+  // the app was open), api.ts has already cleared the token — drop the in-memory
+  // user so ProtectedRoute bounces to /login, and flag it so Login explains why.
+  useEffect(() => {
+    onAuthExpired(() => {
+      flagSessionExpired()
+      setUser(null)
+    })
+    return () => onAuthExpired(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

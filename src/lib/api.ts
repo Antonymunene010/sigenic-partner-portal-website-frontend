@@ -39,11 +39,36 @@ function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
+// The auth session can expire while the app is open (login tokens are time-boxed).
+// `request()` lives outside React, so it can't call useAuth().logout directly —
+// instead AuthProvider registers a handler here, which we fire on any 401 so the
+// expired session is cleared and the router bounces to /login (rather than every
+// in-app action surfacing a raw "Authentication required." toast).
+let authExpiredHandler: (() => void) | null = null
+export function onAuthExpired(handler: (() => void) | null): void {
+  authExpiredHandler = handler
+}
+
+// Every fetch entry point (request, uploadAttachment, downloadPdf) routes its
+// Response through here so an expired session is handled the same way everywhere.
+// A 401 only counts as a session expiry once we hold a token: the server sent it
+// back rejected (expired/invalid). The login call's own 401 (bad credentials) has
+// no token yet, so it falls through untouched.
+function checkAuth(res: Response): Response {
+  if (res.status === 401 && getToken()) {
+    clearToken()
+    authExpiredHandler?.()
+  }
+  return res
+}
+
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${apiBase()}${path}`, {
-    ...init,
-    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(init?.headers ?? {}) },
-  })
+  const res = checkAuth(
+    await fetch(`${apiBase()}${path}`, {
+      ...init,
+      headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(init?.headers ?? {}) },
+    }),
+  )
   const body = await res.json().catch(() => null)
   if (!res.ok) throw new Error(body?.error ?? `Request failed with ${res.status}`)
   return body as T
@@ -128,11 +153,13 @@ export interface UploadedAsset {
 }
 /** Upload one file as a raw body; returns a stable /api/attachments/:id URL to embed. */
 export async function uploadAttachment(file: File): Promise<UploadedAsset> {
-  const res = await fetch(`${apiBase()}/api/attachments?filename=${encodeURIComponent(file.name)}`, {
-    method: 'POST',
-    headers: { 'Content-Type': file.type || 'application/octet-stream', ...authHeaders() },
-    body: file,
-  })
+  const res = checkAuth(
+    await fetch(`${apiBase()}/api/attachments?filename=${encodeURIComponent(file.name)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': file.type || 'application/octet-stream', ...authHeaders() },
+      body: file,
+    }),
+  )
   const body = await res.json().catch(() => null)
   if (!res.ok) throw new Error(body?.error ?? `Upload failed (${res.status})`)
   return body as UploadedAsset
@@ -229,10 +256,12 @@ export function getAnalytics(): Promise<Record<string, unknown>> {
 
 /* ---------- PDF downloads ---------- */
 async function downloadPdf(path: string, init: RequestInit, filename: string): Promise<void> {
-  const res = await fetch(`${apiBase()}${path}`, {
-    ...init,
-    headers: { ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...authHeaders(), ...(init.headers ?? {}) },
-  })
+  const res = checkAuth(
+    await fetch(`${apiBase()}${path}`, {
+      ...init,
+      headers: { ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...authHeaders(), ...(init.headers ?? {}) },
+    }),
+  )
   if (!res.ok) throw new Error(`Download failed (${res.status})`)
   const blob = await res.blob()
   const url = URL.createObjectURL(blob)
