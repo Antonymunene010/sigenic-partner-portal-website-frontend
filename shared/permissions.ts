@@ -12,7 +12,7 @@
  * The server re-checks every mutation against `can`/`canManageUser`; the client
  * uses the same functions to gate navigation and UI affordances (UX, not security).
  */
-import type { Role, User, UserType } from './types'
+import type { CompanyType, Role, User, UserType } from './types'
 
 export type Capability =
   | 'use_full_calculator'
@@ -194,6 +194,18 @@ export function assignableRoles(user: Pick<User, 'role'> | null | undefined): Ro
       return ['customer_admin', 'customer_user']
     default:
       return []
+  }
+}
+
+/** The admin role a newly-invited company of this type gets by default (its company admin). */
+export function primaryAdminRoleForType(type: CompanyType): Role {
+  switch (type) {
+    case 'distributor':
+      return 'distributor_admin'
+    case 'customer':
+      return 'customer_admin'
+    case 'sigenic':
+      return 'admin'
   }
 }
 

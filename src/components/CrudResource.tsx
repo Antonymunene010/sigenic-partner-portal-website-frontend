@@ -38,6 +38,7 @@ export interface InlineToggleSpec {
 
 export function CrudResource<T extends Row>({
   title,
+  singular,
   description,
   resource,
   rows,
@@ -51,6 +52,9 @@ export function CrudResource<T extends Row>({
   wide,
 }: {
   title: string
+  /** Singular noun for the New/Edit modal titles. Defaults to title with a trailing
+   *  "s" stripped — pass explicitly for irregular plurals (e.g. "Companies"→"Company"). */
+  singular?: string
   description?: string
   resource: ResourceName
   rows: T[]
@@ -64,6 +68,7 @@ export function CrudResource<T extends Row>({
   wide?: boolean
 }) {
   const toast = useToast()
+  const noun = singular ?? title.replace(/s$/, '')
   const [editing, setEditing] = useState<T | null>(null)
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState<Record<string, unknown>>({})
@@ -122,7 +127,7 @@ export function CrudResource<T extends Row>({
 
   const remove = async () => {
     if (!editing) return
-    if (!confirm(`Delete this ${title.replace(/s$/, '').toLowerCase()}?`)) return
+    if (!confirm(`Delete this ${noun.toLowerCase()}?`)) return
     setBusy(true)
     try {
       await deleteResource(resource, editing.id)
@@ -217,7 +222,7 @@ export function CrudResource<T extends Row>({
         open={creating || !!editing}
         onClose={close}
         wide={wide}
-        title={creating ? `New ${title.replace(/s$/, '')}` : `Edit ${title.replace(/s$/, '')}`}
+        title={creating ? `New ${noun}` : `Edit ${noun}`}
         footer={
           <>
             {editing && !creating && (

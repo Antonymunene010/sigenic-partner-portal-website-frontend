@@ -99,7 +99,7 @@ export const SEED = {
       company_code: 'APERTURE',
       company_type: 'customer',
       parent_company_id: null,
-      status: 'prospect',
+      status: 'pending_invite',
       industry: 'Compound Semiconductor',
       onboarding_status: 'invited',
       service_tier: 'Trial',

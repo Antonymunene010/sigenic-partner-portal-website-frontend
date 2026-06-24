@@ -67,7 +67,18 @@ export async function resetPasswordWithToken(store: Store, token: string, newPas
   }
   await store.setPassword(account.id, newPassword)
   // An invited user activates their account by setting their first password.
-  if (account.status === 'invited') await store.update('users', account.id, { status: 'active' }, { touch: false })
+  if (account.status === 'invited') {
+    await store.update('users', account.id, { status: 'active' }, { touch: false })
+    // …and the first accepted invite flips their company live, too (client feedback
+    // 2026-06: company goes Pending Invite → Active once its admin accepts). Guarded
+    // on the company still being pending_invite so a later invitee is a no-op.
+    if (account.companyId) {
+      const company = await store.getOne('companies', account.companyId)
+      if (company?.status === 'pending_invite') {
+        await store.update('companies', account.companyId, { status: 'active' }, { touch: false })
+      }
+    }
+  }
   const msg = passwordChangedEmail({ fullName: account.fullName })
   await sendEmail(store, { to: account.email, subject: msg.subject, text: msg.text }).catch(() => {})
 }

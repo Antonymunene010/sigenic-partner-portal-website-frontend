@@ -13,6 +13,7 @@ import { fmtDate } from '../lib/format'
 import {
   COMPANY_TYPE_LABEL,
   ORG_STATUS_TONE,
+  ORG_STATUS_LABEL,
   ONBOARDING_STATUS_LABEL,
   USER_STATUS_TONE,
 } from '../lib/constants'
@@ -68,7 +69,7 @@ export default function CompanyProfile() {
           <Card title="Company">
             <dl className="space-y-2.5 text-sm">
               <DescRow k="Industry" v={company.industry ?? '—'} />
-              <DescRow k="Status" v={<Badge tone={ORG_STATUS_TONE[company.status]} dot>{company.status}</Badge>} />
+              <DescRow k="Status" v={<Badge tone={ORG_STATUS_TONE[company.status]} dot>{ORG_STATUS_LABEL[company.status] ?? company.status}</Badge>} />
               <DescRow k="Onboarding" v={ONBOARDING_STATUS_LABEL[company.onboardingStatus]} />
               <DescRow k="Service tier" v={company.serviceTier ?? '—'} />
               <DescRow k="Subscription" v={company.subscriptionType ?? '—'} />

@@ -19,8 +19,11 @@ CREATE TABLE IF NOT EXISTS companies (
   company_code text UNIQUE,
   company_type text NOT NULL CHECK (company_type IN ('sigenic','distributor','customer')),
   parent_company_id text REFERENCES companies(id) ON DELETE SET NULL,
-  status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive','prospect')),
+  status text NOT NULL DEFAULT 'pending_invite'
+    CHECK (status IN ('pending_invite','active','suspended','inactive','archived')),
   industry text,
+  country text,
+  website text,
   zendesk_org_id text,
   billing_contact_name text,
   billing_contact_email text,
@@ -36,6 +39,23 @@ CREATE TABLE IF NOT EXISTS companies (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Country/region + website added with the "Invite Company" flow (client feedback 2026-06).
+-- (CREATE TABLE IF NOT EXISTS won't alter an existing table, so we add columns here.)
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS country text;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS website text;
+
+-- Company status lifecycle changed from active/inactive/prospect to the invite-aware
+-- set (client feedback 2026-06). On an existing DB the CREATE TABLE above won't touch
+-- the old CHECK/DEFAULT, so migrate in place. Idempotent: runs on every init.
+-- Order matters: DROP the old CHECK first, THEN remap data to the new values (the
+-- old constraint forbade 'pending_invite'), THEN add the new CHECK and default.
+ALTER TABLE companies DROP CONSTRAINT IF EXISTS companies_status_check;
+UPDATE companies SET status = 'pending_invite'
+  WHERE status NOT IN ('pending_invite','active','suspended','inactive','archived');
+ALTER TABLE companies ADD CONSTRAINT companies_status_check
+  CHECK (status IN ('pending_invite','active','suspended','inactive','archived'));
+ALTER TABLE companies ALTER COLUMN status SET DEFAULT 'pending_invite';
 
 CREATE TABLE IF NOT EXISTS sites (
   id text PRIMARY KEY,

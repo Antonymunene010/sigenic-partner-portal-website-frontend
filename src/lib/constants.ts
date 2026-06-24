@@ -88,11 +88,38 @@ export const COMPANY_TYPE_LABEL: Record<CompanyType, string> = {
   customer: 'Customer',
 }
 
-export const ORG_STATUS_TONE: Record<OrgStatus, Tone> = {
-  active: 'success',
-  inactive: 'neutral',
-  prospect: 'warn',
-}
+// Fixed industry dropdown for the company form — a curated list instead of free text,
+// stored as the label string in companies.industry (client feedback 2026-06).
+export const INDUSTRY_OPTIONS = [
+  'Semiconductor',
+  'Electronics / EMS',
+  'Medical Device / Life Science',
+  'Automotive / EV',
+  'Aerospace / Defense',
+  'Industrial Automation',
+  'Research / University / Lab',
+  'Distributor / Channel Partner',
+  'System Integrator / Consultant',
+  'Other',
+] as const
+
+// Single source for the company lifecycle (client feedback 2026-06); the tone/label
+// Records derive from it, matching the REQUEST_STATUSES pattern above.
+export const ORG_STATUSES: { value: OrgStatus; label: string; tone: Tone }[] = [
+  { value: 'pending_invite', label: 'Pending invite', tone: 'warn' },
+  { value: 'active', label: 'Active', tone: 'success' },
+  { value: 'suspended', label: 'Suspended', tone: 'danger' },
+  { value: 'inactive', label: 'Inactive', tone: 'neutral' },
+  { value: 'archived', label: 'Archived', tone: 'neutral' },
+]
+
+export const ORG_STATUS_TONE: Record<OrgStatus, Tone> = Object.fromEntries(
+  ORG_STATUSES.map((s) => [s.value, s.tone]),
+) as Record<OrgStatus, Tone>
+
+export const ORG_STATUS_LABEL: Record<OrgStatus, string> = Object.fromEntries(
+  ORG_STATUSES.map((s) => [s.value, s.label]),
+) as Record<OrgStatus, string>
 
 export const ONBOARDING_STATUS_LABEL: Record<OnboardingStatus, string> = {
   not_started: 'Not started',

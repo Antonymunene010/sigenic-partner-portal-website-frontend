@@ -6,7 +6,10 @@
 
 /* ---------- enums ---------- */
 export type CompanyType = 'sigenic' | 'distributor' | 'customer'
-export type OrgStatus = 'active' | 'inactive' | 'prospect'
+// Company lifecycle (client feedback 2026-06): a company starts at pending_invite
+// when its primary admin is invited, flips to active once that admin accepts (sets
+// their first password), and can later be suspended/inactivated/archived.
+export type OrgStatus = 'pending_invite' | 'active' | 'suspended' | 'inactive' | 'archived'
 export type OnboardingStatus = 'not_started' | 'invited' | 'in_progress' | 'fully_onboarded'
 
 export type Role =
@@ -62,7 +65,9 @@ export interface Company {
   companyType: CompanyType
   parentCompanyId?: string | null
   status: OrgStatus
-  industry?: string
+  industry?: string | null
+  country?: string | null
+  website?: string | null
   zendeskOrgId?: string | null
   billingContactName?: string | null
   billingContactEmail?: string | null
