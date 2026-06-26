@@ -1,6 +1,7 @@
 import { can, type Capability } from '../../shared/permissions'
 import { forbidden, notFound } from '../http/errors'
 import { audit } from './audit'
+import { recomputeOnboardingStatus } from './onboarding.service'
 import { uid } from '../util/ids'
 import type { Store } from '../db/store'
 import type { AuthPayload } from '../infra/auth'
@@ -66,6 +67,7 @@ export async function createResource(store: Store, auth: AuthPayload, resource: 
   const newId = item.id ?? uid(cfg.prefix)
   const created = await store.insert(cfg.table, { ...item, id: newId })
   await audit(store, auth, cfg.entity, newId, 'create', null, created)
+  if (resource === 'companies') await recomputeOnboardingStatus(store, newId)
   return created
 }
 
@@ -76,6 +78,10 @@ export async function updateResource(store: Store, auth: AuthPayload, resource: 
   if (!before) throw notFound('Not found.')
   const updated = await store.update(cfg.table, id, body.item ?? body, { touch: body.touch })
   await audit(store, auth, cfg.entity, id, 'update', before, updated)
+  // Editing a company's profile fields (country/website/billing) can flip its
+  // onboarding stage — let the recompute helper decide. Cheap no-op when nothing
+  // relevant changed.
+  if (resource === 'companies') await recomputeOnboardingStatus(store, id)
   return updated
 }
 

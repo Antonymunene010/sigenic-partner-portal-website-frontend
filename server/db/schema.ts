@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS companies (
   billing_contact_name text,
   billing_contact_email text,
   onboarding_status text NOT NULL DEFAULT 'not_started'
-    CHECK (onboarding_status IN ('not_started','invited','in_progress','fully_onboarded')),
+    CHECK (onboarding_status IN ('not_started','invited','accepted','profile_completed','live')),
   onboarding_milestones jsonb NOT NULL DEFAULT '[]'::jsonb,
   service_tier text,
   subscription_type text,
@@ -57,6 +57,22 @@ ALTER TABLE companies ADD CONSTRAINT companies_status_check
   CHECK (status IN ('pending_invite','active','suspended','inactive','archived'));
 ALTER TABLE companies ALTER COLUMN status SET DEFAULT 'pending_invite';
 
+-- Onboarding lifecycle reworked to the 5 client-facing states (client feedback
+-- 2026-06): the old set was {not_started, invited, in_progress, fully_onboarded}
+-- and the column was never actually written to at runtime. Auto-tracked now by
+-- the recomputeOnboardingStatus helper at every relevant mutation point.
+-- Order matters: DROP the old CHECK first, THEN remap legacy values, THEN add
+-- the new CHECK. Idempotent: 'invited'/'not_started' map to themselves; the
+-- new values are no-ops on a re-run.
+ALTER TABLE companies DROP CONSTRAINT IF EXISTS companies_onboarding_status_check;
+UPDATE companies SET onboarding_status = CASE onboarding_status
+  WHEN 'in_progress' THEN 'accepted'
+  WHEN 'fully_onboarded' THEN 'live'
+  ELSE onboarding_status
+END WHERE onboarding_status IN ('in_progress','fully_onboarded');
+ALTER TABLE companies ADD CONSTRAINT companies_onboarding_status_check
+  CHECK (onboarding_status IN ('not_started','invited','accepted','profile_completed','live'));
+
 CREATE TABLE IF NOT EXISTS sites (
   id text PRIMARY KEY,
   company_id text NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -84,10 +100,17 @@ CREATE TABLE IF NOT EXISTS users (
   avatar text,
   status text NOT NULL DEFAULT 'active'
     CHECK (status IN ('active','inactive','invited','pending','rejected')),
+  -- Who issued the invite / approved the sign-up — so we can email the inviter
+  -- when their invitee accepts (client feedback 2026-06). ON DELETE SET NULL so
+  -- removing the inviter doesn't cascade their invitees away.
+  invited_by text REFERENCES users(id) ON DELETE SET NULL,
   last_login_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Additive column for portals already deployed on an older users schema.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS invited_by text REFERENCES users(id) ON DELETE SET NULL;
 
 -- Self-service sign-up adds two user states (client feedback 2026-06): 'pending'
 -- (registered, awaiting admin approval) and 'rejected' (approval declined, kept for

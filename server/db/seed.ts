@@ -23,7 +23,7 @@ export const SEED = {
       parent_company_id: null,
       status: 'active',
       industry: 'Semiconductor AI / Quality Intelligence',
-      onboarding_status: 'fully_onboarded',
+      onboarding_status: 'live',
       permissions: {},
     },
     {
@@ -34,7 +34,7 @@ export const SEED = {
       parent_company_id: null,
       status: 'active',
       industry: 'Distribution / Channel',
-      onboarding_status: 'fully_onboarded',
+      onboarding_status: 'live',
       permissions: { calculator: true, case_studies: true, service_requests: true, knowledge_base: true, billing: false },
     },
     {
@@ -48,7 +48,7 @@ export const SEED = {
       zendesk_org_id: '900001',
       billing_contact_name: 'Karen Lim',
       billing_contact_email: 'karen@novacell.sg',
-      onboarding_status: 'fully_onboarded',
+      onboarding_status: 'live',
       onboarding_milestones: [
         { key: 'created', label: 'Partner account created', done: true },
         { key: 'kickoff', label: 'Kickoff completed', done: true },
@@ -76,7 +76,7 @@ export const SEED = {
       zendesk_org_id: '900002',
       billing_contact_name: 'Daniel Ong',
       billing_contact_email: 'daniel@quantex.com',
-      onboarding_status: 'in_progress',
+      onboarding_status: 'accepted',
       onboarding_milestones: [
         { key: 'created', label: 'Partner account created', done: true },
         { key: 'kickoff', label: 'Kickoff completed', done: true },

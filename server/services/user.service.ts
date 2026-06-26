@@ -1,8 +1,17 @@
-import { canManageUser, roleMeta } from '../../shared/permissions'
+import { canManageUser, roleLabel, roleMeta } from '../../shared/permissions'
 import { badRequest, forbidden, notFound } from '../http/errors'
 import { audit } from './audit'
-import { sendEmail, inviteEmail, passwordResetLinkEmail, userMutationAdminEmail, accountRemovedEmail, notifyInternalAdmins } from '../infra/email'
+import {
+  sendEmail,
+  inviteEmail,
+  passwordResetLinkEmail,
+  userMutationAdminEmail,
+  accountRemovedEmail,
+  inviteSentReceiptEmail,
+  notifyInternalAdmins,
+} from '../infra/email'
 import { signResetToken } from '../infra/auth'
+import { recomputeOnboardingStatus } from './onboarding.service'
 import { uid } from '../util/ids'
 import type { Store } from '../db/store'
 import type { AuthPayload } from '../infra/auth'
@@ -57,6 +66,9 @@ export async function createUser(store: Store, auth: AuthPayload, user: any, pas
         user_type: user.userType ?? inferUserType(user.role),
         role: user.role,
         status: user.status ?? 'invited',
+        // Remember who issued the invite so we can email them when the invitee
+        // accepts (client feedback 2026-06).
+        invited_by: auth.sub,
       },
       password,
     )
@@ -64,19 +76,37 @@ export async function createUser(store: Store, auth: AuthPayload, user: any, pas
     throw badRequest(error.message)
   }
   await audit(store, auth, 'user', created.id, 'create', null, { email: created.email, role: created.role })
-  // Notify the new user (invite link) + internal admins (per client request).
-  // Best-effort: a failed send must not fail creation (the user can self-serve).
+  // Notify the new user (invite link), the inviter (dedicated receipt) and the
+  // rest of the internal admin pool (skipping the inviter so they don't get the
+  // generic fan-out *and* the receipt). All best-effort — a failed send must
+  // not fail creation, the user can self-serve a reset.
   try {
     // Single-use set-password link so the user activates their OWN account —
     // no shared/default password ever leaves the server.
     const account = await sendInviteLink(store, created.id, origin)
-    await notifyInternalAdmins(
-      store,
-      userMutationAdminEmail({ action: 'created', fullName: created.fullName, email: created.email, role: created.role, companyName: account.companyName, actor: auth.name }),
-    )
+    await Promise.all([
+      sendEmail(store, {
+        to: auth.email,
+        ...inviteSentReceiptEmail({
+          inviterName: auth.name,
+          inviteeName: created.fullName,
+          inviteeEmail: created.email,
+          inviteeRole: roleLabel(created.role as Role),
+          companyName: account.companyName,
+        }),
+      }).catch(() => {}),
+      notifyInternalAdmins(
+        store,
+        userMutationAdminEmail({ action: 'created', fullName: created.fullName, email: created.email, role: created.role, companyName: account.companyName, actor: auth.name }),
+        { excludeUserId: auth.sub },
+      ),
+    ])
   } catch {
     /* notification emails are best-effort */
   }
+  // Lifecycle bump: a freshly invited admin moves the company from not_started →
+  // invited; a freshly added non-admin in an already-live-ish company → live.
+  await recomputeOnboardingStatus(store, targetCompany)
   return created
 }
 

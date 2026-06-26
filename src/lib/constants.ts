@@ -150,8 +150,9 @@ export const ORG_STATUS_LABEL: Record<OrgStatus, string> = Object.fromEntries(
 export const ONBOARDING_STATUS_LABEL: Record<OnboardingStatus, string> = {
   not_started: 'Not started',
   invited: 'Invited',
-  in_progress: 'In progress',
-  fully_onboarded: 'Fully onboarded',
+  accepted: 'Accepted',
+  profile_completed: 'Profile completed',
+  live: 'Live',
 }
 
 export const AUDIENCE_TYPES: { value: AudienceType; label: string }[] = [

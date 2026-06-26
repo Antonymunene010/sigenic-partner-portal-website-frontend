@@ -2,6 +2,7 @@ import { canApproveSignup, plainUserRoleForType, primaryAdminRoleForType, roleMe
 import { badRequest, forbidden, notFound } from '../http/errors'
 import { audit } from './audit'
 import { sendInviteLink } from './user.service'
+import { recomputeOnboardingStatus } from './onboarding.service'
 import {
   sendEmail,
   signupReceiptEmail,
@@ -160,10 +161,18 @@ export async function approveSignup(
   if (!canApproveSignup(auth, user.companyId, grantedRole)) {
     throw forbidden('You cannot approve this sign-up for that company/role.')
   }
-  const updated = await store.update('users', id, { status: 'invited', role: grantedRole, user_type: roleMeta(grantedRole)?.userType ?? user.userType })
+  const updated = await store.update('users', id, {
+    status: 'invited',
+    role: grantedRole,
+    user_type: roleMeta(grantedRole)?.userType ?? user.userType,
+    // Record the approver — they're the effective inviter from here on
+    // (drives the inviter-accept notification in auth.service).
+    invited_by: auth.sub,
+  })
   await audit(store, auth, 'user', id, 'approve_signup', { status: 'pending', role: user.role }, { status: 'invited', role: grantedRole })
   // Email the single-use invite link so they set their own password (best-effort).
   await sendInviteLink(store, id, opts.origin).catch(() => {})
+  await recomputeOnboardingStatus(store, user.companyId)
   return updated
 }
 

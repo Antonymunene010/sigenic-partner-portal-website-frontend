@@ -142,20 +142,27 @@ test('calculator.submit — persists the run as a lead and notifies internal adm
   assert.match(receipt.subject, /received your risk/i)
 })
 
-test('user.createUser — emails a single-use invite link to the new user', async () => {
+test('user.createUser — emails a single-use invite link to the new user + a receipt to the inviter', async () => {
   const emails: any[] = []
   const store = {
     createUser: mock.fn(async () => ({ id: 'u-new', email: 'new@x', fullName: 'New User', role: 'customer_user' })),
     getUserAuthById: mock.fn(async () => ({ id: 'u-new', email: 'new@x', fullName: 'New User', role: 'customer_user', companyId: 'co-c', companyName: 'Acme', passwordHash: 'pw-hash', status: 'invited' })),
-    list: mock.fn(async () => []), // no internal admins → only the invite goes out
+    list: mock.fn(async () => []), // no internal admins → only the invite + inviter receipt go out
     appendAudit: mock.fn(async () => {}),
+    update: mock.fn(async (_t: string, _id: string, patch: any) => ({ id: 'co-c', ...patch })),
+    getOne: mock.fn(async () => ({ id: 'co-c', onboardingStatus: 'not_started' })),
     appendEmail: mock.fn(async (rec: any) => { emails.push(rec) }),
   } as unknown as Store
   await createUser(store, admin, { email: 'new@x', fullName: 'New User', role: 'customer_user', companyId: 'co-c' })
-  assert.equal(emails.length, 1)
-  assert.equal(emails[0].to, 'new@x')
-  assert.match(emails[0].subject, /invited/i)
-  assert.match(emails[0].text, /\/reset-password\?token=/) // invite carries a setup link, not a shared password
+  // The invitee gets the set-password link …
+  const invite = emails.find((e) => e.to === 'new@x')
+  assert.ok(invite, 'invitee receives the set-password link')
+  assert.match(invite.subject, /invited/i)
+  assert.match(invite.text, /\/reset-password\?token=/) // invite carries a setup link, not a shared password
+  // … and the inviter gets a dedicated receipt (client feedback 2026-06).
+  const receipt = emails.find((e) => e.to === admin.email)
+  assert.ok(receipt, 'inviter receives a confirmation email')
+  assert.match(receipt.subject, /Invite sent to New User/)
 })
 
 test('serviceRequest.createServiceRequest — every type captures a first message (no Zendesk env ⇒ mock)', async () => {
@@ -314,9 +321,13 @@ test('user.createUser — emails the active internal admins that a new user join
     list: mock.fn(async (_table: string, opts?: { params?: any[] }) => {
       if (!opts?.params) return allUsers
       const roles: string[] = opts.params[0]
+      // `where: company_id = $1` (lifecycle recompute) → return all users for the company
+      if (typeof roles === 'string') return allUsers
       return allUsers.filter((u) => roles.includes(u.role) && u.status !== 'inactive')
     }),
     appendAudit: mock.fn(async () => {}),
+    update: mock.fn(async (_t: string, _id: string, patch: any) => ({ id: 'co-c', ...patch })),
+    getOne: mock.fn(async () => ({ id: 'co-c', onboardingStatus: 'not_started' })),
     appendEmail: mock.fn(async (rec: any) => { emails.push(rec) }),
   } as unknown as Store
   await createUser(store, admin, { email: 'new@x', fullName: 'New User', role: 'customer_user', companyId: 'co-c' })

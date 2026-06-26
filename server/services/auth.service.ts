@@ -1,8 +1,17 @@
 import { verifyPassword, signToken, signResetToken, verifyResetToken, passwordFingerprintMatches } from '../infra/auth'
-import { sendEmail, passwordResetLinkEmail, passwordChangedEmail } from '../infra/email'
+import {
+  sendEmail,
+  passwordResetLinkEmail,
+  passwordChangedEmail,
+  inviteAcceptedEmail,
+  notifyInternalAdmins,
+} from '../infra/email'
 import { badRequest, forbidden, notFound, unauthorized } from '../http/errors'
+import { recomputeOnboardingStatus } from './onboarding.service'
+import { roleLabel } from '../../shared/permissions'
 import type { Store } from '../db/store'
 import type { AuthPayload } from '../infra/auth'
+import type { Role } from '../../shared/types'
 
 const MIN_PASSWORD_LENGTH = 4
 
@@ -67,7 +76,8 @@ export async function resetPasswordWithToken(store: Store, token: string, newPas
   }
   await store.setPassword(account.id, newPassword)
   // An invited user activates their account by setting their first password.
-  if (account.status === 'invited') {
+  const wasInvited = account.status === 'invited'
+  if (wasInvited) {
     await store.update('users', account.id, { status: 'active' }, { touch: false })
     // …and the first accepted invite flips their company live, too (client feedback
     // 2026-06: company goes Pending Invite → Active once its admin accepts). Guarded
@@ -78,6 +88,23 @@ export async function resetPasswordWithToken(store: Store, token: string, newPas
         await store.update('companies', account.companyId, { status: 'active' }, { touch: false })
       }
     }
+    // Notify the inviter (and any other internal admins) that the invitee has
+    // accepted (client feedback 2026-06: previously there was no signal at all
+    // that someone had activated their account). Best-effort; exclude the
+    // inviter from the admin fan-out so they don't get the message twice when
+    // they happen to be an internal admin themselves.
+    const accepted = inviteAcceptedEmail({
+      inviteeName: account.fullName,
+      inviteeEmail: account.email,
+      inviteeRole: roleLabel(account.role as Role),
+      companyName: account.companyName,
+    })
+    const inviter = account.invitedBy ? await store.getUserById(account.invitedBy).catch(() => null) : null
+    await Promise.all([
+      inviter?.email ? sendEmail(store, { to: inviter.email, ...accepted }).catch(() => {}) : Promise.resolve(),
+      notifyInternalAdmins(store, accepted, { excludeUserId: inviter?.id ?? null }).catch(() => {}),
+    ])
+    await recomputeOnboardingStatus(store, account.companyId)
   }
   const msg = passwordChangedEmail({ fullName: account.fullName })
   await sendEmail(store, { to: account.email, subject: msg.subject, text: msg.text }).catch(() => {})

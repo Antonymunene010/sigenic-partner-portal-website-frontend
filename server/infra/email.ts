@@ -271,6 +271,62 @@ export function passwordChangedEmail(user: { fullName: string }): { subject: str
   }
 }
 
+/**
+ * Receipt sent to the *inviter* right after they invite a user — confirms the
+ * invite went out and tells them they'll hear back when the invitee accepts.
+ * Distinct from the internal-admin fan-out so the actual inviter always gets a
+ * direct heads-up even if they aren't part of the admin pool (client feedback
+ * 2026-06: "no notification … person inviting").
+ */
+export function inviteSentReceiptEmail(params: {
+  inviterName: string
+  inviteeName: string
+  inviteeEmail: string
+  inviteeRole: string
+  companyName?: string | null
+}): { subject: string; text: string } {
+  return {
+    subject: `Invite sent to ${params.inviteeName}`,
+    text: [
+      `Hi ${params.inviterName},`,
+      '',
+      `Your invitation to the Sigenic Partner Portal has been sent to ${params.inviteeName} <${params.inviteeEmail}>.`,
+      ...(params.companyName ? [`Company: ${params.companyName}`] : []),
+      `Role:    ${params.inviteeRole}`,
+      '',
+      'They have 7 days to follow the link and set their password. You will get another email from us once they accept.',
+      '',
+      '— Sigenic Partner Portal',
+    ].join('\n'),
+  }
+}
+
+/**
+ * Notify the inviter (and other internal admins) when an invitee has accepted
+ * their invite and activated their account. Sent from auth.service when a user's
+ * first password set flips them from `invited` to `active` (client feedback 2026-06).
+ */
+export function inviteAcceptedEmail(params: {
+  inviteeName: string
+  inviteeEmail: string
+  inviteeRole: string
+  companyName?: string | null
+}): { subject: string; text: string } {
+  return {
+    subject: `Invite accepted: ${params.inviteeName}`,
+    text: [
+      `${params.inviteeName} <${params.inviteeEmail}> has accepted their invitation to the Sigenic Partner Portal and activated their account.`,
+      '',
+      `Role:    ${params.inviteeRole}`,
+      ...(params.companyName ? [`Company: ${params.companyName}`] : []),
+      '',
+      'No action is needed — this is just a confirmation.',
+      '',
+      '— Sigenic Partner Portal',
+    ].join('\n'),
+  }
+}
+
 /** Notify internal admins when a portal user is created or deleted (per client request). */
 export function userMutationAdminEmail(params: {
   action: 'created' | 'deleted'
@@ -300,16 +356,22 @@ export function userMutationAdminEmail(params: {
  * Fan out one message to every active internal admin (super_admin + admin). SQL
  * filter avoids dragging the full users table into Node. Each send is best-effort,
  * so a flaky SMTP recipient never poisons the rest of the batch.
+ *
+ * `excludeUserId` skips one admin — used when the inviter is also an internal
+ * admin and is already getting a dedicated inviter-receipt email; without it
+ * they'd receive two copies of every invite they send.
  */
 export async function notifyInternalAdmins(
   store: AdminFanoutStore,
   message: { subject: string; text: string },
+  opts: { excludeUserId?: string | null } = {},
 ): Promise<void> {
   const admins = await store.list('users', {
     where: "role = ANY($1::text[]) AND status <> 'inactive'",
     params: [INTERNAL_MANAGE],
   })
-  await Promise.all(admins.map((a) => sendEmail(store, { to: a.email, ...message }).catch(() => {})))
+  const recipients = opts.excludeUserId ? admins.filter((a) => a.id !== opts.excludeUserId) : admins
+  await Promise.all(recipients.map((a) => sendEmail(store, { to: a.email, ...message }).catch(() => {})))
 }
 
 /**

@@ -10,7 +10,12 @@ export type CompanyType = 'sigenic' | 'distributor' | 'customer'
 // when its primary admin is invited, flips to active once that admin accepts (sets
 // their first password), and can later be suspended/inactivated/archived.
 export type OrgStatus = 'pending_invite' | 'active' | 'suspended' | 'inactive' | 'archived'
-export type OnboardingStatus = 'not_started' | 'invited' | 'in_progress' | 'fully_onboarded'
+// Onboarding lifecycle (client feedback 2026-06): system-tracked per-company progress
+// from "Not Started" (created, no invite yet) → "Invited" (primary admin emailed)
+// → "Accepted" (that admin set their first password) → "Profile Completed" (country,
+// website + billing contact filled) → "Live" (at least one non-admin user activated).
+// Auto-advanced by server/services/onboarding.recompute on every relevant mutation.
+export type OnboardingStatus = 'not_started' | 'invited' | 'accepted' | 'profile_completed' | 'live'
 
 export type Role =
   | 'super_admin'
