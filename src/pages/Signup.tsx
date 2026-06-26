@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle2 } from 'lucide-react'
 import { getSignupCompanies, signup, type SignupCompanyChoice } from '../lib/api'
 import { AuthShell } from '../components/AuthShell'
 import { Field } from '../components/ui'
+import { COUNTRY_OPTIONS } from '../lib/constants'
 
 /**
  * Self-service sign-up (client feedback 2026-06). The user picks their company from
@@ -177,7 +178,12 @@ export default function Signup() {
                   </select>
                 </Field>
                 <Field label="Country / region" hint="Optional">
-                  <input className="input" value={newCompany.country} onChange={(e) => editNewCompany({ country: e.target.value })} placeholder="Singapore" />
+                  <select className="select" value={newCompany.country} onChange={(e) => editNewCompany({ country: e.target.value })}>
+                    <option value="">—</option>
+                    {COUNTRY_OPTIONS.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
                 </Field>
                 <Field label="Company website" hint="Optional">
                   <input className="input" value={newCompany.website} onChange={(e) => editNewCompany({ website: e.target.value })} placeholder="acme.com" />

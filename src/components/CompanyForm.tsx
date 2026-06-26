@@ -6,7 +6,7 @@ import { Badge } from './Badge'
 import { Field, useToast } from './ui'
 import { createResource, updateResource, deleteResource, createUserApi } from '../lib/api'
 import { primaryAdminRoleForType, roleLabel } from '../lib/permissions'
-import { COMPANY_TYPE_LABEL, ORG_STATUS_TONE, ORG_STATUS_LABEL, ONBOARDING_STATUS_LABEL, INDUSTRY_OPTIONS } from '../lib/constants'
+import { COMPANY_TYPE_LABEL, ORG_STATUS_TONE, ORG_STATUS_LABEL, ONBOARDING_STATUS_LABEL, INDUSTRY_OPTIONS, COUNTRY_OPTIONS } from '../lib/constants'
 import { companyOptions, generateCompanyCode } from '../lib/options'
 import type { Company, CompanyType } from '../lib/types'
 
@@ -315,7 +315,18 @@ export function CompanyForm({
             </Field>
           )}
           <Field label="Country / Region">
-            <input className="input" value={form.country} onChange={(e) => set('country', e.target.value)} placeholder="Singapore" />
+            <select className="select" value={form.country} onChange={(e) => set('country', e.target.value)}>
+              <option value="">—</option>
+              {/* If a previously-saved row has a free-text country we no longer list
+                  (older data, typo, since-renamed country), surface it as a one-off
+                  option so the value isn't silently dropped when the row is edited. */}
+              {form.country && !(COUNTRY_OPTIONS as readonly string[]).includes(form.country) && (
+                <option value={form.country}>{form.country}</option>
+              )}
+              {COUNTRY_OPTIONS.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
           </Field>
           <Field label="Industry" hint="Optional">
             <select className="select" value={form.industry} onChange={(e) => set('industry', e.target.value)}>
