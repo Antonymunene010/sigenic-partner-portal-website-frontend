@@ -1,7 +1,6 @@
 import { uid, nowIso } from '../util/ids'
 import { INTERNAL_MANAGE } from '../../shared/permissions'
 import { RISK_TIER_LABEL } from '../../shared/calc'
-import { resilientFetch, withRetry } from '../integration/zendesk'
 import type { CalcAdditionalInfo, RiskResult } from '../../shared/types'
 
 /** A persisted outbox record — every send (real or mocked) is recorded for audit. */
@@ -33,58 +32,18 @@ interface EmailMessage {
   html?: string
 }
 
+type EmailMode = 'outbox' | 'smtp'
 let send: ((msg: EmailMessage) => Promise<void>) | null = null
-let mode = 'outbox'
+let mode: EmailMode = 'outbox'
 
 const FROM = process.env.EMAIL_FROM || 'Sigenic Partner Portal <no-reply@sigenic.com>'
 
-/** Split `"Display Name <addr@domain>"` into the {email, name} shape MailerSend expects. */
-function parseFrom(from: string): { email: string; name?: string } {
-  const m = from.match(/^(.+?)\s*<(.+)>$/)
-  if (m) return { email: m[2].trim(), name: m[1].trim() }
-  return { email: from.trim() }
-}
-
 /**
  * Initialise email transport. Priority:
- *  1. MAILERSEND_API_TOKEN set → use MailerSend HTTPS API (port 443). Required
- *     on PaaS like Render that block outbound SMTP ports (25/465/587). Reuses
- *     the shared resilientFetch + withRetry so a stalled provider can't hang
- *     the request handler and 429/5xx are retried with backoff.
- *  2. SMTP_HOST set → nodemailer over SMTP (local mailpit, Gmail relay, etc).
- *  3. Otherwise → outbox-only mode, every send is recorded but not delivered.
+ *  1. SMTP_HOST set → nodemailer over SMTP (local mailpit, Gmail relay, etc).
+ *  2. Otherwise → outbox-only mode, every send is recorded but not delivered.
  */
-export async function initEmail(): Promise<string> {
-  const mailerSendToken = process.env.MAILERSEND_API_TOKEN
-  if (mailerSendToken) {
-    const from = parseFrom(FROM)
-    send = ({ to, subject, text, html }) =>
-      withRetry(
-        () =>
-          resilientFetch(
-            'https://api.mailersend.com/v1/email',
-            {
-              method: 'POST',
-              headers: { Authorization: `Bearer ${mailerSendToken}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                from,
-                to: [{ email: to }],
-                subject,
-                text,
-                html: html || undefined,
-              }),
-            },
-            {
-              parseError: (payload, status) =>
-                payload?.message || payload?.errors?.[0]?.message || `MailerSend ${status}`,
-            },
-          ),
-        { label: 'mailersend' },
-      )
-    mode = 'mailersend-http'
-    console.log('[email] MailerSend HTTPS API ready (api.mailersend.com).')
-    return mode
-  }
+export async function initEmail(): Promise<EmailMode> {
   const host = process.env.SMTP_HOST
   if (!host) {
     console.warn('[email] SMTP_HOST unset — emails will be recorded to the outbox instead of sent.')
@@ -96,8 +55,10 @@ export async function initEmail(): Promise<string> {
       host,
       port: Number(process.env.SMTP_PORT || 1025),
       secure: process.env.SMTP_SECURE === 'true',
+      // Gmail app passwords are often pasted with spaces — strip to match the
+      // smtp-check probe so a credential that verifies offline also works here.
       auth: process.env.SMTP_USER
-        ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+        ? { user: process.env.SMTP_USER, pass: (process.env.SMTP_PASS || '').replace(/\s+/g, '') }
         : undefined,
     })
     send = ({ to, subject, text, html }) =>
@@ -110,7 +71,7 @@ export async function initEmail(): Promise<string> {
   return mode
 }
 
-export function emailMode(): string {
+export function emailMode(): EmailMode {
   return mode
 }
 

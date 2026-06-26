@@ -33,9 +33,8 @@ services:
       SEED_DEFAULT_PASSWORD: ${SEED_DEFAULT_PASSWORD:?set a strong password in .env}
       # Base URL embedded in invite / password-reset links.
       APP_BASE_URL: ${APP_BASE_URL:?set to the public https URL}
-      # Real SMTP (e.g. Gmail: smtp.gmail.com:465 + app password). MailerSend is
-      # intentionally not wired here so the SMTP branch always wins on the VPS.
-      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      # Real SMTP (e.g. Gmail: smtp.gmail.com:465 + app password). Blank → outbox-only.
+      SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-465}
       SMTP_SECURE: ${SMTP_SECURE:-true}
       SMTP_USER: ${SMTP_USER:-}
