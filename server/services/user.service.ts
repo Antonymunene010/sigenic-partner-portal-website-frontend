@@ -81,32 +81,34 @@ export async function createUser(store: Store, auth: AuthPayload, user: any, pas
   await audit(store, auth, 'user', created.id, 'create', null, { email: created.email, role: created.role })
   // Notify the new user (invite link), the inviter (dedicated receipt) and the
   // rest of the internal admin pool (skipping the inviter so they don't get the
-  // generic fan-out *and* the receipt). All best-effort — a failed send must
-  // not fail creation, the user can self-serve a reset.
-  try {
-    // Single-use set-password link so the user activates their OWN account —
-    // no shared/default password ever leaves the server.
-    const account = await sendInviteLink(store, created.id, origin)
-    await Promise.all([
-      sendEmail(store, {
-        to: auth.email,
-        ...inviteSentReceiptEmail({
-          inviterName: auth.name,
-          inviteeName: created.fullName,
-          inviteeEmail: created.email,
-          inviteeRole: roleLabel(created.role as Role),
-          companyName: account.companyName,
-        }),
-      }).catch(() => {}),
-      notifyInternalAdmins(
-        store,
-        userMutationAdminEmail({ action: 'created', fullName: created.fullName, email: created.email, role: created.role, companyName: account.companyName, actor: auth.name }),
-        { excludeUserId: auth.sub },
-      ),
-    ])
-  } catch {
-    /* notification emails are best-effort */
-  }
+  // generic fan-out *and* the receipt). All best-effort and explicitly NOT
+  // awaited — a stalled SMTP relay would otherwise freeze the create response
+  // long after the user row is committed. Errors are caught inline so a wedged
+  // send can't surface as an unhandled rejection.
+  void (async () => {
+    try {
+      const account = await sendInviteLink(store, created.id, origin)
+      await Promise.all([
+        sendEmail(store, {
+          to: auth.email,
+          ...inviteSentReceiptEmail({
+            inviterName: auth.name,
+            inviteeName: created.fullName,
+            inviteeEmail: created.email,
+            inviteeRole: roleLabel(created.role as Role),
+            companyName: account.companyName,
+          }),
+        }).catch(() => {}),
+        notifyInternalAdmins(
+          store,
+          userMutationAdminEmail({ action: 'created', fullName: created.fullName, email: created.email, role: created.role, companyName: account.companyName, actor: auth.name }),
+          { excludeUserId: auth.sub },
+        ).catch(() => {}),
+      ])
+    } catch {
+      /* notification emails are best-effort */
+    }
+  })()
   // Lifecycle bump: a freshly invited admin moves the company from not_started →
   // invited; a freshly added non-admin in an already-live-ish company → live.
   await recomputeOnboardingStatus(store, targetCompany)
@@ -139,11 +141,10 @@ export async function resendInvite(store: Store, auth: AuthPayload, id: string, 
   if (!canManageUser(auth, target.companyId, target.role)) throw forbidden()
   if (target.status !== 'invited') throw badRequest('This user has already activated their account — use Reset password instead.')
   // Reuse the row we just loaded for the gates — sendInviteLink would otherwise
-  // re-query the same user+company.
-  const account = await sendInviteLink(store, id, origin, target)
-  // Best-effort receipt email runs in parallel with the audit insert: audit ordering
-  // isn't gated on the email, and SMTP latency shouldn't bottleneck the response.
-  await Promise.all([
+  // re-query the same user+company. sendInviteLink is best-effort by contract
+  // and explicitly NOT awaited so a stalled SMTP send can't freeze the resend
+  // response — the user just wants to know we kicked the email off.
+  void sendInviteLink(store, id, origin, target).then((account) =>
     sendEmail(store, {
       to: auth.email,
       ...inviteSentReceiptEmail({
@@ -154,8 +155,8 @@ export async function resendInvite(store: Store, auth: AuthPayload, id: string, 
         companyName: account.companyName,
       }),
     }).catch(() => {}),
-    audit(store, auth, 'user', id, 'resend_invite', null, null),
-  ])
+  ).catch(() => {})
+  await audit(store, auth, 'user', id, 'resend_invite', null, null)
 }
 
 /**
@@ -188,11 +189,17 @@ export async function deleteUser(store: Store, auth: AuthPayload, id: string): P
   if (!canManageUser(auth, target.companyId, target.role)) throw forbidden('You cannot delete that user.')
   const ok = await store.remove('users', id)
   await audit(store, auth, 'user', id, 'delete', { email: target.email, role: target.role }, null)
-  // Notify the removed user, then the internal admins (best-effort, per client request).
-  await sendEmail(store, { to: target.email, ...accountRemovedEmail({ fullName: target.fullName, companyName: target.companyName }) }).catch(() => {})
-  await notifyInternalAdmins(
-    store,
-    userMutationAdminEmail({ action: 'deleted', fullName: target.fullName, email: target.email, role: target.role, companyName: target.companyName, actor: auth.name }),
-  )
+  // Notifications are best-effort and explicitly NOT awaited: a stalled SMTP
+  // send (slow relay, blocked egress port) would otherwise freeze the HTTP
+  // response — the user has already been deleted, the caller shouldn't wait
+  // on an email handshake to learn that. Each branch catches its own errors
+  // so the dangling promise can't surface as an unhandled rejection.
+  void Promise.all([
+    sendEmail(store, { to: target.email, ...accountRemovedEmail({ fullName: target.fullName, companyName: target.companyName }) }).catch(() => {}),
+    notifyInternalAdmins(
+      store,
+      userMutationAdminEmail({ action: 'deleted', fullName: target.fullName, email: target.email, role: target.role, companyName: target.companyName, actor: auth.name }),
+    ).catch(() => {}),
+  ])
   return { ok }
 }

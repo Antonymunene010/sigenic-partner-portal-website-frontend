@@ -60,6 +60,15 @@ export async function initEmail(): Promise<EmailMode> {
       auth: process.env.SMTP_USER
         ? { user: process.env.SMTP_USER, pass: (process.env.SMTP_PASS || '').replace(/\s+/g, '') }
         : undefined,
+      // Hostinger's outbound SMTP path has been observed hanging for tens of
+      // seconds when the relay doesn't respond. nodemailer's defaults are very
+      // generous (~10min greeting timeout), which would freeze the request
+      // handler that triggered the send. Cap the three phases tightly so a
+      // wedged relay surfaces as a failed send within a few seconds, not a
+      // wedged HTTP response.
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 15_000,
     })
     send = ({ to, subject, text, html }) =>
       transporter.sendMail({ from: FROM, to, subject, text, html: html || undefined })

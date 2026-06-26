@@ -154,6 +154,7 @@ test('user.createUser — emails a single-use invite link to the new user + a re
     appendEmail: mock.fn(async (rec: any) => { emails.push(rec) }),
   } as unknown as Store
   await createUser(store, admin, { email: 'new@x', fullName: 'New User', role: 'customer_user', companyId: 'co-c' })
+  await new Promise((resolve) => setImmediate(resolve)) // flush the fire-and-forget sends
   // The invitee gets the set-password link …
   const invite = emails.find((e) => e.to === 'new@x')
   assert.ok(invite, 'invitee receives the set-password link')
@@ -331,6 +332,7 @@ test('user.createUser — emails the active internal admins that a new user join
     appendEmail: mock.fn(async (rec: any) => { emails.push(rec) }),
   } as unknown as Store
   await createUser(store, admin, { email: 'new@x', fullName: 'New User', role: 'customer_user', companyId: 'co-c' })
+  await new Promise((resolve) => setImmediate(resolve)) // flush the fire-and-forget sends
   const adminMails = emails.filter((e) => /^Portal user created/.test(e.subject))
   assert.deepEqual(adminMails.map((e) => e.to).sort(), ['boss@sigenic.com', 'mgr@sigenic.com'])
 })
@@ -347,6 +349,7 @@ test('user.deleteUser — removes the row and emails the user + internal admins'
   const res = await deleteUser(store, superAdmin, 'u-del')
   assert.equal(res.ok, true)
   assert.equal((store.remove as any).mock.callCount(), 1)
+  await new Promise((resolve) => setImmediate(resolve)) // flush the fire-and-forget sends
   assert.ok(emails.some((e) => e.to === 'gone@x' && /access has been removed/i.test(e.subject))) // removed user
   assert.ok(emails.some((e) => e.to === 'boss@sigenic.com' && /^Portal user deleted/.test(e.subject))) // internal admin
 })

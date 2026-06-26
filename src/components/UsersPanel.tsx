@@ -146,6 +146,9 @@ export function UsersPanel({
       const success = await action()
       if (success !== false) toast.push(success)
     } catch (e) {
+      // Log the raw error so production issues are diagnosable from devtools even
+      // when the surfaced toast only carries the human-readable summary.
+      console.error('[UsersPanel] row action failed:', e)
       toast.push(e instanceof Error ? e.message : fallbackError, 'error')
     } finally {
       setBusyId(null)
@@ -181,7 +184,10 @@ export function UsersPanel({
     runRowAction(u, 'Could not delete user.', async () => {
       if (!window.confirm(`Permanently delete ${u.fullName}? This removes their account and portal access. Past records are kept but no longer attributed to them. This cannot be undone.`)) return false
       await deleteUserApi(u.id)
-      await refresh()
+      // Refresh is a UX touch — if hydrate hiccups we still want the success toast
+      // and the row to clear from the list on the next natural refresh, rather than
+      // silently swallowing the confirmation.
+      await refresh().catch(() => {})
       return `${u.fullName} deleted.`
     })
 
