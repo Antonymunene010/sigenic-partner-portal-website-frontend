@@ -153,6 +153,23 @@ export function createStore() {
     return insert('users', payload)
   }
 
+  /**
+   * Partner/customer companies a self-registering user may pick from, trimmed to the
+   * non-sensitive {id, companyName, companyType} the public sign-up form needs.
+   * Excludes Sigenic internal orgs (external users don't join Sigenic) and any
+   * suspended/inactive/archived company (you can only request to join a live or
+   * being-onboarded one).
+   */
+  async function listCompanyChoices(): Promise<{ id: string; companyName: string; companyType: string }[]> {
+    const res = await query(
+      `SELECT id, company_name, company_type FROM companies
+       WHERE company_type IN ('distributor','customer')
+         AND status IN ('active','pending_invite')
+       ORDER BY company_name ASC`,
+    )
+    return res.rows.map((r) => ({ id: r.id, companyName: r.company_name, companyType: r.company_type }))
+  }
+
   /* ----- scoring resolution ----- */
 
   async function getActiveScoringModel(): Promise<any> {
@@ -357,6 +374,7 @@ export function createStore() {
     setLastLogin,
     setPassword,
     createUser,
+    listCompanyChoices,
     // scoring
     getActiveScoringModel,
     getIssuesForModel,

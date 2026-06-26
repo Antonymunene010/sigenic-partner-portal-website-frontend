@@ -1,4 +1,4 @@
-import { isInternal, submissionVisibility, audienceMatches, can } from '../../shared/permissions'
+import { isInternal, submissionVisibility, audienceMatches, can, canSeePendingSignup } from '../../shared/permissions'
 import type { Store } from '../db/store'
 import type { AuthPayload } from '../infra/auth'
 import type { HydrateBundle } from '../../shared/types'
@@ -73,6 +73,16 @@ export async function hydrate(store: Store, auth: AuthPayload): Promise<HydrateB
     can(me, 'view_audit_logs') ? store.list('audit_logs', { order: 'created_at DESC' }) : Promise.resolve([]),
   ])
 
+  // Pending/rejected sign-ups are only visible to whoever can review them (internal
+  // staff, or the user's own company admin) — they must not surface in a plain
+  // member's team roster. Active/invited/inactive users pass through untouched.
+  // Internal users see every user already; skip the per-row filter on that path.
+  const visibleUsers = internal
+    ? users
+    : users.filter((u: any) =>
+        (u.status !== 'pending' && u.status !== 'rejected') || canSeePendingSignup(me, u.companyId),
+      )
+
   const companies = internal ? companiesAll ?? [] : company ? [company] : []
   const activeModel = (internal ? scoringModels.find((m: any) => m.status === 'active') : scoringModels[0]) ?? null
   // Non-internal users only see the active model's issue catalog.
@@ -96,7 +106,7 @@ export async function hydrate(store: Store, auth: AuthPayload): Promise<HydrateB
     company,
     companies,
     sites,
-    users,
+    users: visibleUsers,
     departments,
     processes,
     machines,

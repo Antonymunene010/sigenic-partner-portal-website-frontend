@@ -40,6 +40,11 @@ export type Capability =
   | 'view_calculator_runs'
   | 'view_calculator_history'
   | 'manage_billing'
+  // Self-service sign-up review (client feedback 2026-06): gates the cross-company
+  // "Sign-up requests" admin page. Set to internal-oversight so support engineers
+  // can browse the queue read-only; per-row Approve/Reject still goes through
+  // canApproveSignup (= canManageUser), which denies anyone without scope to act.
+  | 'view_pending_signups'
 
 export const ROLES: Role[] = [
   'super_admin',
@@ -116,6 +121,7 @@ const CAPABILITIES: Record<Capability, Role[]> = {
   // "Calculator leads" view (view_calculator_runs) instead.
   view_calculator_history: EXTERNAL,
   manage_billing: INTERNAL_MANAGE,
+  view_pending_signups: INTERNAL_OVERSIGHT,
 }
 
 export function isInternal(user: Pick<User, 'role'> | null | undefined): boolean {
@@ -209,6 +215,19 @@ export function primaryAdminRoleForType(type: CompanyType): Role {
   }
 }
 
+/** The plain-user (non-admin) role for a partner/customer company type. */
+export function plainUserRoleForType(type: CompanyType): Role {
+  switch (type) {
+    case 'distributor':
+      return 'distributor_user'
+    case 'customer':
+      return 'customer_user'
+    // Sigenic doesn't have a "plain user" tier — support_engineer is the closest read-only role.
+    case 'sigenic':
+      return 'support_engineer'
+  }
+}
+
 /** Can `actor` create/modify a target user with the intended role/company? */
 export function canManageUser(
   actor: Pick<User, 'role' | 'companyId'> | null | undefined,
@@ -224,6 +243,39 @@ export function canManageUser(
   if (!isCompanyAdmin(actor)) return false
   if (targetCompanyId && targetCompanyId !== actor.companyId) return false
   return assignableRoles(actor).includes(targetRole)
+}
+
+/**
+ * Self-service sign-up approval (client feedback 2026-06). A pending registrant is
+ * approved by whoever could have created them in the first place, so the gate is
+ * just canManageUser against the role they'll be granted — no separate capability:
+ *  - joining an existing company → their company's admin (or any internal admin);
+ *  - a brand-new company / a company with no admin yet → only Sigenic super_admin/
+ *    admin, because canManageUser denies an external admin a company that isn't theirs
+ *    (and a new-company registrant is the sole member of a pending_invite company, so
+ *    no external admin scopes to it). super_admin retains the final override.
+ */
+export function canApproveSignup(
+  approver: Pick<User, 'role' | 'companyId'> | null | undefined,
+  targetCompanyId: string | null | undefined,
+  grantedRole: Role,
+): boolean {
+  return canManageUser(approver, targetCompanyId, grantedRole)
+}
+
+/**
+ * Who may SEE a pending sign-up in their roster (a superset of who may approve it —
+ * support engineers get read-only oversight but can't act). Internal staff see every
+ * pending registrant (including new-company requests, whose only "company admin" is
+ * the registrant themselves); an external company admin sees their own company's.
+ */
+export function canSeePendingSignup(
+  viewer: Pick<User, 'role' | 'companyId'> | null | undefined,
+  pendingCompanyId: string | null | undefined,
+): boolean {
+  if (!viewer) return false
+  if (isInternal(viewer)) return true
+  return isCompanyAdmin(viewer) && Boolean(pendingCompanyId) && pendingCompanyId === viewer.companyId
 }
 
 /** Audience filter for announcements / knowledge by user type. */

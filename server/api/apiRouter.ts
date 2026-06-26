@@ -8,6 +8,7 @@ import * as calculatorService from '../services/calculator.service'
 import * as requestService from '../services/serviceRequest.service'
 import * as announcementService from '../services/announcement.service'
 import * as userService from '../services/user.service'
+import * as signupService from '../services/signup.service'
 import * as adminService from '../services/admin.service'
 import * as knowledgeService from '../services/knowledge.service'
 import * as attachmentService from '../services/attachment.service'
@@ -83,6 +84,20 @@ export function apiRouter(store: Store): Router {
   r.post('/users/:id/reset-password', async (req, res) => {
     await userService.resetUserPassword(store, req.auth!, req.params.id, req.headers.origin as string | undefined)
     res.json({ ok: true })
+  })
+  // Self-service sign-up review (client feedback 2026-06). Approve flips the pending
+  // user to `invited` and emails them the set-password link (the normal invite path);
+  // reject flips them to `rejected`. Both re-check approval scope in the service.
+  r.post('/users/:id/approve', async (req, res) => {
+    res.json({
+      user: await signupService.approveSignup(store, req.auth!, req.params.id, {
+        role: req.body?.role,
+        origin: req.headers.origin as string | undefined,
+      }),
+    })
+  })
+  r.post('/users/:id/reject', async (req, res) => {
+    res.json(await signupService.rejectSignup(store, req.auth!, req.params.id, req.body?.reason))
   })
   r.patch('/users/:id', async (req, res) => {
     res.json({ user: await userService.updateUser(store, req.auth!, req.params.id, req.body ?? {}) })

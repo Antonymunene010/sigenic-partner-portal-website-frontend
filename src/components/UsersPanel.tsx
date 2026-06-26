@@ -1,15 +1,15 @@
 import { useState } from 'react'
-import { KeyRound, Plus, Power, Trash2 } from 'lucide-react'
+import { Check, KeyRound, Plus, Power, Trash2, X } from 'lucide-react'
 import { useAuth } from '../lib/auth'
-import { createUserApi, deleteUserApi, resetPasswordApi, updateUserApi } from '../lib/api'
-import { roleLabel } from '../lib/permissions'
+import { approveUserApi, createUserApi, deleteUserApi, rejectUserApi, resetPasswordApi, updateUserApi } from '../lib/api'
+import { canApproveSignup, roleLabel } from '../lib/permissions'
 import { PageHeader } from './PageHeader'
 import { DataTable, type Column } from './DataTable'
 import { Badge } from './Badge'
 import { Modal } from './Modal'
 import { Avatar } from './Avatar'
 import { Field, EmptyState, useToast } from './ui'
-import { USER_STATUS_TONE } from '../lib/constants'
+import { USER_STATUS_LABEL, USER_STATUS_TONE } from '../lib/constants'
 import type { Role, User, UserType } from '../lib/types'
 
 /**
@@ -23,7 +23,7 @@ export function UsersPanel({
   title,
   description,
   users,
-  roleChoices,
+  roleChoices = [],
   canManage,
   refresh,
   companyId,
@@ -37,7 +37,8 @@ export function UsersPanel({
   title: string
   description: string
   users: User[]
-  roleChoices: Role[]
+  /** Roles offered in the invite modal. Only used when canManage is true. */
+  roleChoices?: Role[]
   canManage: boolean
   refresh: () => Promise<void>
   companyId?: string | null
@@ -81,47 +82,68 @@ export function UsersPanel({
     }
   }
 
-  const toggleStatus = async (u: User) => {
-    const next = u.status === 'active' ? 'inactive' : 'active'
+  /**
+   * Run a row action with consistent busy/error/toast handling, skipping the busy
+   * spin when the action returns false (e.g. a window.confirm the user cancelled).
+   * The action does its own refresh when it needs to — toggleStatus refreshes, the
+   * password-reset doesn't, etc.
+   */
+  const runRowAction = async (
+    u: User,
+    fallbackError: string,
+    action: () => Promise<string | false>,
+  ) => {
     setBusyId(u.id)
     try {
+      const success = await action()
+      if (success !== false) toast.push(success)
+    } catch (e) {
+      toast.push(e instanceof Error ? e.message : fallbackError, 'error')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const toggleStatus = (u: User) =>
+    runRowAction(u, 'Could not update status.', async () => {
+      const next = u.status === 'active' ? 'inactive' : 'active'
       // touch: false → keep the row in place under the default update-time sort after a toggle.
       await updateUserApi(u.id, { status: next }, { touch: false })
       await refresh()
-      toast.push(`${u.fullName} set to ${next}.`)
-    } catch (e) {
-      toast.push(e instanceof Error ? e.message : 'Could not update status.', 'error')
-    } finally {
-      setBusyId(null)
-    }
-  }
+      return `${u.fullName} set to ${next}.`
+    })
 
-  const resetPassword = async (u: User) => {
-    if (!window.confirm(`Email ${u.fullName} a single-use link to set a new password?`)) return
-    setBusyId(u.id)
-    try {
+  const resetPassword = (u: User) =>
+    runRowAction(u, 'Could not send reset link.', async () => {
+      if (!window.confirm(`Email ${u.fullName} a single-use link to set a new password?`)) return false
       await resetPasswordApi(u.id)
-      toast.push(`Reset link sent to ${u.email}.`)
-    } catch (e) {
-      toast.push(e instanceof Error ? e.message : 'Could not send reset link.', 'error')
-    } finally {
-      setBusyId(null)
-    }
-  }
+      return `Reset link sent to ${u.email}.`
+    })
 
-  const removeUser = async (u: User) => {
-    if (!window.confirm(`Permanently delete ${u.fullName}? This removes their account and portal access. Past records are kept but no longer attributed to them. This cannot be undone.`)) return
-    setBusyId(u.id)
-    try {
+  const removeUser = (u: User) =>
+    runRowAction(u, 'Could not delete user.', async () => {
+      if (!window.confirm(`Permanently delete ${u.fullName}? This removes their account and portal access. Past records are kept but no longer attributed to them. This cannot be undone.`)) return false
       await deleteUserApi(u.id)
       await refresh()
-      toast.push(`${u.fullName} deleted.`)
-    } catch (e) {
-      toast.push(e instanceof Error ? e.message : 'Could not delete user.', 'error')
-    } finally {
-      setBusyId(null)
-    }
-  }
+      return `${u.fullName} deleted.`
+    })
+
+  const approveSignup = (u: User) =>
+    runRowAction(u, 'Could not approve sign-up.', async () => {
+      if (!window.confirm(`Approve ${u.fullName}'s sign-up as ${roleLabel(u.role)}? They'll receive an email link to set their password.`)) return false
+      await approveUserApi(u.id)
+      await refresh()
+      return `${u.fullName} approved — set-password link sent.`
+    })
+
+  const rejectSignup = (u: User) =>
+    runRowAction(u, 'Could not reject sign-up.', async () => {
+      const reason = window.prompt(`Reject ${u.fullName}'s sign-up? Optionally enter a reason (sent to them).`, '')
+      if (reason === null) return false
+      await rejectUserApi(u.id, { reason: reason || undefined })
+      await refresh()
+      return `${u.fullName}'s sign-up rejected.`
+    })
 
   const columns: Column<User>[] = [
     {
@@ -137,29 +159,59 @@ export function UsersPanel({
     },
     { key: 'email', header: 'Email', render: (u) => <span className="text-muted dark:text-muted-dark">{u.email}</span> },
     { key: 'role', header: 'Role', render: (u) => roleLabel(u.role) },
-    { key: 'status', header: 'Status', render: (u) => <Badge tone={USER_STATUS_TONE[u.status]} dot>{u.status}</Badge> },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (u) => (
+        <Badge tone={USER_STATUS_TONE[u.status]} dot>
+          {USER_STATUS_LABEL[u.status] ?? u.status}
+        </Badge>
+      ),
+    },
   ]
 
-  if (canManage) {
+  // Action column. We always render it whenever the viewer could either *manage*
+  // ordinary users or *approve* a pending sign-up they can see — pending rows show
+  // Approve/Reject, every other row shows the usual deactivate/reset/delete trio
+  // (gated on canManage). A row that yields nothing renders an empty cell.
+  const canShowActions =
+    canManage || users.some((u) => u.status === 'pending' && canApproveSignup(currentUser, u.companyId, u.role))
+  if (canShowActions) {
     columns.push({
       key: 'actions',
       header: '',
       className: 'text-right',
-      render: (u) => (
-        <div className="flex items-center justify-end gap-1">
-          <button className="btn-ghost text-xs" disabled={busyId === u.id} onClick={() => toggleStatus(u)}>
-            <Power size={13} /> {u.status === 'active' ? 'Deactivate' : 'Activate'}
-          </button>
-          <button className="btn-ghost text-xs" disabled={busyId === u.id} onClick={() => resetPassword(u)}>
-            <KeyRound size={13} /> Reset password
-          </button>
-          {u.id !== currentUser?.id && (
-            <button className="btn-ghost text-xs text-danger hover:text-danger" disabled={busyId === u.id} onClick={() => removeUser(u)}>
-              <Trash2 size={13} /> Delete
+      render: (u) => {
+        if (u.status === 'pending') {
+          if (!canApproveSignup(currentUser, u.companyId, u.role)) return null
+          return (
+            <div className="flex items-center justify-end gap-1">
+              <button className="btn-ghost text-xs text-success hover:text-success" disabled={busyId === u.id} onClick={() => approveSignup(u)}>
+                <Check size={13} /> Approve
+              </button>
+              <button className="btn-ghost text-xs text-danger hover:text-danger" disabled={busyId === u.id} onClick={() => rejectSignup(u)}>
+                <X size={13} /> Reject
+              </button>
+            </div>
+          )
+        }
+        if (!canManage) return null
+        return (
+          <div className="flex items-center justify-end gap-1">
+            <button className="btn-ghost text-xs" disabled={busyId === u.id} onClick={() => toggleStatus(u)}>
+              <Power size={13} /> {u.status === 'active' ? 'Deactivate' : 'Activate'}
             </button>
-          )}
-        </div>
-      ),
+            <button className="btn-ghost text-xs" disabled={busyId === u.id} onClick={() => resetPassword(u)}>
+              <KeyRound size={13} /> Reset password
+            </button>
+            {u.id !== currentUser?.id && (
+              <button className="btn-ghost text-xs text-danger hover:text-danger" disabled={busyId === u.id} onClick={() => removeUser(u)}>
+                <Trash2 size={13} /> Delete
+              </button>
+            )}
+          </div>
+        )
+      },
     })
   }
 

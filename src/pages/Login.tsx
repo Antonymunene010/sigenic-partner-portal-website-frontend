@@ -125,6 +125,12 @@ export default function Login() {
               <button className="btn-accent w-full" disabled={busy}>
                 {busy ? 'Signing in…' : 'Sign in'} <ArrowRight size={15} />
               </button>
+              <p className="text-xs text-muted dark:text-muted-dark text-center">
+                Don't have an account?{' '}
+                <Link to="/signup" className="font-medium text-emphasis hover:underline">
+                  Sign up
+                </Link>
+              </p>
             </form>
 
             <div className="mt-8 pt-5 border-t border-line dark:border-line-dark">

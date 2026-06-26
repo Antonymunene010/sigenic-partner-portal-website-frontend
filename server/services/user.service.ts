@@ -18,9 +18,26 @@ function inferUserType(role: Role): string {
 }
 
 /** Build the set/reset-password URL the user follows from their email. */
-function resetLink(token: string, origin?: string): string {
+export function resetLink(token: string, origin?: string): string {
   const base = (process.env.APP_BASE_URL || origin || 'http://localhost:5173').replace(/\/$/, '')
   return `${base}/reset-password?token=${encodeURIComponent(token)}`
+}
+
+/**
+ * Email a user the single-use invite link that lets them set their first password
+ * and activate their account. Shared by admin-created invites (createUser) and
+ * sign-up approvals (signup.service) so the token TTL and link shape stay identical.
+ * Best-effort: a failed send must not fail the caller (the user can self-serve a
+ * reset). Returns the account row (with companyName) for any follow-on use.
+ */
+export async function sendInviteLink(store: Store, userId: string, origin?: string): Promise<any> {
+  const account = await store.getUserAuthById(userId)
+  const token = signResetToken(account.id, account.passwordHash, INVITE_TTL_SECONDS)
+  await sendEmail(store, {
+    to: account.email,
+    ...inviteEmail({ fullName: account.fullName, role: account.role, companyName: account.companyName, link: resetLink(token, origin) }),
+  }).catch(() => {})
+  return account
 }
 
 /** Create a user, gated by canManageUser (company scope + assignable role). */
@@ -50,14 +67,9 @@ export async function createUser(store: Store, auth: AuthPayload, user: any, pas
   // Notify the new user (invite link) + internal admins (per client request).
   // Best-effort: a failed send must not fail creation (the user can self-serve).
   try {
-    const account = await store.getUserAuthById(created.id)
-    const token = signResetToken(account.id, account.passwordHash, INVITE_TTL_SECONDS)
     // Single-use set-password link so the user activates their OWN account —
     // no shared/default password ever leaves the server.
-    await sendEmail(store, {
-      to: created.email,
-      ...inviteEmail({ fullName: created.fullName, role: created.role, companyName: account.companyName, link: resetLink(token, origin) }),
-    }).catch(() => {})
+    const account = await sendInviteLink(store, created.id, origin)
     await notifyInternalAdmins(
       store,
       userMutationAdminEmail({ action: 'created', fullName: created.fullName, email: created.email, role: created.role, companyName: account.companyName, actor: auth.name }),

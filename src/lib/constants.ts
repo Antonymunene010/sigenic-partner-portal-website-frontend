@@ -174,6 +174,19 @@ export const USER_STATUS_TONE: Record<string, Tone> = {
   active: 'success',
   invited: 'warn',
   inactive: 'neutral',
+  // Self-service sign-up states (client feedback 2026-06).
+  pending: 'warn',
+  rejected: 'danger',
+}
+
+// Friendly labels for the user lifecycle — the raw status value is fine for the
+// active/invited/inactive set, but the sign-up states read better spelled out.
+export const USER_STATUS_LABEL: Record<string, string> = {
+  active: 'Active',
+  invited: 'Invited',
+  inactive: 'Inactive',
+  pending: 'Pending approval',
+  rejected: 'Rejected',
 }
 
 /** Tone for a boolean active/enabled flag. */

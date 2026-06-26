@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
-  LayoutDashboard, Calculator, BookOpen, Inbox, Building2, Users, CreditCard,
+  LayoutDashboard, Calculator, BookOpen, Inbox, Building2, Users, UserPlus, CreditCard,
   SlidersHorizontal, ListChecks, Megaphone, ScrollText, BarChart3,
   Sparkles, ChevronDown, LogOut, UserCircle, Menu, X, ExternalLink, CalendarClock, Flame, History,
 } from 'lucide-react'
@@ -41,6 +41,7 @@ const ADMIN_NAV: NavItem[] = [
   { to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/app/admin/companies', label: 'Partners', icon: Building2, cap: 'view_all_companies' },
   { to: '/app/admin/users', label: 'Internal Users', icon: Users, cap: 'manage_internal_users' },
+  { to: '/app/admin/signups', label: 'Sign-up Requests', icon: UserPlus, cap: 'view_pending_signups' },
   { to: '/app/admin/calculator-config', label: 'Calculator Config', icon: SlidersHorizontal, cap: 'manage_scoring' },
   { to: '/app/admin/calculator-runs', label: 'Calculator Leads', icon: Flame, cap: 'view_calculator_runs' },
   { to: '/app/admin/request-config', label: 'Request Config', icon: ListChecks, cap: 'manage_request_config' },

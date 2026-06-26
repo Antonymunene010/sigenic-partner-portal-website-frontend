@@ -9,6 +9,7 @@ import { AppLayout } from './components/AppLayout'
 import { ErrorBoundary } from './components/ErrorBoundary'
 
 import Login from './pages/Login'
+import Signup from './pages/Signup'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import PublicStories from './pages/PublicStories'
@@ -32,6 +33,7 @@ import Account from './pages/Account'
 
 import AdminCompanies from './pages/admin/AdminCompanies'
 import AdminInternalUsers from './pages/admin/AdminInternalUsers'
+import AdminSignups from './pages/admin/AdminSignups'
 import AdminCalculatorConfig from './pages/admin/AdminCalculatorConfig'
 import AdminCalculatorRuns from './pages/admin/AdminCalculatorRuns'
 import AdminRequestConfig from './pages/admin/AdminRequestConfig'
@@ -62,6 +64,7 @@ export default function App() {
                 </Route>
 
                 <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
 
@@ -92,6 +95,10 @@ export default function App() {
                   {/* Internal admin */}
                   <Route path="admin/companies" element={<ProtectedRoute internal cap="view_all_companies"><AdminCompanies /></ProtectedRoute>} />
                   <Route path="admin/users" element={<ProtectedRoute internal cap="manage_internal_users"><AdminInternalUsers /></ProtectedRoute>} />
+                  {/* Self-service sign-up review (client feedback 2026-06). Visible to any
+                      internal staff (oversight); the per-row Approve/Reject actions still
+                      check canApproveSignup, so support_engineer reads but can't act. */}
+                  <Route path="admin/signups" element={<ProtectedRoute internal cap="view_pending_signups"><AdminSignups /></ProtectedRoute>} />
                   <Route path="admin/calculator-config" element={<ProtectedRoute internal cap="manage_scoring"><AdminCalculatorConfig /></ProtectedRoute>} />
                   <Route path="admin/calculator-runs" element={<ProtectedRoute internal cap="view_calculator_runs"><AdminCalculatorRuns /></ProtectedRoute>} />
                   <Route path="admin/request-config" element={<ProtectedRoute internal cap="manage_request_config"><AdminRequestConfig /></ProtectedRoute>} />

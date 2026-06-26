@@ -3,6 +3,7 @@ import { zendeskEnabled } from '../integration/zendesk'
 import { notionEnabled, getNotionImageUrl } from '../integration/notion'
 import { emailMode } from '../infra/email'
 import * as authService from '../services/auth.service'
+import * as signupService from '../services/signup.service'
 import * as requestService from '../services/serviceRequest.service'
 import * as publicService from '../services/public.service'
 import * as attachmentService from '../services/attachment.service'
@@ -63,6 +64,14 @@ export function publicRouter(store: Store): Router {
     const { token, password } = req.body ?? {}
     await authService.resetPasswordWithToken(store, token, password)
     res.json({ ok: true })
+  })
+  // Self-service sign-up (client feedback 2026-06): list the companies a registrant
+  // can join, then accept a registration into the `pending` queue for admin approval.
+  r.get('/auth/companies', async (_req, res) => {
+    res.json(await signupService.signupCompanyChoices(store))
+  })
+  r.post('/auth/signup', async (req, res) => {
+    res.status(201).json(await signupService.signup(store, req.body ?? {}))
   })
   r.post('/public/requests', async (req, res) => {
     res.status(201).json({ item: await requestService.createPublicLead(store, req.body?.request) })

@@ -104,6 +104,38 @@ export async function requestPasswordReset(email: string): Promise<void> {
 export async function resetPassword(token: string, newPassword: string): Promise<void> {
   await request('/api/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password: newPassword }) })
 }
+
+/* ---------- self-service sign-up (public) ---------- */
+export interface SignupCompanyChoice {
+  id: string
+  companyName: string
+  companyType: 'distributor' | 'customer'
+}
+export function getSignupCompanies(): Promise<{ companies: SignupCompanyChoice[] }> {
+  return request('/api/auth/companies')
+}
+export interface SignupPayload {
+  fullName: string
+  email: string
+  companyId?: string
+  newCompany?: {
+    companyName: string
+    companyType: 'distributor' | 'customer'
+    country?: string
+    website?: string
+  }
+}
+export async function signup(payload: SignupPayload): Promise<{ ok: true }> {
+  return request('/api/auth/signup', { method: 'POST', body: JSON.stringify(payload) })
+}
+
+export function approveUserApi(id: string, opts: { role?: string } = {}): Promise<{ user: User }> {
+  return request(`/api/users/${encodeURIComponent(id)}/approve`, { method: 'POST', body: JSON.stringify(opts) })
+}
+export function rejectUserApi(id: string, opts: { reason?: string } = {}): Promise<{ ok: true }> {
+  return request(`/api/users/${encodeURIComponent(id)}/reject`, { method: 'POST', body: JSON.stringify(opts) })
+}
+
 export function hydrate(): Promise<HydrateBundle> {
   return request<HydrateBundle>('/api/hydrate')
 }

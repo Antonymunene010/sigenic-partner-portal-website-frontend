@@ -21,7 +21,11 @@ export type Role =
   | 'customer_admin'
   | 'customer_user'
 export type UserType = 'internal' | 'distributor' | 'customer'
-export type UserStatus = 'active' | 'inactive' | 'invited'
+// User lifecycle. `invited`: an admin created the account, awaiting first password.
+// `pending`/`rejected` (client feedback 2026-06): self-service sign-up — a user
+// registers themselves into pending, an admin approves (→ invited, which emails the
+// set-password link) or rejects (→ rejected, kept for the record).
+export type UserStatus = 'active' | 'inactive' | 'invited' | 'pending' | 'rejected'
 
 /** Detection capability for a risk issue → fixed score (see detection_options). */
 export type DetectionKey = 'unable' | 'partial' | 'system'

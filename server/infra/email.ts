@@ -312,6 +312,24 @@ export async function notifyInternalAdmins(
   await Promise.all(admins.map((a) => sendEmail(store, { to: a.email, ...message }).catch(() => {})))
 }
 
+/**
+ * Fan out one message to a company's own admins (distributor_admin / customer_admin)
+ * who can act on it — active accounts only. Used to alert a company's admins that one
+ * of their users has self-registered and is awaiting their approval. Best-effort per
+ * recipient, mirroring notifyInternalAdmins.
+ */
+export async function notifyCompanyAdmins(
+  store: AdminFanoutStore,
+  companyId: string,
+  message: { subject: string; text: string },
+): Promise<void> {
+  const admins = await store.list('users', {
+    where: "company_id = $1 AND role IN ('distributor_admin','customer_admin') AND status = 'active'",
+    params: [companyId],
+  })
+  await Promise.all(admins.map((a) => sendEmail(store, { to: a.email, ...message }).catch(() => {})))
+}
+
 /** "New calculator submission" notification — sent to internal admins on Submit and Send Email. */
 export function calculatorLeadEmail(params: {
   runId: string
@@ -385,6 +403,75 @@ export function accountRemovedEmail(params: { fullName: string; companyName?: st
       `Your account on the Sigenic Partner Portal${params.companyName ? ` (${params.companyName})` : ''} has been removed, and you no longer have access.`,
       '',
       'If you believe this was a mistake, please contact your administrator.',
+      '',
+      '— Sigenic Partner Portal',
+    ].join('\n'),
+  }
+}
+
+/* ----- self-service sign-up (client feedback 2026-06) ----- */
+
+/** Receipt sent to a self-registered user confirming their request is awaiting approval. */
+export function signupReceiptEmail(params: { fullName: string; companyName?: string | null; newCompany?: boolean }): { subject: string; text: string } {
+  return {
+    subject: 'We received your Sigenic Partner Portal sign-up',
+    text: [
+      `Hi ${params.fullName},`,
+      '',
+      `Thanks for signing up for the Sigenic Partner Portal${params.companyName ? ` (${params.companyName})` : ''}.`,
+      'Your request has been received and is now awaiting approval.',
+      '',
+      params.newCompany
+        ? 'Because this is a new company, the Sigenic team will review and approve it.'
+        : 'A company administrator (or the Sigenic team) will review your request.',
+      'Once approved, you will receive a separate email with a link to set your password and sign in.',
+      '',
+      'No action is needed from you right now.',
+      '',
+      '— Sigenic Partner Portal',
+    ].join('\n'),
+  }
+}
+
+/**
+ * Notify an approver that a new sign-up is awaiting review. Sent to the company's
+ * own admins for an existing-company request, or to internal admins for a
+ * new-company request (whoever is responsible for approving it).
+ */
+export function signupPendingAdminEmail(params: {
+  fullName: string
+  email: string
+  companyName?: string | null
+  newCompany?: boolean
+}): { subject: string; text: string } {
+  return {
+    subject: `Sign-up awaiting approval: ${params.fullName}`,
+    text: [
+      'A new user has requested access to the Sigenic Partner Portal and is awaiting approval.',
+      '',
+      `Name:  ${params.fullName}`,
+      `Email: ${params.email}`,
+      ...(params.companyName ? [`Company: ${params.companyName}${params.newCompany ? ' (new company request)' : ''}`] : []),
+      '',
+      'Review and approve or reject this request from User management in the portal.',
+      '',
+      '— Sigenic Partner Portal',
+    ].join('\n'),
+  }
+}
+
+/** Sent to a self-registered user whose sign-up was declined. */
+export function signupRejectedEmail(params: { fullName: string; companyName?: string | null; reason?: string | null }): { subject: string; text: string } {
+  return {
+    subject: 'Your Sigenic Partner Portal sign-up was not approved',
+    text: [
+      `Hi ${params.fullName},`,
+      '',
+      `Thank you for your interest in the Sigenic Partner Portal${params.companyName ? ` (${params.companyName})` : ''}.`,
+      'After review, your sign-up request was not approved at this time.',
+      ...(params.reason ? ['', `Reason: ${params.reason}`] : []),
+      '',
+      'If you believe this was a mistake, please contact your company administrator or the Sigenic team.',
       '',
       '— Sigenic Partner Portal',
     ].join('\n'),

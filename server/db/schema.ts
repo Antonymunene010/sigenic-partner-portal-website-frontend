@@ -82,11 +82,20 @@ CREATE TABLE IF NOT EXISTS users (
     'customer_admin','customer_user'
   )),
   avatar text,
-  status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive','invited')),
+  status text NOT NULL DEFAULT 'active'
+    CHECK (status IN ('active','inactive','invited','pending','rejected')),
   last_login_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Self-service sign-up adds two user states (client feedback 2026-06): 'pending'
+-- (registered, awaiting admin approval) and 'rejected' (approval declined, kept for
+-- the record). CREATE TABLE IF NOT EXISTS won't widen an existing CHECK, so drop and
+-- re-add it. Idempotent; no data remap needed — the old values stay valid.
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_status_check;
+ALTER TABLE users ADD CONSTRAINT users_status_check
+  CHECK (status IN ('active','inactive','invited','pending','rejected'));
 
 CREATE TABLE IF NOT EXISTS departments (
   id text PRIMARY KEY,
