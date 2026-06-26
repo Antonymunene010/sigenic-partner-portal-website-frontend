@@ -1,8 +1,8 @@
-import { useState } from 'react'
-import { Check, KeyRound, Plus, Power, Trash2, X } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Check, KeyRound, Mail, Plus, Power, Trash2, X } from 'lucide-react'
 import { useAuth } from '../lib/auth'
-import { approveUserApi, createUserApi, deleteUserApi, rejectUserApi, resetPasswordApi, updateUserApi } from '../lib/api'
-import { canApproveSignup, roleLabel } from '../lib/permissions'
+import { approveUserApi, createUserApi, deleteUserApi, rejectUserApi, resendInviteApi, resetPasswordApi, updateUserApi } from '../lib/api'
+import { canApproveSignup, primaryAdminRoleForType, plainUserRoleForType, roleLabel } from '../lib/permissions'
 import { PageHeader } from './PageHeader'
 import { DataTable, type Column } from './DataTable'
 import { Badge } from './Badge'
@@ -10,7 +10,7 @@ import { Modal } from './Modal'
 import { Avatar } from './Avatar'
 import { Field, EmptyState, useToast } from './ui'
 import { USER_STATUS_LABEL, USER_STATUS_TONE } from '../lib/constants'
-import type { Role, User, UserType } from '../lib/types'
+import type { Company, Role, User, UserType } from '../lib/types'
 
 /**
  * Shared user-roster panel for both the customer/distributor "Team" page and the
@@ -28,6 +28,7 @@ export function UsersPanel({
   refresh,
   companyId,
   userType,
+  companies,
   avatarVariant = 'ink',
   addLabel = 'Invite user',
   readonlyNote,
@@ -43,6 +44,13 @@ export function UsersPanel({
   refresh: () => Promise<void>
   companyId?: string | null
   userType?: UserType
+  /**
+   * When provided, the table shows a Company column and the invite modal lets the
+   * admin pick which company to invite the user into (the cross-company "All
+   * Company Users" view). When omitted, the panel operates against a single
+   * `companyId` like before.
+   */
+  companies?: Company[]
   avatarVariant?: 'ink' | 'accent' | 'faint'
   addLabel?: string
   readonlyNote?: string
@@ -56,22 +64,62 @@ export function UsersPanel({
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<Role | ''>(roleChoices[0] ?? '')
+  // Only used in the cross-company "All Company Users" mode (companies prop set).
+  const [pickedCompanyId, setPickedCompanyId] = useState<string>('')
+
+  // Sorted company picker options (cross-company mode only).
+  const companyOptions = useMemo(
+    () => (companies ? [...companies].sort((a, b) => a.companyName.localeCompare(b.companyName)) : []),
+    [companies],
+  )
+  const companyById = useMemo(() => {
+    const m = new Map<string, Company>()
+    companies?.forEach((c) => m.set(c.id, c))
+    return m
+  }, [companies])
+
+  // Roles offered for the currently picked company in cross-company mode — derived
+  // from the company's type so the admin can't invite a customer_admin into a
+  // distributor org (a constraint canManageUser would reject server-side anyway).
+  const pickedCompany = pickedCompanyId ? companyById.get(pickedCompanyId) : undefined
+  const effectiveRoleChoices = useMemo<Role[]>(() => {
+    if (!companies) return roleChoices
+    if (!pickedCompany) return []
+    return [primaryAdminRoleForType(pickedCompany.companyType), plainUserRoleForType(pickedCompany.companyType)]
+  }, [companies, pickedCompany, roleChoices])
 
   const openModal = () => {
     setFullName('')
     setEmail('')
-    setRole(roleChoices[0] ?? '')
+    const firstCompany = companyOptions[0]?.id ?? ''
+    setPickedCompanyId(firstCompany)
+    if (companies) {
+      const first = firstCompany ? companyById.get(firstCompany) : undefined
+      setRole(first ? primaryAdminRoleForType(first.companyType) : '')
+    } else {
+      setRole(roleChoices[0] ?? '')
+    }
     setOpen(true)
   }
 
+  // In cross-company mode the role choices depend on the picked company — keep
+  // the selected role in sync so we never submit an option the picker doesn't show.
+  const onCompanyPick = (id: string) => {
+    setPickedCompanyId(id)
+    const c = companyById.get(id)
+    if (c) setRole(primaryAdminRoleForType(c.companyType))
+  }
+
   const submit = async () => {
-    if (!fullName.trim() || !email.trim() || !role) {
-      toast.push('Name, email and role are required.', 'error')
+    const crossCompany = !!companies
+    if (!fullName.trim() || !email.trim() || !role || (crossCompany && !pickedCompanyId)) {
+      toast.push(crossCompany ? 'Company, name, email and role are required.' : 'Name, email and role are required.', 'error')
       return
     }
     setSubmitting(true)
     try {
-      await createUserApi({ fullName: fullName.trim(), email: email.trim(), role, companyId: companyId ?? undefined, userType })
+      const targetCompanyId = crossCompany ? pickedCompanyId : (companyId ?? undefined)
+      await createUserApi({ fullName: fullName.trim(), email: email.trim(), role, companyId: targetCompanyId, userType })
       await refresh()
       toast.push(`Invite sent to ${email.trim()} — they'll set their own password.`)
       setOpen(false)
@@ -120,6 +168,15 @@ export function UsersPanel({
       return `Reset link sent to ${u.email}.`
     })
 
+  // Only meaningful for users that haven't activated yet (status='invited'). The
+  // server enforces the same gate and refuses with a clear message otherwise.
+  const resendInvite = (u: User) =>
+    runRowAction(u, 'Could not resend invite.', async () => {
+      if (!window.confirm(`Resend the original invite link to ${u.fullName} (${u.email})?`)) return false
+      await resendInviteApi(u.id)
+      return `Invite link resent to ${u.email}.`
+    })
+
   const removeUser = (u: User) =>
     runRowAction(u, 'Could not delete user.', async () => {
       if (!window.confirm(`Permanently delete ${u.fullName}? This removes their account and portal access. Past records are kept but no longer attributed to them. This cannot be undone.`)) return false
@@ -158,6 +215,21 @@ export function UsersPanel({
       ),
     },
     { key: 'email', header: 'Email', render: (u) => <span className="text-muted dark:text-muted-dark">{u.email}</span> },
+    ...(companies
+      ? (() => {
+          const companyName = (u: User) => (u.companyId && companyById.get(u.companyId)?.companyName) || ''
+          return [
+            {
+              key: 'company',
+              header: 'Company',
+              sortAccessor: companyName,
+              render: (u: User) => (
+                <span className="text-muted dark:text-muted-dark">{companyName(u) || '—'}</span>
+              ),
+            } as Column<User>,
+          ]
+        })()
+      : []),
     { key: 'role', header: 'Role', render: (u) => roleLabel(u.role) },
     {
       key: 'status',
@@ -198,9 +270,15 @@ export function UsersPanel({
         if (!canManage) return null
         return (
           <div className="flex items-center justify-end gap-1">
-            <button className="btn-ghost text-xs" disabled={busyId === u.id} onClick={() => toggleStatus(u)}>
-              <Power size={13} /> {u.status === 'active' ? 'Deactivate' : 'Activate'}
-            </button>
+            {u.status === 'invited' ? (
+              <button className="btn-ghost text-xs" disabled={busyId === u.id} onClick={() => resendInvite(u)}>
+                <Mail size={13} /> Resend invite
+              </button>
+            ) : (
+              <button className="btn-ghost text-xs" disabled={busyId === u.id} onClick={() => toggleStatus(u)}>
+                <Power size={13} /> {u.status === 'active' ? 'Deactivate' : 'Activate'}
+              </button>
+            )}
             <button className="btn-ghost text-xs" disabled={busyId === u.id} onClick={() => resetPassword(u)}>
               <KeyRound size={13} /> Reset password
             </button>
@@ -255,6 +333,18 @@ export function UsersPanel({
         }
       >
         <div className="flex flex-col gap-4">
+          {companies && (
+            <Field label="Company" htmlFor="up-company">
+              <select id="up-company" className="select" value={pickedCompanyId} onChange={(e) => onCompanyPick(e.target.value)}>
+                <option value="">—</option>
+                {companyOptions.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.companyName}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
           <Field label="Full name" htmlFor="up-name">
             <input id="up-name" className="input" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Jane Tan" />
           </Field>
@@ -263,7 +353,7 @@ export function UsersPanel({
           </Field>
           <Field label="Role" htmlFor="up-role">
             <select id="up-role" className="select" value={role} onChange={(e) => setRole(e.target.value as Role)}>
-              {roleChoices.map((r) => (
+              {effectiveRoleChoices.map((r) => (
                 <option key={r} value={r}>
                   {roleLabel(r)}
                 </option>

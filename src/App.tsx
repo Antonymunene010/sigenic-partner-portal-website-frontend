@@ -33,6 +33,7 @@ import Account from './pages/Account'
 
 import AdminCompanies from './pages/admin/AdminCompanies'
 import AdminInternalUsers from './pages/admin/AdminInternalUsers'
+import AdminCompanyUsers from './pages/admin/AdminCompanyUsers'
 import AdminSignups from './pages/admin/AdminSignups'
 import AdminCalculatorConfig from './pages/admin/AdminCalculatorConfig'
 import AdminCalculatorRuns from './pages/admin/AdminCalculatorRuns'
@@ -95,6 +96,7 @@ export default function App() {
                   {/* Internal admin */}
                   <Route path="admin/companies" element={<ProtectedRoute internal cap="view_all_companies"><AdminCompanies /></ProtectedRoute>} />
                   <Route path="admin/users" element={<ProtectedRoute internal cap="manage_internal_users"><AdminInternalUsers /></ProtectedRoute>} />
+                  <Route path="admin/company-users" element={<ProtectedRoute internal cap="manage_company_users_global"><AdminCompanyUsers /></ProtectedRoute>} />
                   {/* Self-service sign-up review (client feedback 2026-06). Visible to any
                       internal staff (oversight); the per-row Approve/Reject actions still
                       check canApproveSignup, so support_engineer reads but can't act. */}

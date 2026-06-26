@@ -25,6 +25,7 @@ export type Capability =
   | 'view_success_stories'
   | 'manage_company_users'
   | 'manage_internal_users'
+  | 'manage_company_users_global'
   | 'view_all_companies'
   | 'manage_companies'
   | 'manage_scoring'
@@ -91,6 +92,11 @@ const CAPABILITIES: Record<Capability, Role[]> = {
   // PRD §5.1 "Manage own company users": for the internal Sigenic company, only
   // super_admin qualifies. A plain admin runs partners/scoring/master data, not staff.
   manage_internal_users: ['super_admin'],
+  // Cross-company management of external (distributor/customer) users from the
+  // admin back office — gates the "All Company Users" tab. canManageUser still
+  // enforces per-row scope (admin may not touch internal Sigenic users, etc.),
+  // this capability just opens the screen.
+  manage_company_users_global: INTERNAL_MANAGE,
   view_all_companies: INTERNAL_OVERSIGHT,
   manage_companies: INTERNAL_MANAGE,
   // Risk-calculator config — the scoring engine (models, issue catalog, the

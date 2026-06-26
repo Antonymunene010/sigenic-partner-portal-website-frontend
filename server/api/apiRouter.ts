@@ -85,6 +85,10 @@ export function apiRouter(store: Store): Router {
     await userService.resetUserPassword(store, req.auth!, req.params.id, req.headers.origin as string | undefined)
     res.json({ ok: true })
   })
+  r.post('/users/:id/resend-invite', async (req, res) => {
+    await userService.resendInvite(store, req.auth!, req.params.id, req.headers.origin as string | undefined)
+    res.json({ ok: true })
+  })
   // Self-service sign-up review (client feedback 2026-06). Approve flips the pending
   // user to `invited` and emails them the set-password link (the normal invite path);
   // reject flips them to `rejected`. Both re-check approval scope in the service.

@@ -41,6 +41,7 @@ const ADMIN_NAV: NavItem[] = [
   { to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/app/admin/companies', label: 'Companies', icon: Building2, cap: 'view_all_companies' },
   { to: '/app/admin/users', label: 'Internal Users', icon: Users, cap: 'manage_internal_users' },
+  { to: '/app/admin/company-users', label: 'All Company Users', icon: Users, cap: 'manage_company_users_global' },
   { to: '/app/admin/signups', label: 'Sign-up Approvals', icon: UserPlus, cap: 'view_pending_signups' },
   { to: '/app/admin/calculator-config', label: 'Calculator Config', icon: SlidersHorizontal, cap: 'manage_scoring' },
   { to: '/app/admin/calculator-runs', label: 'Calculator Leads', icon: Flame, cap: 'view_calculator_runs' },

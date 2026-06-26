@@ -38,9 +38,12 @@ export function resetLink(token: string, origin?: string): string {
  * sign-up approvals (signup.service) so the token TTL and link shape stay identical.
  * Best-effort: a failed send must not fail the caller (the user can self-serve a
  * reset). Returns the account row (with companyName) for any follow-on use.
+ *
+ * `prefetched` lets callers that already loaded the account row (e.g. resendInvite
+ * to enforce status/permission gates) skip a redundant DB roundtrip.
  */
-export async function sendInviteLink(store: Store, userId: string, origin?: string): Promise<any> {
-  const account = await store.getUserAuthById(userId)
+export async function sendInviteLink(store: Store, userId: string, origin?: string, prefetched?: any): Promise<any> {
+  const account = prefetched ?? (await store.getUserAuthById(userId))
   const token = signResetToken(account.id, account.passwordHash, INVITE_TTL_SECONDS)
   await sendEmail(store, {
     to: account.email,
@@ -120,6 +123,39 @@ export async function updateUser(store: Store, auth: AuthPayload, id: string, bo
   const updated = await store.update('users', id, fields, { touch })
   await audit(store, auth, 'user', id, 'update', { role: target.role, status: target.status }, { role: updated.role, status: updated.status })
   return updated
+}
+
+/**
+ * Re-send the original invite link to a user that hasn't activated yet
+ * (status='invited'). Distinct from resetUserPassword so the admin UI can offer
+ * the right action by lifecycle stage: "Resend invite" for never-activated
+ * accounts, "Reset password" for active ones. Both ultimately email a single-use
+ * set-password link — the difference is the wording in the email and that resend
+ * refuses to fire on an already-active account (would be misleading copy).
+ */
+export async function resendInvite(store: Store, auth: AuthPayload, id: string, origin?: string): Promise<void> {
+  const target = await store.getUserAuthById(id)
+  if (!target) throw notFound('User not found.')
+  if (!canManageUser(auth, target.companyId, target.role)) throw forbidden()
+  if (target.status !== 'invited') throw badRequest('This user has already activated their account — use Reset password instead.')
+  // Reuse the row we just loaded for the gates — sendInviteLink would otherwise
+  // re-query the same user+company.
+  const account = await sendInviteLink(store, id, origin, target)
+  // Best-effort receipt email runs in parallel with the audit insert: audit ordering
+  // isn't gated on the email, and SMTP latency shouldn't bottleneck the response.
+  await Promise.all([
+    sendEmail(store, {
+      to: auth.email,
+      ...inviteSentReceiptEmail({
+        inviterName: auth.name,
+        inviteeName: account.fullName,
+        inviteeEmail: account.email,
+        inviteeRole: roleLabel(account.role as Role),
+        companyName: account.companyName,
+      }),
+    }).catch(() => {}),
+    audit(store, auth, 'user', id, 'resend_invite', null, null),
+  ])
 }
 
 /**
