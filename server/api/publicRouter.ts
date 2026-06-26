@@ -71,7 +71,7 @@ export function publicRouter(store: Store): Router {
     res.json(await signupService.signupCompanyChoices(store))
   })
   r.post('/auth/signup', async (req, res) => {
-    res.status(201).json(await signupService.signup(store, req.body ?? {}))
+    res.status(201).json(await signupService.signup(store, req.body ?? {}, req.headers.origin as string | undefined))
   })
   r.post('/public/requests', async (req, res) => {
     res.status(201).json({ item: await requestService.createPublicLead(store, req.body?.request) })

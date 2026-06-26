@@ -13,7 +13,7 @@ export default function AdminCompanies() {
     <div>
       <PageHeader
         eyebrow="Partners"
-        title="Companies & partners"
+        title="Companies"
         description="Distributors, customers, and internal orgs. Invite a company to provision its record and its primary admin in one step; manage commercial and integration details by editing it. Internal management only."
       />
 

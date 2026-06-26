@@ -51,9 +51,13 @@ export function CrudResource<T extends Row>({
   inlineToggle,
   wide,
 }: {
-  title: string
+  /** Sub-section heading rendered above the table. Omit when the page already has a
+   *  `<PageHeader>` saying the same thing (one CrudResource per page) — `singular`
+   *  must then be passed since the modal-title noun can't be derived. */
+  title?: string
   /** Singular noun for the New/Edit modal titles. Defaults to title with a trailing
-   *  "s" stripped — pass explicitly for irregular plurals (e.g. "Companies"→"Company"). */
+   *  "s" stripped — pass explicitly for irregular plurals (e.g. "Companies"→"Company")
+   *  or when `title` is omitted. */
   singular?: string
   description?: string
   resource: ResourceName
@@ -68,7 +72,7 @@ export function CrudResource<T extends Row>({
   wide?: boolean
 }) {
   const toast = useToast()
-  const noun = singular ?? title.replace(/s$/, '')
+  const noun = singular ?? title?.replace(/s$/, '') ?? 'item'
   const [editing, setEditing] = useState<T | null>(null)
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState<Record<string, unknown>>({})
@@ -199,17 +203,19 @@ export function CrudResource<T extends Row>({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h2 className="text-[15px] font-semibold tracking-tight">{title}</h2>
-          {description && <p className="text-xs text-muted dark:text-muted-dark mt-0.5">{description}</p>}
+      {(title || canManage) && (
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            {title && <h2 className="text-[15px] font-semibold tracking-tight">{title}</h2>}
+            {description && <p className="text-xs text-muted dark:text-muted-dark mt-0.5">{description}</p>}
+          </div>
+          {canManage && (
+            <button className="btn-accent" onClick={() => open(null)}>
+              <Plus size={14} /> {newLabel ?? 'New'}
+            </button>
+          )}
         </div>
-        {canManage && (
-          <button className="btn-accent" onClick={() => open(null)}>
-            <Plus size={14} /> {newLabel ?? 'New'}
-          </button>
-        )}
-      </div>
+      )}
 
       <DataTable
         columns={allColumns}

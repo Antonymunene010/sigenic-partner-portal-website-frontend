@@ -115,8 +115,8 @@ export default function AdminAnalytics() {
   return (
     <div>
       <PageHeader
-        eyebrow="Analytics"
-        title="Usage & GTM"
+        eyebrow="Usage & GTM"
+        title="Analytics"
         description="Internal view of partner activity, request flow and calculator adoption."
       />
 

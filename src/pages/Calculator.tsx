@@ -149,8 +149,8 @@ export default function Calculator() {
   return (
     <div>
       <PageHeader
-        eyebrow="Risk Score & Yield Loss"
-        title="Estimate your risk & yield loss"
+        eyebrow="Estimate your risk & yield loss"
+        title="Risk Calculator"
         description="A 3-step assessment: enter your line's basic info and score each known issue, review the calculated risk band and yield-loss exposure, then add any preventive measures or costs before submitting to Sigenic."
       />
 

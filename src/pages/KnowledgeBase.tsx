@@ -30,8 +30,8 @@ export default function KnowledgeBase() {
   return (
     <div>
       <PageHeader
-        eyebrow="Knowledge base"
-        title="Guides, FAQs & troubleshooting"
+        eyebrow="Guides, FAQs & troubleshooting"
+        title="Knowledge Base"
         description="Search Sigenic guides, frequently asked questions and troubleshooting notes for your team."
       />
 

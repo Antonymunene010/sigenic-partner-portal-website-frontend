@@ -108,7 +108,7 @@ export default function AdminCalculatorRuns() {
     <div>
       <PageHeader
         eyebrow="Sales pipeline"
-        title="Calculator leads"
+        title="Calculator Leads"
         description="Every time a partner runs the risk calculator we log it here — risk band and yield-loss opportunity are the conversation starters for follow-up."
       />
 

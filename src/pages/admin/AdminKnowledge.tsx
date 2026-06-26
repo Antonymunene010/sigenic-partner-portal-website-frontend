@@ -43,7 +43,7 @@ export default function AdminKnowledge() {
     <div>
       <PageHeader
         eyebrow="Knowledge"
-        title="Knowledge base management"
+        title="Knowledge Base"
         description="Govern the internal knowledge base — categorise articles, target audiences and control what surfaces in the portal. Content can be authored in the portal or synced from Notion."
         actions={
           canManage ? (

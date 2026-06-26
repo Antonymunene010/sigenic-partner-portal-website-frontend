@@ -16,12 +16,12 @@ export default function AdminStories() {
     <div>
       <PageHeader
         eyebrow="Case studies"
-        title="Success stories"
+        title="Success Stories"
         description="Curate partner case studies — control publication status, featuring, and who can see each story. Internal management only."
       />
 
       <CrudResource<SuccessStory>
-        title="Success stories"
+        singular="Success story"
         resource="success-stories"
         idPrefix="story"
         canManage={canManage}

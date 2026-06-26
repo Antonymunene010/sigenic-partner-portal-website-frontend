@@ -505,6 +505,10 @@ export function signupPendingAdminEmail(params: {
   email: string
   companyName?: string | null
   newCompany?: boolean
+  /** Deep link the recipient follows to review the request. Lets the page heading
+   *  name itself instead of hard-coding sidebar tab names in the email body (which
+   *  silently rot when tabs are renamed). */
+  reviewLink?: string
 }): { subject: string; text: string } {
   return {
     subject: `Sign-up awaiting approval: ${params.fullName}`,
@@ -515,7 +519,7 @@ export function signupPendingAdminEmail(params: {
       `Email: ${params.email}`,
       ...(params.companyName ? [`Company: ${params.companyName}${params.newCompany ? ' (new company request)' : ''}`] : []),
       '',
-      'Review and approve or reject this request from User management in the portal.',
+      params.reviewLink ? `Review and approve or reject: ${params.reviewLink}` : 'Open the portal to review and approve or reject this request.',
       '',
       '— Sigenic Partner Portal',
     ].join('\n'),

@@ -36,7 +36,7 @@ export default function AdminRequestConfig() {
 
   return (
     <div>
-      <PageHeader eyebrow="Request config" title="Request taxonomy" description="The request types and the department / process / machine options shown on the service-request form. Configured independently of the risk calculator. Super-admin only." />
+      <PageHeader eyebrow="Requests" title="Request Config" description="The request types and the department / process / machine options shown on the service-request form. Configured independently of the risk calculator. Super-admin only." />
 
       <div className="flex items-center gap-1 mb-5 flex-wrap">{TABS.map(chip)}</div>
 

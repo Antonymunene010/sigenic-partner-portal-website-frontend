@@ -91,7 +91,7 @@ function PortalDashboard() {
 
       <div className="grid sm:grid-cols-3 gap-3 mt-5">
         <QuickLink to="/app/calculator" icon={<Calculator size={16} />} label="ROI calculator" hint="Estimate savings" />
-        <QuickLink to="/app/knowledge" icon={<BookOpen size={16} />} label="Knowledge base" hint="Guides & FAQs" />
+        <QuickLink to="/app/knowledge" icon={<BookOpen size={16} />} label="Knowledge Base" hint="Guides & FAQs" />
         <QuickLink to="/app/requests/new" icon={<Inbox size={16} />} label="New request" hint="Support / demo" />
       </div>
     </div>
@@ -151,8 +151,8 @@ function InternalDashboard() {
       </div>
 
       <div className="grid sm:grid-cols-3 gap-3 mt-5">
-        <QuickLink to="/app/admin/companies" icon={<Building2 size={16} />} label="Partners" hint="Companies & sites" />
-        <QuickLink to="/app/admin/calculator-config" icon={<Calculator size={16} />} label="Calculator config" hint="Master data & scoring" />
+        <QuickLink to="/app/admin/companies" icon={<Building2 size={16} />} label="Companies" hint="Distributors, customers, Sigenic orgs" />
+        <QuickLink to="/app/admin/calculator-config" icon={<Calculator size={16} />} label="Calculator Config" hint="Master data & scoring" />
         <QuickLink to="/app/admin/analytics" icon={<TrendingUp size={16} />} label="Analytics" hint="Usage & GTM" />
       </div>
     </div>

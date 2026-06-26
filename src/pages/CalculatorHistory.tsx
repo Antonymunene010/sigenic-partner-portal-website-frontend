@@ -61,7 +61,7 @@ export default function CalculatorHistory() {
     <div>
       <PageHeader
         eyebrow={company?.companyName ?? 'Risk calculator'}
-        title="Calculator history"
+        title="Calculator History"
         description={
           companyAdmin
             ? 'Every risk-calculator submission from your company — open a row for the full breakdown.'

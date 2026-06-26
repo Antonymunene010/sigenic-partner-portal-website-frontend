@@ -47,7 +47,7 @@ export default function Account() {
 
   return (
     <div>
-      <PageHeader eyebrow="Account" title="Your profile" />
+      <PageHeader eyebrow="Your profile" title="Account" />
 
       <div className="grid lg:grid-cols-2 gap-5">
         <Card title="Profile">

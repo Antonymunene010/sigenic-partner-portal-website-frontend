@@ -24,7 +24,7 @@ export default function AdminSignups() {
   return (
     <UsersPanel
       eyebrow="Sign-ups"
-      title="Sign-up requests"
+      title="Sign-up Approvals"
       description="Self-service sign-ups awaiting approval, plus the rejected history. Approving sends the user a link to set their password; rejecting keeps the record but blocks access."
       users={pendingUsers}
       canManage={false}

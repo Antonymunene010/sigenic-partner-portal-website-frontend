@@ -15,7 +15,7 @@ export default function UserManagement() {
   return (
     <UsersPanel
       eyebrow="Team"
-      title="User management"
+      title="User Management"
       description={company ? `Manage the people in ${company.companyName} who can access the portal.` : 'Manage the people in your company who can access the portal.'}
       users={users}
       roleChoices={roleChoices}

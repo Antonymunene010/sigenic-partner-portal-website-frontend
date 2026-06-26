@@ -19,7 +19,7 @@ export default function AdminInternalUsers() {
   return (
     <UsersPanel
       eyebrow="Internal"
-      title="Internal users"
+      title="Internal Users"
       description="Sigenic internal staff with access to the partner portal back office."
       users={internalUsers}
       roleChoices={roleChoices}

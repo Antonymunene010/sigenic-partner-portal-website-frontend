@@ -53,7 +53,7 @@ export default function AdminCalculatorConfig() {
 
   return (
     <div>
-      <PageHeader eyebrow="Calculator config" title="Master data & scoring" description="The operational taxonomy (departments, processes, machines) and the risk-score engine (versioned models, the issue catalog and the occurrence / detection / wafer-price lookups) behind the self-service calculator. Super-admin only." />
+      <PageHeader eyebrow="Calculator" title="Calculator Config" description="The operational taxonomy (departments, processes, machines) and the risk-score engine (versioned models, the issue catalog and the occurrence / detection / wafer-price lookups) behind the self-service calculator. Super-admin only." />
 
       <div className="flex items-center gap-1 mb-5 flex-wrap">
         {MASTER_TABS.map(chip)}

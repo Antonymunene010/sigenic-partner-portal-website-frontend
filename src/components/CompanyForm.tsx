@@ -11,7 +11,7 @@ import { companyOptions, generateCompanyCode } from '../lib/options'
 import type { Company, CompanyType } from '../lib/types'
 
 /**
- * Internal "Companies & partners" admin surface. Unlike the generic CrudResource,
+ * Internal "Partners" admin surface (sidebar tab name). Unlike the generic CrudResource,
  * the company form is a bespoke, sectioned flow because creating a company is an
  * *invitation*: it provisions the company record AND invites its primary admin in
  * one step (client feedback 2026-06, "Invite Company").
@@ -180,7 +180,7 @@ export function CompanyForm({
         })
         // 2) Invite the primary admin into the new company. A failed invite must not
         //    silently look like success — surface it so the operator can retry from
-        //    User management (the company itself is already created).
+        //    the right user-management screen for the company type just created.
         try {
           await createUserApi({
             fullName: form.adminName.trim(),
@@ -190,8 +190,9 @@ export function CompanyForm({
           })
         } catch (e) {
           await refresh()
+          const where = form.companyType === 'sigenic' ? 'Internal Users' : 'User Management'
           toast.push(
-            `Company created, but the admin invite failed: ${e instanceof Error ? e.message : 'unknown error'}. Invite them from User management.`,
+            `Company created, but the admin invite failed: ${e instanceof Error ? e.message : 'unknown error'}. Invite them from ${where}.`,
             'error',
           )
           close()
@@ -258,7 +259,7 @@ export function CompanyForm({
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-[15px] font-semibold tracking-tight">Companies</h2>
+        <h2 className="text-[15px] font-semibold tracking-tight">Partners</h2>
         {canManage && (
           <button className="btn-accent" onClick={() => open(null)}>
             <Plus size={14} /> Invite Company

@@ -53,7 +53,7 @@ export default function AdminAudit() {
     <div>
       <PageHeader
         eyebrow="Audit"
-        title="Change history"
+        title="Audit Log"
         description="Tracks who changed scoring, machines, companies, permissions, content."
       />
 

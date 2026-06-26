@@ -78,7 +78,7 @@ async function planSignup(store: Store, input: SignupInput): Promise<SignupPlan>
  * alerts whoever approves it. No password is set and no set-password link is sent
  * until an admin approves — that step reuses the normal invite flow.
  */
-export async function signup(store: Store, input: SignupInput): Promise<{ ok: true }> {
+export async function signup(store: Store, input: SignupInput, origin?: string): Promise<{ ok: true }> {
   const fullName = String(input?.fullName ?? '').trim()
   const email = String(input?.email ?? '').trim().toLowerCase()
   if (!fullName || !email) throw badRequest('Name and email are required.')
@@ -86,6 +86,8 @@ export async function signup(store: Store, input: SignupInput): Promise<{ ok: tr
 
   const plan = await planSignup(store, input)
   const isNewCompany = !!plan.newCompany
+  const base = (process.env.APP_BASE_URL || origin || 'http://localhost:5173').replace(/\/$/, '')
+  const reviewLink = `${base}/app/admin/signups`
 
   // New-company request: provision the pending_invite company first so the pending
   // user has a home. Sigenic admins approve it (canApproveSignup denies any external
@@ -125,7 +127,7 @@ export async function signup(store: Store, input: SignupInput): Promise<{ ok: tr
   // Notifications are best-effort and independent — fire concurrently. Receipt to
   // the registrant; review alert to the approver set (the company's own admins for
   // an existing company, plus internal admins as a backstop in both cases).
-  const pendingAdminMsg = signupPendingAdminEmail({ fullName, email, companyName: plan.companyName, newCompany: isNewCompany })
+  const pendingAdminMsg = signupPendingAdminEmail({ fullName, email, companyName: plan.companyName, newCompany: isNewCompany, reviewLink })
   await Promise.all([
     sendEmail(store, { to: email, ...signupReceiptEmail({ fullName, companyName: plan.companyName, newCompany: isNewCompany }) }).catch(() => {}),
     notifyInternalAdmins(store, pendingAdminMsg).catch(() => {}),

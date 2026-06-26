@@ -16,7 +16,7 @@ export default function Stories() {
     <div>
       <PageHeader
         eyebrow="Case studies"
-        title="Success stories"
+        title="Success Stories"
         description="Real outcomes from semiconductor partners on Sigenic — measurable yield, scrap and downtime gains across fabs and OSATs."
       />
       <StoriesExplorer stories={published} basePath="/app/stories" />

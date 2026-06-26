@@ -112,7 +112,7 @@ export default function AdminRequests() {
     <div>
       <PageHeader
         eyebrow="Oversight"
-        title="Request oversight"
+        title="Request Oversight"
         description="All structured requests across partners, routed by owner team."
         actions={
           <button onClick={handleSync} disabled={syncing} className="btn-accent">

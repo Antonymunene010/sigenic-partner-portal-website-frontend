@@ -28,25 +28,25 @@ interface NavItem {
 const PORTAL_NAV: NavItem[] = [
   { to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/app/calculator', label: 'Risk Calculator', icon: Calculator, cap: 'use_full_calculator' },
-  { to: '/app/calculator-history', label: 'Calc History', icon: History, cap: 'view_calculator_history' },
+  { to: '/app/calculator-history', label: 'Calculator History', icon: History, cap: 'view_calculator_history' },
   { to: '/app/knowledge', label: 'Knowledge Base', icon: BookOpen, cap: 'access_knowledge_base' },
   { to: '/app/stories', label: 'Success Stories', icon: Sparkles, cap: 'view_success_stories' },
   { to: '/app/requests', label: 'Requests', icon: Inbox, cap: 'view_request_list' },
   { to: '/app/company', label: 'Company Profile', icon: Building2, cap: 'view_company_profile' },
-  { to: '/app/users', label: 'Team', icon: Users, cap: 'manage_company_users' },
+  { to: '/app/users', label: 'User Management', icon: Users, cap: 'manage_company_users' },
   { to: '/app/billing', label: 'Billing', icon: CreditCard, show: (u) => u.userType === 'customer' },
 ]
 
 const ADMIN_NAV: NavItem[] = [
   { to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/app/admin/companies', label: 'Partners', icon: Building2, cap: 'view_all_companies' },
+  { to: '/app/admin/companies', label: 'Companies', icon: Building2, cap: 'view_all_companies' },
   { to: '/app/admin/users', label: 'Internal Users', icon: Users, cap: 'manage_internal_users' },
-  { to: '/app/admin/signups', label: 'Sign-up Requests', icon: UserPlus, cap: 'view_pending_signups' },
+  { to: '/app/admin/signups', label: 'Sign-up Approvals', icon: UserPlus, cap: 'view_pending_signups' },
   { to: '/app/admin/calculator-config', label: 'Calculator Config', icon: SlidersHorizontal, cap: 'manage_scoring' },
   { to: '/app/admin/calculator-runs', label: 'Calculator Leads', icon: Flame, cap: 'view_calculator_runs' },
   { to: '/app/admin/request-config', label: 'Request Config', icon: ListChecks, cap: 'manage_request_config' },
   { to: '/app/admin/requests', label: 'Request Oversight', icon: Inbox, cap: 'view_ticket_oversight' },
-  { to: '/app/admin/knowledge', label: 'Knowledge', icon: BookOpen, cap: 'manage_knowledge' },
+  { to: '/app/admin/knowledge', label: 'Knowledge Base', icon: BookOpen, cap: 'manage_knowledge' },
   { to: '/app/admin/stories', label: 'Success Stories', icon: Sparkles, cap: 'manage_success_stories' },
   // Internal oversight roles (e.g. support engineers) can't manage stories but still
   // browse them via the read-only page; managers reach the same content above.

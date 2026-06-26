@@ -68,7 +68,7 @@ export default function Billing() {
 
   return (
     <div>
-      <PageHeader eyebrow="Billing" title="Invoices & plan" description="Review balances, download invoices and check your subscription details." />
+      <PageHeader eyebrow="Invoices & plan" title="Billing" description="Review balances, download invoices and check your subscription details." />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
         <StatCard label="Amount due" value={fmtUSD(amountDue)} accent icon={<Wallet size={15} />} />

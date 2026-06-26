@@ -101,7 +101,7 @@ export default function CompanyProfile() {
             )}
           </Card>
 
-          <Card title="Team" actions={<Link to="/app/users" className="btn-ghost text-xs">Manage</Link>}>
+          <Card title="Users" actions={<Link to="/app/users" className="btn-ghost text-xs">Manage</Link>}>
             {companyUsers.length === 0 ? (
               <EmptyState title="No team members yet" />
             ) : (
