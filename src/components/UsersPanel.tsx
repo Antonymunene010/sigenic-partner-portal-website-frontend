@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Check, KeyRound, Mail, Plus, Power, Trash2, X } from 'lucide-react'
+import { Check, KeyRound, Mail, Pencil, Plus, Power, Trash2, X } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { approveUserApi, createUserApi, deleteUserApi, rejectUserApi, resendInviteApi, resetPasswordApi, updateUserApi } from '../lib/api'
 import { canApproveSignup, primaryAdminRoleForType, plainUserRoleForType, roleLabel } from '../lib/permissions'
@@ -66,6 +66,13 @@ export function UsersPanel({
   const [role, setRole] = useState<Role | ''>(roleChoices[0] ?? '')
   // Only used in the cross-company "All Company Users" mode (companies prop set).
   const [pickedCompanyId, setPickedCompanyId] = useState<string>('')
+  // Edit-name flow — client feedback 2026-06-27: admins should be able to fix a
+  // mistyped name without deleting and re-inviting the user. We only allow the
+  // name (not email/role/company) — those are higher-risk edits and outside the
+  // reported pain point.
+  const [editing, setEditing] = useState<User | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editSubmitting, setEditSubmitting] = useState(false)
 
   // Sorted company picker options (cross-company mode only).
   const companyOptions = useMemo(
@@ -106,6 +113,35 @@ export function UsersPanel({
     setPickedCompanyId(id)
     const c = companyById.get(id)
     if (c) setRole(primaryAdminRoleForType(c.companyType))
+  }
+
+  const openEdit = (u: User) => {
+    setEditing(u)
+    setEditName(u.fullName)
+  }
+
+  const submitEdit = async () => {
+    if (!editing) return
+    const name = editName.trim()
+    if (!name) {
+      toast.push('Name is required.', 'error')
+      return
+    }
+    if (name === editing.fullName) {
+      setEditing(null)
+      return
+    }
+    setEditSubmitting(true)
+    try {
+      await updateUserApi(editing.id, { fullName: name })
+      await refresh()
+      toast.push(`${editing.fullName} renamed to ${name}.`)
+      setEditing(null)
+    } catch (e) {
+      toast.push(e instanceof Error ? e.message : 'Could not update user.', 'error')
+    } finally {
+      setEditSubmitting(false)
+    }
   }
 
   const submit = async () => {
@@ -274,6 +310,9 @@ export function UsersPanel({
         if (!canManage) return null
         return (
           <div className="flex items-center justify-end gap-1">
+            <button className="btn-ghost text-xs" disabled={busyId === u.id} onClick={() => openEdit(u)}>
+              <Pencil size={13} /> Edit name
+            </button>
             {u.status === 'invited' ? (
               <button className="btn-ghost text-xs" disabled={busyId === u.id} onClick={() => resendInvite(u)}>
                 <Mail size={13} /> Resend invite
@@ -365,6 +404,40 @@ export function UsersPanel({
             </select>
           </Field>
         </div>
+      </Modal>
+
+      <Modal
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        title="Edit user name"
+        footer={
+          <>
+            <button className="btn-ghost" onClick={() => setEditing(null)} disabled={editSubmitting}>
+              Cancel
+            </button>
+            <button className="btn-accent" onClick={submitEdit} disabled={editSubmitting}>
+              {editSubmitting ? 'Saving…' : 'Save'}
+            </button>
+          </>
+        }
+      >
+        {editing && (
+          <div className="flex flex-col gap-4">
+            <Field label="Full name" htmlFor="up-edit-name">
+              <input
+                id="up-edit-name"
+                className="input"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                autoFocus
+              />
+            </Field>
+            <p className="text-xs text-muted dark:text-muted-dark">
+              Updates the display name for <span className="font-medium">{editing.email}</span>. To change the email
+              address itself, delete the account and invite a fresh one.
+            </p>
+          </div>
+        )}
       </Modal>
     </div>
   )
