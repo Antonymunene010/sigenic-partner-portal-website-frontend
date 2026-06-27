@@ -35,6 +35,7 @@ export type Capability =
   | 'resolve_tickets'
   | 'reclassify_request'
   | 'manage_request_config'
+  | 'manage_email_templates'
   | 'manage_announcements'
   | 'view_audit_logs'
   | 'view_analytics'
@@ -114,6 +115,10 @@ const CAPABILITIES: Record<Capability, Role[]> = {
   // process/machine lists). Its own capability, decoupled from manage_scoring so the
   // request config and the risk-calculator config stay independent. Super_admin only.
   manage_request_config: ['super_admin'],
+  // Edit the subject/body templates the server uses for every outbound email
+  // (invites, password resets, calculator leads, signup notifications, …). Variable
+  // placeholders are fixed by code; super-admins author the wording around them.
+  manage_email_templates: ['super_admin'],
   manage_announcements: INTERNAL_MANAGE,
   view_audit_logs: INTERNAL_MANAGE,
   view_analytics: INTERNAL_OVERSIGHT,

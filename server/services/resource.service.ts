@@ -15,7 +15,11 @@ interface ResourceCfg {
   companyScoped?: boolean
 }
 
-/** Config-driven admin resources: one CRUD shape, role + company-scope per entry. */
+/** Config-driven admin resources: one CRUD shape, role + company-scope per entry.
+ *  Contract — entries assume an `id`-keyed primary key, the generic insert/update/
+ *  remove store methods, and the full create/read/update/delete shape. Resources
+ *  that deviate (e.g. email_templates — slug-keyed, no create/delete, defaults
+ *  live in code) get their own service rather than special-casing this registry. */
 export const RESOURCES: Record<string, ResourceCfg> = {
   companies: { table: 'companies', manage: 'manage_companies', read: 'view_all_companies', entity: 'company', prefix: 'co' },
   sites: { table: 'sites', manage: 'manage_companies', read: 'view_all_companies', entity: 'site', prefix: 'site', companyScoped: true },

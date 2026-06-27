@@ -38,6 +38,7 @@ import AdminSignups from './pages/admin/AdminSignups'
 import AdminCalculatorConfig from './pages/admin/AdminCalculatorConfig'
 import AdminCalculatorRuns from './pages/admin/AdminCalculatorRuns'
 import AdminRequestConfig from './pages/admin/AdminRequestConfig'
+import AdminEmailTemplates from './pages/admin/AdminEmailTemplates'
 import AdminRequests from './pages/admin/AdminRequests'
 import AdminKnowledge from './pages/admin/AdminKnowledge'
 import AdminStories from './pages/admin/AdminStories'
@@ -104,6 +105,7 @@ export default function App() {
                   <Route path="admin/calculator-config" element={<ProtectedRoute internal cap="manage_scoring"><AdminCalculatorConfig /></ProtectedRoute>} />
                   <Route path="admin/calculator-runs" element={<ProtectedRoute internal cap="view_calculator_runs"><AdminCalculatorRuns /></ProtectedRoute>} />
                   <Route path="admin/request-config" element={<ProtectedRoute internal cap="manage_request_config"><AdminRequestConfig /></ProtectedRoute>} />
+                  <Route path="admin/email-templates" element={<ProtectedRoute internal cap="manage_email_templates"><AdminEmailTemplates /></ProtectedRoute>} />
                   <Route path="admin/requests" element={<ProtectedRoute internal cap="view_ticket_oversight"><AdminRequests /></ProtectedRoute>} />
                   <Route path="admin/knowledge" element={<ProtectedRoute internal cap="manage_knowledge"><AdminKnowledge /></ProtectedRoute>} />
                   <Route path="admin/stories" element={<ProtectedRoute internal cap="manage_success_stories"><AdminStories /></ProtectedRoute>} />

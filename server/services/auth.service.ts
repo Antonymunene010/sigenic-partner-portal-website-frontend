@@ -58,7 +58,7 @@ export async function requestPasswordReset(store: Store, email: string, origin?:
   const token = signResetToken(account.id, account.passwordHash)
   const base = (process.env.APP_BASE_URL || origin || 'http://localhost:5173').replace(/\/$/, '')
   const link = `${base}/reset-password?token=${encodeURIComponent(token)}`
-  const msg = passwordResetLinkEmail({ fullName: account.fullName, link })
+  const msg = await passwordResetLinkEmail(store, { fullName: account.fullName, link })
   await sendEmail(store, { to: account.email, subject: msg.subject, text: msg.text }).catch(() => {})
 }
 
@@ -75,6 +75,11 @@ export async function resetPasswordWithToken(store: Store, token: string, newPas
     throw badRequest('This reset link has already been used. Please request a new one.')
   }
   await store.setPassword(account.id, newPassword)
+  // Kick off the "password changed" render up front so the invite-accepted
+  // fan-out (further down) overlaps with the email_templates round-trip rather
+  // than serializing after it. Awaited at the end so the original ordering of
+  // user-visible side effects is preserved.
+  const changedMsgPromise = passwordChangedEmail(store, { fullName: account.fullName })
   // An invited user activates their account by setting their first password.
   const wasInvited = account.status === 'invited'
   if (wasInvited) {
@@ -93,7 +98,7 @@ export async function resetPasswordWithToken(store: Store, token: string, newPas
     // that someone had activated their account). Best-effort; exclude the
     // inviter from the admin fan-out so they don't get the message twice when
     // they happen to be an internal admin themselves.
-    const accepted = inviteAcceptedEmail({
+    const accepted = await inviteAcceptedEmail(store, {
       inviteeName: account.fullName,
       inviteeEmail: account.email,
       inviteeRole: roleLabel(account.role as Role),
@@ -106,6 +111,6 @@ export async function resetPasswordWithToken(store: Store, token: string, newPas
     ])
     await recomputeOnboardingStatus(store, account.companyId)
   }
-  const msg = passwordChangedEmail({ fullName: account.fullName })
+  const msg = await changedMsgPromise
   await sendEmail(store, { to: account.email, subject: msg.subject, text: msg.text }).catch(() => {})
 }

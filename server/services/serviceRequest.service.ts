@@ -51,13 +51,14 @@ async function createZendeskForRequest(payload: any): Promise<string | null> {
 
 /** Notify a request's owner of an update — email (MVP) + in-app, per PRD §7.7. */
 async function notifyRequester(store: Store, request: any, body: string, author: string): Promise<void> {
-  // Email + in-app are independent — fan them out concurrently (mirrors announcement.service).
+  // Email and in-app are independent — fan them out concurrently. The email
+  // chain renders its template inline so the in-app notification insert isn't
+  // serialized behind the email_templates round-trip.
   await Promise.all([
     request.contactEmail
-      ? sendEmail(store, {
-          to: request.contactEmail,
-          ...ticketUpdatedEmail({ id: request.id, subject: request.title, status: request.status }, { author, body }),
-        }).catch(() => {})
+      ? ticketUpdatedEmail(store, { id: request.id, subject: request.title, status: request.status }, { author, body })
+          .then((msg) => sendEmail(store, { to: request.contactEmail, ...msg }))
+          .catch(() => {})
       : null,
     request.userId
       ? store
@@ -119,7 +120,7 @@ export async function createServiceRequest(store: Store, auth: AuthPayload, requ
   if (payload.contact_email) {
     await sendEmail(store, {
       to: payload.contact_email,
-      ...ticketCreatedEmail({ id: created.id, subject: created.title, requester: created.contactName, category: created.requestType, priority: created.urgency }),
+      ...(await ticketCreatedEmail(store, { id: created.id, subject: created.title, requester: created.contactName, category: created.requestType, priority: created.urgency })),
     }).catch(() => {})
   }
   return created
@@ -139,7 +140,10 @@ export async function addServiceRequestMessage(store: Store, auth: AuthPayload, 
     await addZendeskComment(current.zendeskTicketId, message.body, auth.name).catch((e: any) => console.warn(`[zendesk:comment] ${e.message}`))
   }
   const notify = updated.contactEmail ?? auth.email
-  if (notify) await sendEmail(store, { to: notify, ...ticketUpdatedEmail({ id: updated.id, subject: updated.title, status: updated.status }, message) }).catch(() => {})
+  if (notify) {
+    const tmpl = await ticketUpdatedEmail(store, { id: updated.id, subject: updated.title, status: updated.status }, message)
+    await sendEmail(store, { to: notify, ...tmpl }).catch(() => {})
+  }
   return updated
 }
 
@@ -240,7 +244,7 @@ export async function createPublicLead(store: Store, request: any): Promise<{ id
   const created = await store.insert('service_requests', payload)
   await sendEmail(store, {
     to: request.contactEmail,
-    ...ticketCreatedEmail({ id: created.id, subject: created.title, requester: created.contactName ?? 'there', category: requestType, priority: 'medium' }),
+    ...(await ticketCreatedEmail(store, { id: created.id, subject: created.title, requester: created.contactName ?? 'there', category: requestType, priority: 'medium' })),
   }).catch(() => {})
   await audit(store, null, 'service_request', created.id, 'public_lead', null, { contact: request.contactEmail })
   return { id: created.id, status: created.status }

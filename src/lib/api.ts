@@ -289,6 +289,29 @@ export function getAnalytics(): Promise<Record<string, unknown>> {
   return request('/api/analytics')
 }
 
+/* ---------- email templates (super_admin editor) ---------- */
+// Re-exported from shared so callers can keep a single import surface, but the
+// types themselves live in shared/emailTemplate.ts (single authoritative shape,
+// same pattern as shared/permissions.ts and shared/types.ts).
+export type { EmailTemplateVar, EmailTemplateView } from '../../shared/emailTemplate'
+import type { EmailTemplateView } from '../../shared/emailTemplate'
+
+export function listEmailTemplatesApi(): Promise<{ templates: EmailTemplateView[] }> {
+  return request('/api/email-templates')
+}
+export function updateEmailTemplateApi(
+  slug: string,
+  patch: { subject: string; body: string },
+): Promise<{ item: EmailTemplateView }> {
+  return request(`/api/email-templates/${encodeURIComponent(slug)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  })
+}
+export function resetEmailTemplateApi(slug: string): Promise<{ item: EmailTemplateView }> {
+  return request(`/api/email-templates/${encodeURIComponent(slug)}/reset`, { method: 'POST' })
+}
+
 /* ---------- PDF downloads ---------- */
 async function downloadPdf(path: string, init: RequestInit, filename: string): Promise<void> {
   const res = checkAuth(

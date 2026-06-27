@@ -126,10 +126,14 @@ export async function signup(store: Store, input: SignupInput, origin?: string):
 
   // Notifications are best-effort and independent — fire concurrently. Receipt to
   // the registrant; review alert to the approver set (the company's own admins for
-  // an existing company, plus internal admins as a backstop in both cases).
-  const pendingAdminMsg = signupPendingAdminEmail({ fullName, email, companyName: plan.companyName, newCompany: isNewCompany, reviewLink })
+  // an existing company, plus internal admins as a backstop in both cases). Both
+  // template renders happen up front so the three fan-outs share one round-trip.
+  const [pendingAdminMsg, receipt] = await Promise.all([
+    signupPendingAdminEmail(store, { fullName, email, companyName: plan.companyName, newCompany: isNewCompany, reviewLink }),
+    signupReceiptEmail(store, { fullName, companyName: plan.companyName, newCompany: isNewCompany }),
+  ])
   await Promise.all([
-    sendEmail(store, { to: email, ...signupReceiptEmail({ fullName, companyName: plan.companyName, newCompany: isNewCompany }) }).catch(() => {}),
+    sendEmail(store, { to: email, ...receipt }).catch(() => {}),
     notifyInternalAdmins(store, pendingAdminMsg).catch(() => {}),
     !isNewCompany && companyId ? notifyCompanyAdmins(store, companyId, pendingAdminMsg).catch(() => {}) : Promise.resolve(),
   ])
@@ -194,7 +198,7 @@ export async function rejectSignup(store: Store, auth: AuthPayload, id: string, 
   await audit(store, auth, 'user', id, 'reject_signup', { status: 'pending' }, { status: 'rejected', reason: reason ?? null })
   await sendEmail(store, {
     to: user.email,
-    ...signupRejectedEmail({ fullName: user.fullName, companyName: user.companyName ?? null, reason: reason ?? null }),
+    ...(await signupRejectedEmail(store, { fullName: user.fullName, companyName: user.companyName ?? null, reason: reason ?? null })),
   }).catch(() => {})
   return { ok: true }
 }

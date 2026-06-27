@@ -476,6 +476,20 @@ CREATE TABLE IF NOT EXISTS email_outbox (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Per-slug overrides for the outbound-email templates. The slug is the stable
+-- identifier the server uses to look up a template at send-time (e.g. 'invite',
+-- 'password_reset_link'); the row is the super-admin-edited subject + body
+-- string with {{var}} placeholders. Code keeps a default for every slug, so a
+-- missing row simply renders the default — there is no separate seed step,
+-- and a "Reset to default" action is implemented as a DELETE.
+CREATE TABLE IF NOT EXISTS email_templates (
+  slug text PRIMARY KEY,
+  subject text NOT NULL,
+  body text NOT NULL,
+  updated_by text,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE INDEX IF NOT EXISTS idx_users_email_lower ON users(lower(email));
 CREATE INDEX IF NOT EXISTS idx_users_company ON users(company_id);
 CREATE INDEX IF NOT EXISTS idx_sites_company ON sites(company_id);

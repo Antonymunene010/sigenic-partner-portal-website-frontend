@@ -92,22 +92,24 @@ async function persistSubmission(
     id: runId,
     submitted_at: submittedAt,
   })
-  // Notify Sigenic admins so they can review who submitted and follow up if needed.
-  notifyInternalAdmins(store, calculatorLeadEmail({
+  // Two independent best-effort fan-outs: admins get the lead notification, the
+  // submitter gets a confirmation receipt (when their email is known). Both
+  // template renders + sends are kicked off in parallel and never awaited so the
+  // wizard's confirmation screen returns the moment the run is persisted.
+  void calculatorLeadEmail(store, {
     runId,
     result,
     submitterName: params.submitterName,
     submitterEmail: params.submitterEmail,
     additional: params.additional ?? null,
-  })).catch(() => {})
-  // Email the submitter a confirmation receipt. Keyed off submitterEmail — the same
-  // field the admin notify already uses — so every submission with a known submitter
-  // gets a receipt, with no separate opt-in flag for a new call site to forget.
+  })
+    .then((msg) => notifyInternalAdmins(store, msg))
+    .catch(() => {})
   if (params.submitterEmail) {
-    sendEmail(store, {
-      to: params.submitterEmail,
-      ...calculatorSubmissionReceiptEmail({ recipientName: params.recipientName, runId, result }),
-    }).catch(() => {})
+    const to = params.submitterEmail
+    void calculatorSubmissionReceiptEmail(store, { recipientName: params.recipientName, runId, result })
+      .then((msg) => sendEmail(store, { to, ...msg }))
+      .catch(() => {})
   }
   return { result, runId, submittedAt }
 }

@@ -47,7 +47,7 @@ export async function sendInviteLink(store: Store, userId: string, origin?: stri
   const token = signResetToken(account.id, account.passwordHash, INVITE_TTL_SECONDS)
   await sendEmail(store, {
     to: account.email,
-    ...inviteEmail({ fullName: account.fullName, role: account.role, companyName: account.companyName, link: resetLink(token, origin) }),
+    ...(await inviteEmail(store, { fullName: account.fullName, role: account.role, companyName: account.companyName, link: resetLink(token, origin) })),
   }).catch(() => {})
   return account
 }
@@ -95,22 +95,19 @@ export async function createUser(store: Store, auth: AuthPayload, user: any, pas
   void (async () => {
     try {
       const account = await sendInviteLink(store, created.id, origin)
+      const [receipt, mutationMsg] = await Promise.all([
+        inviteSentReceiptEmail(store, {
+          inviterName: auth.name,
+          inviteeName: created.fullName,
+          inviteeEmail: created.email,
+          inviteeRole: roleLabel(created.role as Role),
+          companyName: account.companyName,
+        }),
+        userMutationAdminEmail(store, { action: 'created', fullName: created.fullName, email: created.email, role: created.role, companyName: account.companyName, actor: auth.name }),
+      ])
       await Promise.all([
-        sendEmail(store, {
-          to: auth.email,
-          ...inviteSentReceiptEmail({
-            inviterName: auth.name,
-            inviteeName: created.fullName,
-            inviteeEmail: created.email,
-            inviteeRole: roleLabel(created.role as Role),
-            companyName: account.companyName,
-          }),
-        }).catch(() => {}),
-        notifyInternalAdmins(
-          store,
-          userMutationAdminEmail({ action: 'created', fullName: created.fullName, email: created.email, role: created.role, companyName: account.companyName, actor: auth.name }),
-          { excludeUserId: auth.sub },
-        ).catch(() => {}),
+        sendEmail(store, { to: auth.email, ...receipt }).catch(() => {}),
+        notifyInternalAdmins(store, mutationMsg, { excludeUserId: auth.sub }).catch(() => {}),
       ])
     } catch {
       /* notification emails are best-effort */
@@ -151,18 +148,16 @@ export async function resendInvite(store: Store, auth: AuthPayload, id: string, 
   // re-query the same user+company. sendInviteLink is best-effort by contract
   // and explicitly NOT awaited so a stalled SMTP send can't freeze the resend
   // response — the user just wants to know we kicked the email off.
-  void sendInviteLink(store, id, origin, target).then((account) =>
-    sendEmail(store, {
-      to: auth.email,
-      ...inviteSentReceiptEmail({
-        inviterName: auth.name,
-        inviteeName: account.fullName,
-        inviteeEmail: account.email,
-        inviteeRole: roleLabel(account.role as Role),
-        companyName: account.companyName,
-      }),
-    }).catch(() => {}),
-  ).catch(() => {})
+  void sendInviteLink(store, id, origin, target).then(async (account) => {
+    const receipt = await inviteSentReceiptEmail(store, {
+      inviterName: auth.name,
+      inviteeName: account.fullName,
+      inviteeEmail: account.email,
+      inviteeRole: roleLabel(account.role as Role),
+      companyName: account.companyName,
+    })
+    await sendEmail(store, { to: auth.email, ...receipt }).catch(() => {})
+  }).catch(() => {})
   await audit(store, auth, 'user', id, 'resend_invite', null, null)
 }
 
@@ -178,7 +173,7 @@ export async function resetUserPassword(store: Store, auth: AuthPayload, id: str
   const token = signResetToken(target.id, target.passwordHash)
   await sendEmail(store, {
     to: target.email,
-    ...passwordResetLinkEmail({ fullName: target.fullName, link: resetLink(token, origin) }),
+    ...(await passwordResetLinkEmail(store, { fullName: target.fullName, link: resetLink(token, origin) })),
   }).catch(() => {})
   await audit(store, auth, 'user', id, 'reset_password', null, null)
 }
@@ -201,12 +196,15 @@ export async function deleteUser(store: Store, auth: AuthPayload, id: string): P
   // response — the user has already been deleted, the caller shouldn't wait
   // on an email handshake to learn that. Each branch catches its own errors
   // so the dangling promise can't surface as an unhandled rejection.
-  void Promise.all([
-    sendEmail(store, { to: target.email, ...accountRemovedEmail({ fullName: target.fullName, companyName: target.companyName }) }).catch(() => {}),
-    notifyInternalAdmins(
-      store,
-      userMutationAdminEmail({ action: 'deleted', fullName: target.fullName, email: target.email, role: target.role, companyName: target.companyName, actor: auth.name }),
-    ).catch(() => {}),
-  ])
+  void (async () => {
+    const [removed, mutationMsg] = await Promise.all([
+      accountRemovedEmail(store, { fullName: target.fullName, companyName: target.companyName }),
+      userMutationAdminEmail(store, { action: 'deleted', fullName: target.fullName, email: target.email, role: target.role, companyName: target.companyName, actor: auth.name }),
+    ])
+    await Promise.all([
+      sendEmail(store, { to: target.email, ...removed }).catch(() => {}),
+      notifyInternalAdmins(store, mutationMsg).catch(() => {}),
+    ])
+  })()
   return { ok }
 }

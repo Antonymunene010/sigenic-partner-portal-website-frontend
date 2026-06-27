@@ -323,6 +323,42 @@ export function createStore() {
     return list('email_outbox', { order: 'created_at DESC' })
   }
 
+  /* ----- email templates (super-admin editable subject/body per slug) ----- */
+
+  // The table keys on slug (no surrogate id), so these helpers bypass the generic
+  // CRUD above (which is hard-wired to an `id` PK + the touch-updated_at convention).
+
+  async function getEmailTemplate(slug: string): Promise<{ slug: string; subject: string; body: string; updatedBy: string | null; updatedAt: string } | null> {
+    const res = await query('SELECT * FROM email_templates WHERE slug = $1 LIMIT 1', [slug])
+    return res.rows[0] ? rowToObj(res.rows[0]) : null
+  }
+
+  async function listEmailTemplates(): Promise<any[]> {
+    const res = await query('SELECT * FROM email_templates ORDER BY slug ASC')
+    return res.rows.map((row) => rowToObj(row))
+  }
+
+  async function upsertEmailTemplate(slug: string, subject: string, body: string, updatedBy: string | null): Promise<any> {
+    const res = await query(
+      `INSERT INTO email_templates (slug, subject, body, updated_by, updated_at)
+       VALUES ($1, $2, $3, $4, now())
+       ON CONFLICT (slug) DO UPDATE SET
+         subject = EXCLUDED.subject,
+         body = EXCLUDED.body,
+         updated_by = EXCLUDED.updated_by,
+         updated_at = now()
+       RETURNING *`,
+      [slug, subject, body, updatedBy],
+    )
+    return rowToObj(res.rows[0])
+  }
+
+  /** Reset = remove the override; the render layer falls back to EMAIL_DEFAULTS. */
+  async function removeEmailTemplate(slug: string): Promise<boolean> {
+    const res = await query('DELETE FROM email_templates WHERE slug = $1 RETURNING slug', [slug])
+    return (res.rowCount ?? 0) > 0
+  }
+
   /** Mark one notification read, scoped to its owner. False if not found or not theirs. */
   async function markNotificationRead(id: string, userId: string): Promise<boolean> {
     const res = await query('UPDATE notifications SET read = true WHERE id = $1 AND user_id = $2 RETURNING id', [id, userId])
@@ -392,6 +428,11 @@ export function createStore() {
     getEmails,
     markNotificationRead,
     markNotificationsRead,
+    // email templates
+    getEmailTemplate,
+    listEmailTemplates,
+    upsertEmailTemplate,
+    removeEmailTemplate,
     // article assets
     insertAttachment,
     getAttachment,

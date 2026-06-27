@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Calculator, BookOpen, Inbox, Building2, Users, UserPlus, CreditCard,
-  SlidersHorizontal, ListChecks, Megaphone, ScrollText, BarChart3,
+  SlidersHorizontal, ListChecks, Mail, Megaphone, ScrollText, BarChart3,
   Sparkles, ChevronDown, LogOut, UserCircle, Menu, X, ExternalLink, CalendarClock, Flame, History,
 } from 'lucide-react'
 import clsx from 'clsx'
@@ -46,6 +46,7 @@ const ADMIN_NAV: NavItem[] = [
   { to: '/app/admin/calculator-config', label: 'Calculator Config', icon: SlidersHorizontal, cap: 'manage_scoring' },
   { to: '/app/admin/calculator-runs', label: 'Calculator Leads', icon: Flame, cap: 'view_calculator_runs' },
   { to: '/app/admin/request-config', label: 'Request Config', icon: ListChecks, cap: 'manage_request_config' },
+  { to: '/app/admin/email-templates', label: 'Email Templates', icon: Mail, cap: 'manage_email_templates' },
   { to: '/app/admin/requests', label: 'Request Oversight', icon: Inbox, cap: 'view_ticket_oversight' },
   { to: '/app/admin/knowledge', label: 'Knowledge Base', icon: BookOpen, cap: 'manage_knowledge' },
   { to: '/app/admin/stories', label: 'Success Stories', icon: Sparkles, cap: 'manage_success_stories' },

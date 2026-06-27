@@ -15,6 +15,7 @@ import * as attachmentService from '../services/attachment.service'
 import * as notificationService from '../services/notification.service'
 import * as pdfService from '../services/pdf.service'
 import * as resourceService from '../services/resource.service'
+import * as emailTemplateService from '../services/emailTemplate.service'
 import type { Store } from '../db/store'
 
 /**
@@ -146,6 +147,22 @@ export function apiRouter(store: Store): Router {
     const report = req.body?.report
     const buffer = await pdfService.generateReportPdf(report)
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${report?.estimateId || 'estimate'}.pdf"` }).send(buffer)
+  })
+
+  /* email templates (super_admin-only editor) — registered before the generic
+     /:resource handlers so PATCH/POST on a slug doesn't fall through to the
+     resource dispatcher. */
+  r.get('/email-templates', async (req, res) => {
+    res.json(await emailTemplateService.listEmailTemplates(store, req.auth!))
+  })
+  r.get('/email-templates/:slug', async (req, res) => {
+    res.json(await emailTemplateService.getEmailTemplate(store, req.auth!, req.params.slug))
+  })
+  r.patch('/email-templates/:slug', async (req, res) => {
+    res.json(await emailTemplateService.updateEmailTemplate(store, req.auth!, req.params.slug, req.body ?? {}))
+  })
+  r.post('/email-templates/:slug/reset', async (req, res) => {
+    res.json(await emailTemplateService.resetEmailTemplate(store, req.auth!, req.params.slug))
   })
 
   /* internal: email outbox + analytics */
