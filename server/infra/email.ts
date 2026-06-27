@@ -184,6 +184,67 @@ function optionalClause(value: string | null | undefined): string {
   return value ? ` (${value})` : ''
 }
 
+/** Minimal HTML escape (XML special chars only). Sufficient for what we render
+ *  inside <p> and href= contexts in our email shell below. */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/** Outlook-friendly CTA button (table + bgcolor + inline styles). MSO clients
+ *  ignore CSS `padding` on <a>, so the padding lives on the <td> and the <a>
+ *  fills it via `display:inline-block`. */
+function ctaButtonHtml(link: string, label: string): string {
+  const safeLink = escapeHtml(link)
+  return `<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:24px auto;border-collapse:separate;">
+  <tr><td align="center" bgcolor="#2563eb" style="border-radius:6px;">
+    <a href="${safeLink}" target="_blank" rel="noopener" style="display:inline-block;padding:12px 28px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:6px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${escapeHtml(label)}</a>
+  </td></tr>
+</table>`
+}
+
+/** Wrap a rendered plain-text email body in a minimal HTML shell. Paragraphs
+ *  (split by blank lines) become <p>; intra-paragraph newlines become <br>.
+ *  Any paragraph that is *exactly* `cta.url` is replaced by a CTA button (so
+ *  the long token URL disappears from the rendered HTML); the same url
+ *  appearing inside a sentence is hyperlinked inline so a custom template that
+ *  splices `{{link}}` into prose still renders correctly. Clients that don't
+ *  render HTML still see the original `text` part of the multipart. */
+function wrapEmailHtml(text: string, cta: { url: string; label: string }): string {
+  const paragraphs = text.trim().split(/\n{2,}/g)
+  const safeUrl = escapeHtml(cta.url)
+  const inlineLink = `<a href="${safeUrl}" target="_blank" rel="noopener" style="color:#2563eb;text-decoration:underline;">${safeUrl}</a>`
+  const bodyHtml = paragraphs
+    .map((para) => {
+      if (para.trim() === cta.url) return ctaButtonHtml(cta.url, cta.label)
+      const html = escapeHtml(para).replace(/\n/g, '<br>').split(safeUrl).join(inlineLink)
+      return `<p style="margin:0 0 16px 0;font-size:14px;line-height:1.6;color:#1f2937;">${html}</p>`
+    })
+    .join('\n')
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f5f5f5;">
+  <tr><td align="center" style="padding:24px;">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+      <tr><td style="padding:32px;">
+${bodyHtml}
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`
+}
+
 const SIGNATURE = '— Sigenic Partner Portal'
 
 /**
@@ -599,16 +660,20 @@ export function announcementEmail(
   })
 }
 
-export function inviteEmail(
+export async function inviteEmail(
   store: TemplateStore,
   invite: { fullName: string; role: string; companyName?: string | null; link: string },
-): Promise<{ subject: string; text: string }> {
-  return renderTemplate(store, 'invite', {
+): Promise<{ subject: string; text: string; html: string }> {
+  const rendered = await renderTemplate(store, 'invite', {
     fullName: invite.fullName,
     role: invite.role,
     companyClause: optionalClause(invite.companyName),
     link: invite.link,
   })
+  return {
+    ...rendered,
+    html: wrapEmailHtml(rendered.text, { url: invite.link, label: 'Set your password' }),
+  }
 }
 
 export function passwordResetLinkEmail(
