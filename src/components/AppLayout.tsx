@@ -184,7 +184,7 @@ function UserMenu({ user }: { user: User }) {
           <button onClick={() => { setOpen(false); navigate('/app/account') }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-raised dark:hover:bg-raised-dark text-left">
             <UserCircle size={15} /> Account
           </button>
-          <a href="/" className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-raised dark:hover:bg-raised-dark text-left">
+          <a href="https://www.sigenic.com/" target="_blank" rel="noopener noreferrer" className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-raised dark:hover:bg-raised-dark text-left">
             <ExternalLink size={15} /> Public site
           </a>
           <button onClick={logout} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-raised dark:hover:bg-raised-dark text-left border-t border-line dark:border-line-dark text-danger">
