@@ -8,7 +8,7 @@ import {
   updateEmailTemplateApi,
   resetEmailTemplateApi,
 } from '../../lib/api'
-import { renderString, tidyBlankLines, type EmailTemplateView } from '../../../shared/emailTemplate'
+import { renderString, tidyBlankLines, TEMPLATE_FILTERS, type EmailTemplateView } from '../../../shared/emailTemplate'
 import { fmtRelative } from '../../lib/format'
 
 function exampleVars(t: EmailTemplateView): Record<string, string> {
@@ -16,6 +16,17 @@ function exampleVars(t: EmailTemplateView): Record<string, string> {
   for (const v of t.variables) out[v.name] = v.example
   return out
 }
+
+// Per-placeholder casing chips. Derived from TEMPLATE_FILTERS so adding a new
+// filter in shared/ surfaces a chip here automatically (no second registry to
+// keep in sync). Module-scope = one allocation, not one-per-render.
+const CASING_CHIPS = Object.entries(TEMPLATE_FILTERS).map(([suffix, f]) => ({
+  suffix,
+  label: f.label,
+  tip: f.tip,
+}))
+
+const FILTER_NAMES = Object.keys(TEMPLATE_FILTERS)
 
 export default function AdminEmailTemplates() {
   const toast = useToast()
@@ -103,8 +114,7 @@ export default function AdminEmailTemplates() {
     }
   }
 
-  function copyPlaceholder(name: string) {
-    const ph = `{{${name}}}`
+  function copyPlaceholder(ph: string) {
     if (navigator.clipboard?.writeText) {
       void navigator.clipboard.writeText(ph).catch(() => {})
     }
@@ -202,19 +212,43 @@ export default function AdminEmailTemplates() {
             <Card title="Available variables" eyebrow="placeholders">
               <p className="text-xs text-muted dark:text-muted-dark mb-3">
                 Click a placeholder to copy it. An unknown variable renders as an empty string at send-time.
+                Append{' '}
+                {FILTER_NAMES.map((name, i, arr) => (
+                  <span key={name}>
+                    {i > 0 && (i === arr.length - 1 ? ', or ' : ', ')}
+                    <code className="font-mono text-[11px] text-emphasis">|{name}</code>
+                  </span>
+                ))}{' '}
+                to change casing — e.g.{' '}
+                <code className="font-mono text-[11px] text-emphasis">{'{{action|capitalize}}'}</code> renders as "Created".
               </p>
               <ul className="divide-y divide-line dark:divide-line-dark text-sm">
                 {active.variables.map((v) => (
                   <li key={v.name} className="py-2.5 flex items-start gap-3">
                     <button
                       type="button"
-                      onClick={() => copyPlaceholder(v.name)}
+                      onClick={() => copyPlaceholder(`{{${v.name}}}`)}
                       className="font-mono text-[12px] text-emphasis shrink-0 underline-offset-4 hover:underline"
                     >
                       {`{{${v.name}}}`}
                     </button>
                     <div className="flex-1 min-w-0">
-                      <div className="text-[13px] text-ink dark:text-ink-dark">{v.description}</div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-[13px] text-ink dark:text-ink-dark flex-1 min-w-0">{v.description}</span>
+                        <span className="flex gap-1 shrink-0" aria-label="Copy with casing filter">
+                          {CASING_CHIPS.map((c) => (
+                            <button
+                              key={c.suffix}
+                              type="button"
+                              title={c.tip}
+                              onClick={() => copyPlaceholder(`{{${v.name}|${c.suffix}}}`)}
+                              className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-raised dark:bg-raised-dark text-muted dark:text-muted-dark hover:text-emphasis transition"
+                            >
+                              {c.label}
+                            </button>
+                          ))}
+                        </span>
+                      </div>
                       <div className="text-xs text-faint dark:text-faint-dark mt-0.5 truncate">
                         e.g. {v.example.includes('\n') ? v.example.replace(/\n/g, ' ⏎ ') : v.example}
                       </div>

@@ -42,11 +42,54 @@ export interface EmailTemplateView {
   updatedAt: string | null
 }
 
-/** Replace `{{name}}` (with optional surrounding whitespace) — unknown vars
- *  collapse to empty string, matching the "missing field = drop the line"
- *  behaviour the original template literals had. */
+/** One casing filter a super-admin can append to a placeholder. The same entry
+ *  drives both render-time transformation (`apply`) AND the admin editor's
+ *  quick-copy chips (`label`/`tip`) — keeping these together means adding a
+ *  filter requires editing only this file, no separate UI registry. */
+export interface TemplateFilter {
+  apply: (s: string) => string
+  label: string
+  tip: string
+}
+
+/** `{{action|upper}}` → "CREATED". `capitalize` is first-letter-upper +
+ *  rest-lower (e.g. "created" → "Created"), matching the common admin-editor
+ *  use case rather than title-casing every word. Unknown filters fall through
+ *  to the raw value so a typo never silently swallows the field.
+ *
+ *  Insertion order is the order the admin editor displays the quick-copy chips
+ *  (Aa → aa → AA), so reorder entries here to reorder the UI. */
+export const TEMPLATE_FILTERS: Record<string, TemplateFilter> = {
+  capitalize: {
+    apply: (s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase(),
+    label: 'Aa',
+    tip: 'Capitalized — e.g. "Created"',
+  },
+  lower: {
+    apply: (s) => s.toLowerCase(),
+    label: 'aa',
+    tip: 'lowercase — e.g. "created"',
+  },
+  upper: {
+    apply: (s) => s.toUpperCase(),
+    label: 'AA',
+    tip: 'UPPERCASE — e.g. "CREATED"',
+  },
+}
+
+/** Replace `{{name}}` or `{{name|filter}}` (with optional surrounding
+ *  whitespace). Unknown vars collapse to empty string, matching the
+ *  "missing field = drop the line" behaviour the original template literals
+ *  had. Unknown filters render the raw value rather than empty, so a typo
+ *  degrades to "uncased" rather than "blank field". */
 export function renderString(template: string, vars: Record<string, string>): string {
-  return template.replace(/\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g, (_, key) => vars[key] ?? '')
+  return template.replace(
+    /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)(?:\s*\|\s*([a-zA-Z_][a-zA-Z0-9_]*))?\s*\}\}/g,
+    (_, key, filter) => {
+      const raw = vars[key] ?? ''
+      return filter ? TEMPLATE_FILTERS[filter]?.apply(raw) ?? raw : raw
+    },
+  )
 }
 
 /** Optional sections frequently collapse a multi-line block to nothing; squash
