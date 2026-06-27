@@ -156,12 +156,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setItems((cur) => [...cur, { id, kind, message }])
     setTimeout(() => setItems((cur) => cur.filter((t) => t.id !== id)), 4000)
   }, [])
-  // Memoize the context value so the identity stays stable across our internal
-  // setItems re-renders. Otherwise every toast.push triggers a re-render of
-  // every useToast() consumer AND breaks any effect that lists `toast` in its
-  // deps (e.g. AdminEmailTemplates' initial load effect, which would otherwise
-  // re-run on each toast and snap activeSlug back to the first template).
-  const value = useMemo<ToastCtx>(() => ({ push }), [push])
+  // Stabilize so consumers' effects that list `toast` in their deps (e.g.
+  // AdminEmailTemplates' initial-load effect) don't re-run on every push.
+  const value = useMemo(() => ({ push }), [push])
   return (
     <Ctx.Provider value={value}>
       {children}
