@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowRight, CheckCircle2 } from 'lucide-react'
 import { resetPassword } from '../lib/api'
 import { AuthShell } from '../components/AuthShell'
-import { Field } from '../components/ui'
+import { Field, PasswordInput } from '../components/ui'
 
 export default function ResetPassword() {
   const [params] = useSearchParams()
@@ -73,26 +73,10 @@ export default function ResetPassword() {
           <p className="mt-1 text-sm text-muted dark:text-muted-dark">Set a new password for your Sigenic account.</p>
           <form onSubmit={submit} className="mt-6 space-y-4">
             <Field label="New password">
-              <input
-                className="input"
-                type="password"
-                autoComplete="new-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••"
-                required
-              />
+              <PasswordInput value={password} onChange={setPassword} autoComplete="new-password" required />
             </Field>
             <Field label="Confirm new password">
-              <input
-                className="input"
-                type="password"
-                autoComplete="new-password"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                placeholder="••••••"
-                required
-              />
+              <PasswordInput value={confirm} onChange={setConfirm} autoComplete="new-password" required />
             </Field>
             {error && <p className="text-sm text-danger">{error}</p>}
             <button className="btn-accent w-full" disabled={busy}>

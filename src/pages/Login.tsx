@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { ArrowRight, MapPin, Mail, Phone, Eye, EyeOff } from 'lucide-react'
+import { ArrowRight, MapPin, Mail, Phone } from 'lucide-react'
 import { useAuth, takeSessionExpired } from '../lib/auth'
 import { WordMark } from '../components/Logo'
 import { ThemeToggle } from '../components/ThemeToggle'
-import { Field } from '../components/ui'
+import { Field, PasswordInput } from '../components/ui'
 
 const DEMO_ACCOUNTS = [
   { email: 'founder@sigenic.com', label: 'Super Admin · Sigenic' },
@@ -22,7 +22,6 @@ export default function Login() {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
   // Consume the one-shot expiry flag exactly once: useState's initializer runs only
   // on mount, so re-renders don't re-read (and re-clear) sessionStorage. The notice
   // is never updated after mount, so we don't keep the setter.
@@ -102,18 +101,7 @@ export default function Login() {
                 <input className="input" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" required />
               </Field>
               <Field label="Password">
-                <div className="relative">
-                  <input className="input pr-10" type={showPassword ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••" required />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((v) => !v)}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    aria-pressed={showPassword}
-                    className="absolute inset-y-0 right-0 flex items-center px-3 text-faint hover:text-ink dark:text-faint-dark dark:hover:text-ink-dark transition-colors"
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
+                <PasswordInput value={password} onChange={setPassword} autoComplete="current-password" required />
               </Field>
               <div className="-mt-1 flex justify-end">
                 <Link to="/forgot-password" className="text-xs font-medium text-muted dark:text-muted-dark hover:text-ink dark:hover:text-ink-dark transition-colors">

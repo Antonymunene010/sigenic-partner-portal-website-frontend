@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
-import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Eye, EyeOff, Info, X } from 'lucide-react'
 
 /* ---------- Card ---------- */
 export function Card({
@@ -115,6 +115,48 @@ export function NumberField({
         onChange={(e) => onChange(e.target.value === '' ? 0 : Number(e.target.value))}
       />
     </Field>
+  )
+}
+
+/* ---------- PasswordInput — input + show/hide eye toggle ---------- */
+export function PasswordInput({
+  value,
+  onChange,
+  autoComplete,
+  placeholder = '••••••',
+  id,
+  required,
+}: {
+  value: string
+  onChange: (v: string) => void
+  autoComplete?: string
+  placeholder?: string
+  id?: string
+  required?: boolean
+}) {
+  const [visible, setVisible] = useState(false)
+  return (
+    <div className="relative">
+      <input
+        id={id}
+        className="input pr-10"
+        type={visible ? 'text' : 'password'}
+        autoComplete={autoComplete}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        required={required}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? 'Hide password' : 'Show password'}
+        aria-pressed={visible}
+        className="absolute inset-y-0 right-0 flex items-center px-3 text-faint hover:text-ink dark:text-faint-dark dark:hover:text-ink-dark transition-colors"
+      >
+        {visible ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
+    </div>
   )
 }
 
