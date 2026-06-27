@@ -114,16 +114,16 @@ For real delivery, set `SMTP_*`. Gmail / Google Workspace example:
    SMTP_HOST=smtp.gmail.com
    SMTP_PORT=465
    SMTP_SECURE=true
-   SMTP_USER=sales@sigenic.com
+   SMTP_USER=noreply@sigenic.com
    SMTP_PASS=xxxxxxxxxxxxxxxx     # 16-char app password (spaces are stripped automatically)
-   EMAIL_FROM=Sigenic Partner Portal <sales@sigenic.com>
+   EMAIL_FROM=Sigenic Partner Portal <noreply@sigenic.com>
    APP_BASE_URL=https://partner.sigenic.com   # used in invite / reset-password links
    ```
 4. Test the handshake from the deploy host **before** wiring it in. There's a one-off script in the
    repo for this:
    ```bash
    SMTP_HOST=smtp.gmail.com SMTP_PORT=465 SMTP_SECURE=true \
-   SMTP_USER=sales@sigenic.com SMTP_PASS='xxxx xxxx xxxx xxxx' \
+   SMTP_USER=noreply@sigenic.com SMTP_PASS='xxxx xxxx xxxx xxxx' \
    node scripts/smtp-check.mjs --to you@example.com
    ```
    If `verify` succeeds locally but fails on the deploy host, the host is blocking outbound 465/587
@@ -132,6 +132,46 @@ For real delivery, set `SMTP_*`. Gmail / Google Workspace example:
 
 Any SMTP-compatible provider works the same way — point `SMTP_*` at the provider's host/port and use
 the credentials they give you (SendGrid, Postmark, Amazon SES, etc.).
+
+#### Two sender identities (transactional vs. sales)
+
+Per client request (2026-06-27), the portal sends from **two** distinct mailboxes:
+
+| What | From | Why |
+| --- | --- | --- |
+| Invites / password resets / signups / announcements / tickets | `noreply@sigenic.com` | Account management — replies shouldn't land in sales |
+| Calculator (ROI / risk) lead notifications & receipts | `sigenic_sales@sigenic.com` | Replies go straight to the sales team that follows up |
+
+**Google Workspace setup** (two real mailboxes, recommended):
+
+1. In the Workspace admin, create both users (`noreply@sigenic.com` and `sigenic_sales@sigenic.com`).
+2. Sign into each one in turn, enable 2-Step Verification, and create an **app password** (same
+   steps as above).
+3. In `.env`:
+   ```bash
+   # Default mailbox — everything except ROI
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=465
+   SMTP_SECURE=true
+   SMTP_USER=noreply@sigenic.com
+   SMTP_PASS=xxxxxxxxxxxxxxxx
+   EMAIL_FROM=Sigenic Partner Portal <noreply@sigenic.com>
+
+   # Sales mailbox — calculator/ROI mail. Inherits host/port/secure.
+   SMTP_USER_SALES=sigenic_sales@sigenic.com
+   SMTP_PASS_SALES=yyyyyyyyyyyyyyyy
+   EMAIL_FROM_SALES=Sigenic Sales <sigenic_sales@sigenic.com>
+   ```
+4. Smoke-test each set with `scripts/smtp-check.mjs` (override `SMTP_USER`/`SMTP_PASS` per run).
+
+Why two SMTP users on standard `smtp.gmail.com`? Gmail rewrites the `From:` header to the
+authenticated user's address — without dedicated sales credentials, ROI mail would silently come
+out as `noreply@`. If you use Google Workspace **SMTP relay** (`smtp-relay.gmail.com`) with an IP
+allowlist instead, you can omit `SMTP_USER_SALES`/`SMTP_PASS_SALES` and let one auth user send
+as both — `EMAIL_FROM_SALES` alone is enough.
+
+If `EMAIL_FROM_SALES` is left blank, calculator mail falls back to `EMAIL_FROM` (single-mailbox
+deployments work unchanged).
 
 ### 4. Zendesk (optional — two-way ticket sync)
 
@@ -244,9 +284,14 @@ the portal subdomain (e.g. `partner.sigenic.com`).
    SMTP_HOST=smtp.gmail.com
    SMTP_PORT=465
    SMTP_SECURE=true
-   SMTP_USER=sales@sigenic.com
+   SMTP_USER=noreply@sigenic.com
    SMTP_PASS=xxxxxxxxxxxxxxxx
-   EMAIL_FROM=Sigenic Partner Portal <sales@sigenic.com>
+   EMAIL_FROM=Sigenic Partner Portal <noreply@sigenic.com>
+   # Optional separate mailbox for calculator (ROI) leads — see §3 of this README
+   # for the rationale and Google Workspace setup.
+   SMTP_USER_SALES=sigenic_sales@sigenic.com
+   SMTP_PASS_SALES=yyyyyyyyyyyyyyyy
+   EMAIL_FROM_SALES=Sigenic Sales <sigenic_sales@sigenic.com>
 
    # Optional integrations — leave blank to disable
    # ZENDESK_SUBDOMAIN=...

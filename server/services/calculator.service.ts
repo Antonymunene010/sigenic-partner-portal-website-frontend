@@ -96,6 +96,9 @@ async function persistSubmission(
   // submitter gets a confirmation receipt (when their email is known). Both
   // template renders + sends are kicked off in parallel and never awaited so the
   // wizard's confirmation screen returns the moment the run is persisted.
+  // Calculator lead / receipt mail flows through the sales mailbox (client
+  // request 2026-06-27: ROI from sigenic_sales@, user management from noreply@)
+  // so replies land with the sales team that follows up on the lead.
   void calculatorLeadEmail(store, {
     runId,
     result,
@@ -103,12 +106,12 @@ async function persistSubmission(
     submitterEmail: params.submitterEmail,
     additional: params.additional ?? null,
   })
-    .then((msg) => notifyInternalAdmins(store, msg))
+    .then((msg) => notifyInternalAdmins(store, msg, { from: 'sales' }))
     .catch(() => {})
   if (params.submitterEmail) {
     const to = params.submitterEmail
     void calculatorSubmissionReceiptEmail(store, { recipientName: params.recipientName, runId, result })
-      .then((msg) => sendEmail(store, { to, ...msg }))
+      .then((msg) => sendEmail(store, { to, ...msg }, { from: 'sales' }))
       .catch(() => {})
   }
   return { result, runId, submittedAt }

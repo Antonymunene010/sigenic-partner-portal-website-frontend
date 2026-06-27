@@ -50,16 +50,72 @@ interface EmailMessage {
   html?: string
 }
 
+/**
+ * Which "voice" sends the email. Per client (2026-06-27):
+ *  - `default` → transactional account-management mail (invites, password
+ *    resets, signup, announcements, tickets). Customer wants the `noreply@`
+ *    mailbox so replies don't land in a sales inbox.
+ *  - `sales` → ROI / risk calculator lead notifications & receipts. Customer
+ *    routes these to `sigenic_sales@` so the sales team can follow up directly.
+ *
+ * Every call site that should NOT come from the default mailbox passes
+ * `{ from: 'sales' }`. New categories should be added here, not at call sites.
+ */
+export type EmailFromCategory = 'default' | 'sales'
+
+interface SendOpts {
+  from?: EmailFromCategory
+}
+
 type EmailMode = 'outbox' | 'smtp'
-let send: ((msg: EmailMessage) => Promise<void>) | null = null
+type Sender = (msg: EmailMessage) => Promise<void>
+
+let senders: Partial<Record<EmailFromCategory, Sender>> = {}
 let mode: EmailMode = 'outbox'
 
-const FROM = process.env.EMAIL_FROM || 'Sigenic Partner Portal <no-reply@sigenic.com>'
+const FROM_DEFAULT = process.env.EMAIL_FROM || 'Sigenic Partner Portal <noreply@sigenic.com>'
+// Falls back to the default address so a single-mailbox deployment keeps
+// working — only set EMAIL_FROM_SALES if the sales mailbox is actually
+// configured (and ideally has its own SMTP credentials, see SMTP_USER_SALES).
+const FROM_SALES = process.env.EMAIL_FROM_SALES || FROM_DEFAULT
+
+async function buildSender(
+  nodemailer: typeof import('nodemailer'),
+  cfg: { host: string; port: number; secure: boolean; user?: string; pass?: string },
+  from: string,
+): Promise<Sender> {
+  const transporter = nodemailer.createTransport({
+    host: cfg.host,
+    port: cfg.port,
+    secure: cfg.secure,
+    // Gmail app passwords are often pasted with spaces — strip to match the
+    // smtp-check probe so a credential that verifies offline also works here.
+    auth: cfg.user ? { user: cfg.user, pass: (cfg.pass || '').replace(/\s+/g, '') } : undefined,
+    // Hostinger's outbound SMTP path has been observed hanging for tens of
+    // seconds when the relay doesn't respond. nodemailer's defaults are very
+    // generous (~10min greeting timeout), which would freeze the request
+    // handler that triggered the send. Cap the three phases tightly so a
+    // wedged relay surfaces as a failed send within a few seconds, not a
+    // wedged HTTP response.
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
+  })
+  return ({ to, subject, text, html }) =>
+    transporter.sendMail({ from, to, subject, text, html: html || undefined })
+}
 
 /**
  * Initialise email transport. Priority:
  *  1. SMTP_HOST set → nodemailer over SMTP (local mailpit, Gmail relay, etc).
  *  2. Otherwise → outbox-only mode, every send is recorded but not delivered.
+ *
+ * Sales transport: host/port/secure are inherited from the default SMTP config.
+ * If SMTP_USER_SALES + SMTP_PASS_SALES are also set, a second transporter
+ * authenticates as that user (necessary on standard smtp.gmail.com, which
+ * rewrites From: to the authenticated user). Without those, sales mail reuses
+ * the default credentials and only the From: header changes — fine for
+ * smtp-relay.gmail.com / SES / any relay that allows arbitrary senders.
  */
 export async function initEmail(): Promise<EmailMode> {
   const host = process.env.SMTP_HOST
@@ -67,31 +123,31 @@ export async function initEmail(): Promise<EmailMode> {
     console.warn('[email] SMTP_HOST unset — emails will be recorded to the outbox instead of sent.')
     return mode
   }
+  const baseCfg = {
+    host,
+    port: Number(process.env.SMTP_PORT || 1025),
+    secure: process.env.SMTP_SECURE === 'true',
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  }
   try {
-    const { default: nodemailer } = await import('nodemailer')
-    const transporter = nodemailer.createTransport({
-      host,
-      port: Number(process.env.SMTP_PORT || 1025),
-      secure: process.env.SMTP_SECURE === 'true',
-      // Gmail app passwords are often pasted with spaces — strip to match the
-      // smtp-check probe so a credential that verifies offline also works here.
-      auth: process.env.SMTP_USER
-        ? { user: process.env.SMTP_USER, pass: (process.env.SMTP_PASS || '').replace(/\s+/g, '') }
-        : undefined,
-      // Hostinger's outbound SMTP path has been observed hanging for tens of
-      // seconds when the relay doesn't respond. nodemailer's defaults are very
-      // generous (~10min greeting timeout), which would freeze the request
-      // handler that triggered the send. Cap the three phases tightly so a
-      // wedged relay surfaces as a failed send within a few seconds, not a
-      // wedged HTTP response.
-      connectionTimeout: 10_000,
-      greetingTimeout: 10_000,
-      socketTimeout: 15_000,
-    })
-    send = ({ to, subject, text, html }) =>
-      transporter.sendMail({ from: FROM, to, subject, text, html: html || undefined })
+    const nodemailer = await import('nodemailer')
+    senders.default = await buildSender(nodemailer, baseCfg, FROM_DEFAULT)
+    const salesUser = process.env.SMTP_USER_SALES
+    const salesPass = process.env.SMTP_PASS_SALES
+    if (salesUser && salesPass && salesUser !== baseCfg.user) {
+      senders.sales = await buildSender(nodemailer, { ...baseCfg, user: salesUser, pass: salesPass }, FROM_SALES)
+      console.log(`[email] sales SMTP transport ready (user=${salesUser}).`)
+    } else {
+      senders.sales = await buildSender(nodemailer, baseCfg, FROM_SALES)
+      if (FROM_SALES !== FROM_DEFAULT) {
+        console.log(
+          `[email] sales mail reuses default SMTP credentials (no SMTP_USER_SALES set); From: will be "${FROM_SALES}" — ensure your relay allows that sender.`,
+        )
+      }
+    }
     mode = 'smtp'
-    console.log(`[email] SMTP transport ready (${host}:${process.env.SMTP_PORT || 1025}).`)
+    console.log(`[email] SMTP transport ready (${host}:${baseCfg.port}).`)
   } catch (error: any) {
     console.warn(`[email] Failed to init SMTP (${error.message}) — falling back to outbox.`)
   }
@@ -105,8 +161,13 @@ export function emailMode(): EmailMode {
 /**
  * Send (or record) an email and persist a copy to the store-backed outbox so
  * admins can verify delivery even without a real mailbox.
+ *
+ * `opts.from` picks the From: identity — defaults to `default` (the noreply
+ * mailbox). Pass `'sales'` for calculator lead / receipt mail so the customer's
+ * sales team is the visible sender (see EmailFromCategory).
  */
-export async function sendEmail(store: EmailOutbox, msg: EmailMessage): Promise<EmailRecord> {
+export async function sendEmail(store: EmailOutbox, msg: EmailMessage, opts: SendOpts = {}): Promise<EmailRecord> {
+  const category: EmailFromCategory = opts.from ?? 'default'
   const record: EmailRecord = {
     id: uid('mail'),
     to: msg.to,
@@ -116,6 +177,7 @@ export async function sendEmail(store: EmailOutbox, msg: EmailMessage): Promise<
     delivered: false,
     createdAt: nowIso(),
   }
+  const send = senders[category]
   if (send) {
     try {
       await send(msg)
@@ -869,14 +931,16 @@ export function signupRejectedEmail(
 export async function notifyInternalAdmins(
   store: AdminFanoutStore,
   message: { subject: string; text: string },
-  opts: { excludeUserId?: string | null } = {},
+  opts: { excludeUserId?: string | null; from?: EmailFromCategory } = {},
 ): Promise<void> {
   const admins = await store.list('users', {
     where: "role = ANY($1::text[]) AND status <> 'inactive'",
     params: [INTERNAL_MANAGE],
   })
   const recipients = opts.excludeUserId ? admins.filter((a) => a.id !== opts.excludeUserId) : admins
-  await Promise.all(recipients.map((a) => sendEmail(store, { to: a.email, ...message }).catch(() => {})))
+  await Promise.all(
+    recipients.map((a) => sendEmail(store, { to: a.email, ...message }, { from: opts.from }).catch(() => {})),
+  )
 }
 
 /**
@@ -889,10 +953,13 @@ export async function notifyCompanyAdmins(
   store: AdminFanoutStore,
   companyId: string,
   message: { subject: string; text: string },
+  opts: { from?: EmailFromCategory } = {},
 ): Promise<void> {
   const admins = await store.list('users', {
     where: "company_id = $1 AND role IN ('distributor_admin','customer_admin') AND status = 'active'",
     params: [companyId],
   })
-  await Promise.all(admins.map((a) => sendEmail(store, { to: a.email, ...message }).catch(() => {})))
+  await Promise.all(
+    admins.map((a) => sendEmail(store, { to: a.email, ...message }, { from: opts.from }).catch(() => {})),
+  )
 }

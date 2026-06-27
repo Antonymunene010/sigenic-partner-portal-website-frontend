@@ -41,7 +41,13 @@ services:
       # Email via the bundled mailpit SMTP sink (override for a real provider).
       SMTP_HOST: ${SMTP_HOST:-mailpit}
       SMTP_PORT: ${SMTP_PORT:-1025}
-      EMAIL_FROM: ${EMAIL_FROM:-Sigenic Partner Portal <no-reply@sigenic.com>}
+      EMAIL_FROM: ${EMAIL_FROM:-Sigenic Partner Portal <noreply@sigenic.com>}
+      # Optional sales-mailbox split (calculator/ROI mail). Falls back to
+      # EMAIL_FROM when unset; mailpit accepts any From: so credentials aren't
+      # needed locally.
+      EMAIL_FROM_SALES: ${EMAIL_FROM_SALES:-}
+      SMTP_USER_SALES: ${SMTP_USER_SALES:-}
+      SMTP_PASS_SALES: ${SMTP_PASS_SALES:-}
       # Optional real Zendesk integration — leave blank for local mock mode.
       ZENDESK_SUBDOMAIN: ${ZENDESK_SUBDOMAIN:-}
       ZENDESK_EMAIL: ${ZENDESK_EMAIL:-}

@@ -39,7 +39,14 @@ services:
       SMTP_SECURE: ${SMTP_SECURE:-true}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
-      EMAIL_FROM: ${EMAIL_FROM:-Sigenic Partner Portal <no-reply@sigenic.com>}
+      EMAIL_FROM: ${EMAIL_FROM:-Sigenic Partner Portal <noreply@sigenic.com>}
+      # Calculator (ROI) lead mail — separate mailbox so the sales team gets
+      # replies. Leave EMAIL_FROM_SALES blank to fall back to EMAIL_FROM.
+      # SMTP_USER_SALES/SMTP_PASS_SALES: only needed on standard smtp.gmail.com
+      # (which rewrites From: to the auth user); inherits host/port/secure.
+      EMAIL_FROM_SALES: ${EMAIL_FROM_SALES:-}
+      SMTP_USER_SALES: ${SMTP_USER_SALES:-}
+      SMTP_PASS_SALES: ${SMTP_PASS_SALES:-}
       ZENDESK_SUBDOMAIN: ${ZENDESK_SUBDOMAIN:-}
       ZENDESK_EMAIL: ${ZENDESK_EMAIL:-}
       ZENDESK_API_TOKEN: ${ZENDESK_API_TOKEN:-}
