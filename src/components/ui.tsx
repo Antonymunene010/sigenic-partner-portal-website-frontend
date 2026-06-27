@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react'
 
 /* ---------- Card ---------- */
@@ -156,8 +156,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setItems((cur) => [...cur, { id, kind, message }])
     setTimeout(() => setItems((cur) => cur.filter((t) => t.id !== id)), 4000)
   }, [])
+  // Memoize the context value so the identity stays stable across our internal
+  // setItems re-renders. Otherwise every toast.push triggers a re-render of
+  // every useToast() consumer AND breaks any effect that lists `toast` in its
+  // deps (e.g. AdminEmailTemplates' initial load effect, which would otherwise
+  // re-run on each toast and snap activeSlug back to the first template).
+  const value = useMemo<ToastCtx>(() => ({ push }), [push])
   return (
-    <Ctx.Provider value={{ push }}>
+    <Ctx.Provider value={value}>
       {children}
       <div className="fixed bottom-4 right-4 z-[60] flex flex-col gap-2 w-[320px] max-w-[calc(100vw-2rem)]">
         {items.map((t) => (
