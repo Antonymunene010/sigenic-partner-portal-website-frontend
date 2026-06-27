@@ -6,6 +6,7 @@ import { PageHeader } from '../components/PageHeader'
 import { Card, Spinner, EmptyState } from '../components/ui'
 import { Badge } from '../components/Badge'
 import { Avatar } from '../components/Avatar'
+import { DemoBadge } from '../components/DemoBadge'
 import { DescRow } from '../components/DescRow'
 import { DataTable } from '../components/DataTable'
 import type { Column } from '../components/DataTable'
@@ -110,7 +111,10 @@ export default function CompanyProfile() {
                   <li key={u.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
                     <Avatar name={u.fullName} variant="faint" />
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium truncate">{u.fullName}</div>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm font-medium truncate">{u.fullName}</span>
+                        <DemoBadge email={u.email} />
+                      </div>
                       <div className="text-xs text-muted dark:text-muted-dark truncate">{u.email}</div>
                     </div>
                     <span className="text-xs text-muted dark:text-muted-dark shrink-0">{roleLabel(u.role)}</span>

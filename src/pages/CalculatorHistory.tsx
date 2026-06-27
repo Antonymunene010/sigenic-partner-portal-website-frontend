@@ -8,6 +8,7 @@ import { PageHeader } from '../components/PageHeader'
 import { DataTable, type Column } from '../components/DataTable'
 import { Modal } from '../components/Modal'
 import { DescRow } from '../components/DescRow'
+import { DemoBadge } from '../components/DemoBadge'
 import { RunResultSummary, runColumns } from '../components/RunResultSummary'
 import { Spinner, EmptyState } from '../components/ui'
 import { fmtDateTime } from '../lib/format'
@@ -48,7 +49,10 @@ export default function CalculatorHistory() {
       const email = submitterEmail(r)
       return (
         <div className="min-w-0">
-          <div className="font-medium truncate">{submitterName(r)}</div>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="font-medium truncate">{submitterName(r)}</span>
+            <DemoBadge email={email} />
+          </div>
           {email && <div className="text-xs text-muted dark:text-muted-dark truncate">{email}</div>}
         </div>
       )
@@ -92,7 +96,12 @@ export default function CalculatorHistory() {
         {selected && (
           <>
             <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-2 text-sm mb-5">
-              {companyAdmin && <DescRow k="Submitted by" v={submitterName(selected)} />}
+              {companyAdmin && (
+                <DescRow
+                  k="Submitted by"
+                  v={<DemoBadge email={submitterEmail(selected)}>{submitterName(selected)}</DemoBadge>}
+                />
+              )}
               {companyAdmin && <DescRow k="Email" v={mailto(submitterEmail(selected))} />}
               <DescRow k="Department" v={departmentName(selected.departmentId)} />
               <DescRow k="Machine" v={selected.machineId ? machineName(selected.machineId) : '—'} />

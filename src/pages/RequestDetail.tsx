@@ -9,6 +9,7 @@ import { Card, Field, EmptyState, useToast } from '../components/ui'
 import { Badge } from '../components/Badge'
 import { Avatar } from '../components/Avatar'
 import { DescRow } from '../components/DescRow'
+import { DemoBadge } from '../components/DemoBadge'
 import { fmtDateTime } from '../lib/format'
 import { REQUEST_STATUSES, REQUEST_STATUS_TONE, REQUEST_STATUS_LABEL, URGENCY_TONE, OWNER_TEAMS, REQUEST_SOURCE_LABEL } from '../lib/constants'
 import type { OwnerTeam, RequestStatus, ServiceRequest } from '../lib/types'
@@ -136,7 +137,9 @@ export default function RequestDetail() {
               {sr.departmentId && <DescRow k="Department" v={lookups.requestDepartmentName(sr.departmentId)} />}
               {sr.processId && <DescRow k="Process" v={lookups.requestProcessName(sr.processId)} />}
               {sr.machineId && <DescRow k="Machine" v={lookups.requestMachineName(sr.machineId)} />}
-              {sr.contactEmail && <DescRow k="Contact" v={sr.contactEmail} />}
+              {sr.contactEmail && (
+                <DescRow k="Contact" v={<DemoBadge email={sr.contactEmail}>{sr.contactEmail}</DemoBadge>} />
+              )}
               <DescRow k="Created" v={fmtDateTime(sr.createdAt)} />
             </dl>
           </Card>

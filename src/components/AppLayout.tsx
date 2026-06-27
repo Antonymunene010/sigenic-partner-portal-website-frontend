@@ -10,6 +10,7 @@ import { WordMark } from './Logo'
 import { ThemeToggle } from './ThemeToggle'
 import { NotificationsMenu } from './NotificationsMenu'
 import { Avatar } from './Avatar'
+import { DemoBadge } from './DemoBadge'
 import { useAuth } from '../lib/auth'
 import { useData } from '../lib/data'
 import { useOutsideClick } from '../lib/useOutsideClick'
@@ -172,12 +173,16 @@ function UserMenu({ user }: { user: User }) {
       <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-2 h-8 pl-1 pr-2 rounded-md hover:bg-raised dark:hover:bg-raised-dark transition">
         <Avatar name={user.fullName} variant="accent" />
         <span className="hidden sm:block text-sm font-medium max-w-[120px] truncate">{user.fullName}</span>
+        <span className="hidden sm:inline"><DemoBadge email={user.email} /></span>
         <ChevronDown size={13} className="text-faint" />
       </button>
       {open && (
         <div className="absolute right-0 top-full mt-1.5 w-56 card shadow-lift p-0 animate-fade-up overflow-hidden">
           <div className="px-3 py-2.5 border-b border-line dark:border-line-dark">
-            <div className="text-sm font-medium truncate">{user.fullName}</div>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-sm font-medium truncate">{user.fullName}</span>
+              <DemoBadge email={user.email} />
+            </div>
             <div className="text-xs text-muted dark:text-muted-dark truncate">{user.email}</div>
             <div className="mt-1.5 badge border-line dark:border-line-dark text-muted dark:text-muted-dark bg-raised dark:bg-raised-dark">{roleLabel(user.role)}</div>
           </div>

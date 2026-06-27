@@ -7,6 +7,7 @@ import { Badge } from '../../components/Badge'
 import { Modal } from '../../components/Modal'
 import { MultiSelect } from '../../components/MultiSelect'
 import { DescRow } from '../../components/DescRow'
+import { DemoBadge } from '../../components/DemoBadge'
 import { RunResultSummary, runColumns } from '../../components/RunResultSummary'
 import { StatCard, Spinner } from '../../components/ui'
 import { fmtUSD, fmtDateTime } from '../../lib/format'
@@ -80,7 +81,10 @@ export default function AdminCalculatorRuns() {
         const email = userEmail(r.userId)
         return (
           <div className="min-w-0">
-            <div className="font-medium truncate">{userName(r.userId)}</div>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-medium truncate">{userName(r.userId)}</span>
+              <DemoBadge email={email} />
+            </div>
             {email && (
               <a
                 href={`mailto:${email}`}
@@ -168,7 +172,7 @@ function RunDetailModal({ run, onClose }: { run: CalculatorRun | null; onClose: 
       }
     >
       <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-2 text-sm mb-5">
-        <DescRow k="Lead" v={submitter} />
+        <DescRow k="Lead" v={<DemoBadge email={email}>{submitter}</DemoBadge>} />
         <DescRow
           k="Email"
           v={email ? <a href={`mailto:${email}`} className="hover:text-accent-ink hover:underline">{email}</a> : '—'}

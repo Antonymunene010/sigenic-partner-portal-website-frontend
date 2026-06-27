@@ -9,6 +9,7 @@ import { PageHeader } from '../components/PageHeader'
 import { Card, Field, useToast } from '../components/ui'
 import { Badge } from '../components/Badge'
 import { Avatar } from '../components/Avatar'
+import { DemoBadge } from '../components/DemoBadge'
 import { DescRow } from '../components/DescRow'
 
 export default function Account() {
@@ -54,7 +55,10 @@ export default function Account() {
           <div className="flex items-center gap-3 pb-4 mb-4 border-b border-line dark:border-line-dark">
             <Avatar name={user.fullName} variant="accent" size="md" />
             <div className="min-w-0">
-              <div className="text-sm font-semibold truncate">{user.fullName}</div>
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-sm font-semibold truncate">{user.fullName}</span>
+                <DemoBadge email={user.email} />
+              </div>
               <div className="text-xs text-muted dark:text-muted-dark truncate">{user.email}</div>
             </div>
           </div>

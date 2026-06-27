@@ -6,6 +6,7 @@ import { canApproveSignup, primaryAdminRoleForType, plainUserRoleForType, roleLa
 import { PageHeader } from './PageHeader'
 import { DataTable, type Column } from './DataTable'
 import { Badge } from './Badge'
+import { DemoBadge } from './DemoBadge'
 import { Modal } from './Modal'
 import { Avatar } from './Avatar'
 import { Field, EmptyState, useToast } from './ui'
@@ -251,6 +252,7 @@ export function UsersPanel({
         <div className="flex items-center gap-2.5 min-w-0">
           <Avatar name={u.fullName} variant={avatarVariant} size="md" />
           <span className="font-medium truncate">{u.fullName}</span>
+          <DemoBadge email={u.email} />
         </div>
       ),
     },
