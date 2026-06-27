@@ -6,7 +6,14 @@ import { WordMark } from '../components/Logo'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { Field, PasswordInput } from '../components/ui'
 
-const DEMO_ACCOUNTS = [
+// Two-arm guard so the prod build can tree-shake DEMO_ACCOUNTS' string
+// literals (Vite folds both env reads to false; the ternary picks `[]`).
+// Don't collapse to a plain array — esbuild's DCE on module-level consts
+// isn't guaranteed to drop the dead literals.
+const SHOW_DEMO_ACCOUNTS =
+  import.meta.env.DEV || import.meta.env.VITE_IS_STAGING === 'true'
+
+const DEMO_ACCOUNTS = SHOW_DEMO_ACCOUNTS ? [
   { email: 'founder-demo@sigenic.com', label: 'Super Admin · Sigenic' },
   { email: 'admin-demo@sigenic.com', label: 'Admin · Sigenic' },
   { email: 'support-demo@sigenic.com', label: 'Support Engineer · Sigenic' },
@@ -15,7 +22,7 @@ const DEMO_ACCOUNTS = [
   { email: 'karen@novacell.sg', label: 'Customer Admin · NovaCell' },
   { email: 'wei@novacell.sg', label: 'Customer User · NovaCell' },
   { email: 'daniel@quantex.com', label: 'Customer Admin · Quantex' },
-]
+] : []
 
 export default function Login() {
   const { user, login } = useAuth()
@@ -121,22 +128,24 @@ export default function Login() {
               </p>
             </form>
 
-            <div className="mt-8 pt-5 border-t border-line dark:border-line-dark">
-              <p className="stat-label mb-2">Demo accounts · password "demo"</p>
-              <div className="grid grid-cols-1 gap-1">
-                {DEMO_ACCOUNTS.map((a) => (
-                  <button
-                    key={a.email}
-                    type="button"
-                    onClick={() => { setEmail(a.email); setPassword('demo') }}
-                    className="text-left text-xs px-2.5 py-1.5 rounded-md hover:bg-raised dark:hover:bg-raised-dark text-muted dark:text-muted-dark hover:text-ink dark:hover:text-ink-dark transition flex items-center justify-between"
-                  >
-                    <span className="font-medium">{a.label}</span>
-                    <span className="font-mono text-faint">{a.email}</span>
-                  </button>
-                ))}
+            {SHOW_DEMO_ACCOUNTS && (
+              <div className="mt-8 pt-5 border-t border-line dark:border-line-dark">
+                <p className="stat-label mb-2">Demo accounts · password "demo"</p>
+                <div className="grid grid-cols-1 gap-1">
+                  {DEMO_ACCOUNTS.map((a) => (
+                    <button
+                      key={a.email}
+                      type="button"
+                      onClick={() => { setEmail(a.email); setPassword('demo') }}
+                      className="text-left text-xs px-2.5 py-1.5 rounded-md hover:bg-raised dark:hover:bg-raised-dark text-muted dark:text-muted-dark hover:text-ink dark:hover:text-ink-dark transition flex items-center justify-between"
+                    >
+                      <span className="font-medium">{a.label}</span>
+                      <span className="font-mono text-faint">{a.email}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

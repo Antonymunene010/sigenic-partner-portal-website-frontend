@@ -346,9 +346,18 @@ Supabase, RDS, etc.). This is the path currently used in production.
    runtime strips execute bits so on-the-fly compilers (tsx/esbuild) cannot spawn — the script bakes
    the pre-built SPA and the esbuild-bundled server into the zip:
    ```bash
-   bash scripts/package-hostinger.sh portal.zip
+   bash scripts/package-hostinger.sh              # → portal.zip          (production)
+   bash scripts/package-hostinger.sh --staging    # → portal-staging.zip  (test environment)
    ```
    Script reads from `HEAD`, so commit (or stash) any pending changes first.
+
+   The `--staging` flag exports `VITE_IS_STAGING=true` before `npm run build`, which keeps the
+   login-page demo-account shortcuts visible. Without the flag, Vite tree-shakes the demo block
+   out entirely — no demo emails ship in the production bundle. `VITE_IS_STAGING` is the generic
+   "this is the test build" flag; reuse it for any future staging-only UI (banner, sandbox
+   warnings, etc.) rather than adding new per-feature env vars. Note: Hostinger panel env vars
+   only affect the Node runtime — they cannot change the already-bundled frontend JS, so this
+   distinction must be made at build time, not via the deploy target's environment variables.
 3. **Create the Hostinger app.**
    - hPanel → **Websites → Web Apps → Create new** → preset **Express**, Node **20+**, entry file
      **`server.js`**, app domain = `partner.sigenic.com` (or your subdomain).
