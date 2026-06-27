@@ -59,7 +59,7 @@ export async function requestPasswordReset(store: Store, email: string, origin?:
   const base = (process.env.APP_BASE_URL || origin || 'http://localhost:5173').replace(/\/$/, '')
   const link = `${base}/reset-password?token=${encodeURIComponent(token)}`
   const msg = await passwordResetLinkEmail(store, { fullName: account.fullName, link })
-  await sendEmail(store, { to: account.email, subject: msg.subject, text: msg.text }).catch(() => {})
+  await sendEmail(store, { to: account.email, ...msg }).catch(() => {})
 }
 
 /** Complete a self-service reset using the token from the email link. */
@@ -112,5 +112,5 @@ export async function resetPasswordWithToken(store: Store, token: string, newPas
     await recomputeOnboardingStatus(store, account.companyId)
   }
   const msg = await changedMsgPromise
-  await sendEmail(store, { to: account.email, subject: msg.subject, text: msg.text }).catch(() => {})
+  await sendEmail(store, { to: account.email, ...msg }).catch(() => {})
 }

@@ -63,14 +63,10 @@ interface EmailMessage {
  */
 export type EmailFromCategory = 'default' | 'sales'
 
-interface SendOpts {
-  from?: EmailFromCategory
-}
-
 type EmailMode = 'outbox' | 'smtp'
 type Sender = (msg: EmailMessage) => Promise<void>
 
-let senders: Partial<Record<EmailFromCategory, Sender>> = {}
+const senders: Partial<Record<EmailFromCategory, Sender>> = {}
 let mode: EmailMode = 'outbox'
 
 const FROM_DEFAULT = process.env.EMAIL_FROM || 'Sigenic Partner Portal <noreply@sigenic.com>'
@@ -79,11 +75,11 @@ const FROM_DEFAULT = process.env.EMAIL_FROM || 'Sigenic Partner Portal <noreply@
 // configured (and ideally has its own SMTP credentials, see SMTP_USER_SALES).
 const FROM_SALES = process.env.EMAIL_FROM_SALES || FROM_DEFAULT
 
-async function buildSender(
+function buildSender(
   nodemailer: typeof import('nodemailer'),
   cfg: { host: string; port: number; secure: boolean; user?: string; pass?: string },
   from: string,
-): Promise<Sender> {
+): Sender {
   const transporter = nodemailer.createTransport({
     host: cfg.host,
     port: cfg.port,
@@ -110,12 +106,12 @@ async function buildSender(
  *  1. SMTP_HOST set → nodemailer over SMTP (local mailpit, Gmail relay, etc).
  *  2. Otherwise → outbox-only mode, every send is recorded but not delivered.
  *
- * Sales transport: host/port/secure are inherited from the default SMTP config.
- * If SMTP_USER_SALES + SMTP_PASS_SALES are also set, a second transporter
- * authenticates as that user (necessary on standard smtp.gmail.com, which
- * rewrites From: to the authenticated user). Without those, sales mail reuses
- * the default credentials and only the From: header changes — fine for
- * smtp-relay.gmail.com / SES / any relay that allows arbitrary senders.
+ * A dedicated sales transport is only built when sales mail would otherwise
+ * be indistinguishable from default — either it has its own credentials
+ * (SMTP_USER_SALES + SMTP_PASS_SALES, required on standard smtp.gmail.com
+ * which rewrites From: to the authenticated user) or it has a distinct
+ * From: header (relays that allow arbitrary senders). When sales matches
+ * default in both respects, sendEmail falls back to the default sender.
  */
 export async function initEmail(): Promise<EmailMode> {
   const host = process.env.SMTP_HOST
@@ -132,19 +128,17 @@ export async function initEmail(): Promise<EmailMode> {
   }
   try {
     const nodemailer = await import('nodemailer')
-    senders.default = await buildSender(nodemailer, baseCfg, FROM_DEFAULT)
+    senders.default = buildSender(nodemailer, baseCfg, FROM_DEFAULT)
     const salesUser = process.env.SMTP_USER_SALES
     const salesPass = process.env.SMTP_PASS_SALES
     if (salesUser && salesPass && salesUser !== baseCfg.user) {
-      senders.sales = await buildSender(nodemailer, { ...baseCfg, user: salesUser, pass: salesPass }, FROM_SALES)
+      senders.sales = buildSender(nodemailer, { ...baseCfg, user: salesUser, pass: salesPass }, FROM_SALES)
       console.log(`[email] sales SMTP transport ready (user=${salesUser}).`)
-    } else {
-      senders.sales = await buildSender(nodemailer, baseCfg, FROM_SALES)
-      if (FROM_SALES !== FROM_DEFAULT) {
-        console.log(
-          `[email] sales mail reuses default SMTP credentials (no SMTP_USER_SALES set); From: will be "${FROM_SALES}" — ensure your relay allows that sender.`,
-        )
-      }
+    } else if (FROM_SALES !== FROM_DEFAULT) {
+      senders.sales = buildSender(nodemailer, baseCfg, FROM_SALES)
+      console.log(
+        `[email] sales mail reuses default SMTP credentials (no SMTP_USER_SALES set); From: will be "${FROM_SALES}" — ensure your relay allows that sender.`,
+      )
     }
     mode = 'smtp'
     console.log(`[email] SMTP transport ready (${host}:${baseCfg.port}).`)
@@ -166,8 +160,11 @@ export function emailMode(): EmailMode {
  * mailbox). Pass `'sales'` for calculator lead / receipt mail so the customer's
  * sales team is the visible sender (see EmailFromCategory).
  */
-export async function sendEmail(store: EmailOutbox, msg: EmailMessage, opts: SendOpts = {}): Promise<EmailRecord> {
-  const category: EmailFromCategory = opts.from ?? 'default'
+export async function sendEmail(
+  store: EmailOutbox,
+  msg: EmailMessage,
+  opts: { from?: EmailFromCategory } = {},
+): Promise<EmailRecord> {
   const record: EmailRecord = {
     id: uid('mail'),
     to: msg.to,
@@ -177,7 +174,9 @@ export async function sendEmail(store: EmailOutbox, msg: EmailMessage, opts: Sen
     delivered: false,
     createdAt: nowIso(),
   }
-  const send = senders[category]
+  // Fall back to the default sender when sales wasn't built as a distinct
+  // transport — see initEmail for when that happens.
+  const send = (opts.from && senders[opts.from]) || senders.default
   if (send) {
     try {
       await send(msg)
@@ -738,11 +737,15 @@ export async function inviteEmail(
   }
 }
 
-export function passwordResetLinkEmail(
+export async function passwordResetLinkEmail(
   store: TemplateStore,
   params: { fullName: string; link: string },
-): Promise<{ subject: string; text: string }> {
-  return renderTemplate(store, 'password_reset_link', params)
+): Promise<{ subject: string; text: string; html: string }> {
+  const rendered = await renderTemplate(store, 'password_reset_link', params)
+  return {
+    ...rendered,
+    html: wrapEmailHtml(rendered.text, { url: params.link, label: 'Reset password' }),
+  }
 }
 
 export function passwordChangedEmail(
@@ -953,13 +956,10 @@ export async function notifyCompanyAdmins(
   store: AdminFanoutStore,
   companyId: string,
   message: { subject: string; text: string },
-  opts: { from?: EmailFromCategory } = {},
 ): Promise<void> {
   const admins = await store.list('users', {
     where: "company_id = $1 AND role IN ('distributor_admin','customer_admin') AND status = 'active'",
     params: [companyId],
   })
-  await Promise.all(
-    admins.map((a) => sendEmail(store, { to: a.email, ...message }, { from: opts.from }).catch(() => {})),
-  )
+  await Promise.all(admins.map((a) => sendEmail(store, { to: a.email, ...message }).catch(() => {})))
 }
