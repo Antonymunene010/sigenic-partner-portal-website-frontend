@@ -337,6 +337,22 @@ test('user.createUser — emails the active internal admins that a new user join
   assert.deepEqual(adminMails.map((e) => e.to).sort(), ['boss@sigenic.com', 'mgr@sigenic.com'])
 })
 
+test('user.createUser — internal admin must pick a target company (no silent fallback to own org)', async () => {
+  // Without this guard, an inviter from Sigenic forgetting to pick a company
+  // would silently attach the new user to Sigenic; an inviter who is actually a
+  // distributor admin (impossible here) would attach to their distributor org.
+  // The fallback is only safe for external company admins managing their OWN org.
+  const store = {
+    createUser: mock.fn(async () => ({ id: 'u-x', email: 'who@x', fullName: 'Who', role: 'customer_user' })),
+    appendAudit: mock.fn(async () => {}),
+  } as unknown as Store
+  await assert.rejects(
+    () => createUser(store, superAdmin, { email: 'who@x', fullName: 'Who', role: 'customer_user' }),
+    /pick a company/i,
+  )
+  assert.equal((store.createUser as any).mock.callCount(), 0, 'no row written when target company is missing')
+})
+
 test('user.deleteUser — removes the row and emails the user + internal admins', async () => {
   const emails: any[] = []
   const store = {

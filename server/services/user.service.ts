@@ -1,4 +1,4 @@
-import { canManageUser, roleLabel, roleMeta } from '../../shared/permissions'
+import { canManageUser, isInternal, roleLabel, roleMeta } from '../../shared/permissions'
 import { badRequest, forbidden, notFound } from '../http/errors'
 import { audit } from './audit'
 import {
@@ -55,7 +55,14 @@ export async function sendInviteLink(store: Store, userId: string, origin?: stri
 /** Create a user, gated by canManageUser (company scope + assignable role). */
 export async function createUser(store: Store, auth: AuthPayload, user: any, password?: string, origin?: string): Promise<any> {
   if (!user?.email || !user?.fullName) throw badRequest('Name and email are required.')
-  const targetCompany = user.companyId ?? auth.companyId
+  // External company admins implicitly add to their own company (a distributor admin
+  // can only ever manage their own org), so the fallback to auth.companyId is safe.
+  // Internal Sigenic staff manage MANY companies, so the fallback would silently
+  // attach the invitee to the inviter's own org — refuse instead. (canManageUser
+  // doesn't reject a null target company on its own, so this guard is what keeps a
+  // missing companyId from sliding through into a NOT NULL DB constraint error.)
+  const targetCompany = user.companyId ?? (isInternal(auth) ? null : auth.companyId)
+  if (!targetCompany) throw badRequest('Pick a company for the new user — internal admins must invite users into a specific company.')
   if (!canManageUser(auth, targetCompany, user.role)) throw forbidden('You cannot create a user with that role/company.')
   let created: any
   try {

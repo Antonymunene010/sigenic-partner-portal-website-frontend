@@ -91,14 +91,12 @@ export function UsersPanel({
   const openModal = () => {
     setFullName('')
     setEmail('')
-    const firstCompany = companyOptions[0]?.id ?? ''
-    setPickedCompanyId(firstCompany)
-    if (companies) {
-      const first = firstCompany ? companyById.get(firstCompany) : undefined
-      setRole(first ? primaryAdminRoleForType(first.companyType) : '')
-    } else {
-      setRole(roleChoices[0] ?? '')
-    }
+    // Cross-company mode: leave both company and role blank so the admin picks a
+    // company explicitly. Pre-selecting the alphabetically-first one would silently
+    // route invites to the wrong org if the admin doesn't notice. (In cross-company
+    // mode roleChoices is empty, so `roleChoices[0] ?? ''` is `''` here too.)
+    setPickedCompanyId('')
+    setRole(roleChoices[0] ?? '')
     setOpen(true)
   }
 
@@ -340,9 +338,9 @@ export function UsersPanel({
       >
         <div className="flex flex-col gap-4">
           {companies && (
-            <Field label="Company" htmlFor="up-company">
+            <Field label="Company" htmlFor="up-company" hint="The new user will be invited into this company">
               <select id="up-company" className="select" value={pickedCompanyId} onChange={(e) => onCompanyPick(e.target.value)}>
-                <option value="">—</option>
+                <option value="">Pick a company…</option>
                 {companyOptions.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.companyName}
