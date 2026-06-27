@@ -7,9 +7,9 @@ import { ThemeToggle } from '../components/ThemeToggle'
 import { Field, PasswordInput } from '../components/ui'
 
 const DEMO_ACCOUNTS = [
-  { email: 'founder@sigenic.com', label: 'Super Admin · Sigenic' },
-  { email: 'admin@sigenic.com', label: 'Admin · Sigenic' },
-  { email: 'support@sigenic.com', label: 'Support Engineer · Sigenic' },
+  { email: 'founder-demo@sigenic.com', label: 'Super Admin · Sigenic' },
+  { email: 'admin-demo@sigenic.com', label: 'Admin · Sigenic' },
+  { email: 'support-demo@sigenic.com', label: 'Support Engineer · Sigenic' },
   { email: 'admin@apacpartners.com', label: 'Distributor Admin · APAC' },
   { email: 'leo@apacpartners.com', label: 'Distributor User · APAC' },
   { email: 'karen@novacell.sg', label: 'Customer Admin · NovaCell' },

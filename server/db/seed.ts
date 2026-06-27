@@ -118,9 +118,9 @@ export const SEED = {
 
   /* ---------- users (all 8 roles) ---------- */
   users: [
-    { id: 'u-bernard', company_id: 'co-sigenic', full_name: 'Bernard Soh', email: 'founder@sigenic.com', user_type: 'internal', role: 'super_admin', status: 'active' },
-    { id: 'u-priya', company_id: 'co-sigenic', full_name: 'Priya Nair', email: 'admin@sigenic.com', user_type: 'internal', role: 'admin', status: 'active' },
-    { id: 'u-sam', company_id: 'co-sigenic', full_name: 'Sam Okafor', email: 'support@sigenic.com', user_type: 'internal', role: 'support_engineer', status: 'active' },
+    { id: 'u-bernard', company_id: 'co-sigenic', full_name: 'Bernard Soh', email: 'founder-demo@sigenic.com', user_type: 'internal', role: 'super_admin', status: 'active' },
+    { id: 'u-priya', company_id: 'co-sigenic', full_name: 'Priya Nair', email: 'admin-demo@sigenic.com', user_type: 'internal', role: 'admin', status: 'active' },
+    { id: 'u-sam', company_id: 'co-sigenic', full_name: 'Sam Okafor', email: 'support-demo@sigenic.com', user_type: 'internal', role: 'support_engineer', status: 'active' },
     { id: 'u-dewi', company_id: 'co-apac', full_name: 'Dewi Anggraini', email: 'admin@apacpartners.com', user_type: 'distributor', role: 'distributor_admin', status: 'active' },
     { id: 'u-leo', company_id: 'co-apac', full_name: 'Leo Tan', email: 'leo@apacpartners.com', user_type: 'distributor', role: 'distributor_user', status: 'active' },
     { id: 'u-karen', company_id: 'co-novacell', site_id: 'site-novacell-sg', full_name: 'Karen Lim', email: 'karen@novacell.sg', user_type: 'customer', role: 'customer_admin', status: 'active' },

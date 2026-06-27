@@ -35,9 +35,9 @@ Schema and demo data are seeded on first boot of an empty database. To wipe and 
 
 | Role | Email | Org |
 |------|-------|-----|
-| Super Admin | `founder@sigenic.com` | Sigenic (internal) |
-| Admin | `admin@sigenic.com` | Sigenic (internal) |
-| Support Engineer | `support@sigenic.com` | Sigenic (internal) |
+| Super Admin | `founder-demo@sigenic.com` | Sigenic (internal) |
+| Admin | `admin-demo@sigenic.com` | Sigenic (internal) |
+| Support Engineer | `support-demo@sigenic.com` | Sigenic (internal) |
 | Distributor Admin | `admin@apacpartners.com` | APAC Semiconductor Partners |
 | Distributor User | `leo@apacpartners.com` | APAC Semiconductor Partners |
 | Customer Admin | `karen@novacell.sg` | NovaCell Systems |
