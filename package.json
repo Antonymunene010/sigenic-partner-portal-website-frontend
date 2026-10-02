@@ -1,24 +1,16 @@
 {
-  "name": "partner-dashboard",
+  "name": "sigenic-partner-portal-frontend",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "dev": "vite",
-    "backend": "tsx watch server/index.ts",
-    "db:up": "docker compose up -d postgres",
-    "db:down": "docker compose down",
-    "docker:up": "docker compose up --build",
-    "docker:down": "docker compose down -v",
-    "build": "tsc -b && vite build && npm run build:server",
-    "build:server": "esbuild server/index.ts --bundle --platform=node --format=esm --packages=external --outfile=dist-server/index.js",
+    "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "start": "tsx server/index.ts",
-    "typecheck": "tsc -b --noEmit",
-    "test": "tsx --test \"tests/**/*.test.ts\""
+    "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
     "@tiptap/extension-image": "^3.24.0",
@@ -26,27 +18,19 @@
     "@tiptap/pm": "^3.24.0",
     "@tiptap/react": "^3.24.0",
     "@tiptap/starter-kit": "^3.24.0",
-    "@types/express": "^5.0.6",
     "clsx": "^2.1.1",
-    "express": "^5.2.1",
     "lucide-react": "^0.460.0",
-    "nodemailer": "^8.0.9",
-    "pdfkit": "^0.18.0",
-    "pg": "^8.13.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0",
-    "tiptap-markdown": "^0.9.0",
-    "tsx": "^4.22.3"
+    "tiptap-markdown": "^0.9.0"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
-    "@types/pg": "^8.20.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
     "autoprefixer": "^10.4.20",
-    "esbuild": "^0.28.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.15",
     "typescript": "^5.6.3",
